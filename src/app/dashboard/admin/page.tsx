@@ -4,15 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck } from 'lucide-react';
+import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3 } from 'lucide-react';
+import AttendanceCalendar from '@/components/AttendanceCalendar';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
 
-  // Tab State: 'ATTENDANCE' vs 'EMPLOYEES'
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'EMPLOYEES'>('ATTENDANCE');
+  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES'
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES'>('ATTENDANCE');
 
   // Time Edit Modal State
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
@@ -234,7 +235,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">
       {/* Header Bar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm print:hidden">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold shadow-md">
@@ -261,8 +262,8 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        {/* Navigation Tabs (سجل وتوثيق الدوام vs إدارة الموظفين) */}
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2">
+        {/* Navigation Tabs (سجل وتوثيق الدوام vs تقويم ساعات الحضور vs إدارة الموظفين) */}
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 print:hidden">
           <button
             onClick={() => setActiveTab('ATTENDANCE')}
             className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
@@ -273,6 +274,18 @@ export default function AdminDashboard() {
           >
             <Calendar className="w-4 h-4 text-emerald-400" />
             سجل وتوثيق دوام الموظفين ({records.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('CALENDAR')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'CALENDAR'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-400" />
+            تقويم ساعات الحضور والخط الزمني
           </button>
 
           <button
@@ -410,7 +423,12 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 2: EMPLOYEE MANAGEMENT SECTION */}
+        {/* TAB 2: ATTENDANCE HOURS CALENDAR & TIMELINE */}
+        {activeTab === 'CALENDAR' && (
+          <AttendanceCalendar users={users} records={records} />
+        )}
+
+        {/* TAB 3: EMPLOYEE MANAGEMENT SECTION */}
         {activeTab === 'EMPLOYEES' && (
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
