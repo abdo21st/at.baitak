@@ -268,7 +268,7 @@ export default function EmployeeDashboard() {
                 {/* Check-in Time Dropdown Lists (Hour & Minute) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-slate-800 font-black text-sm">اختيار وقت الحضور (ساعة : دقيقة)</label>
+                    <label className="text-slate-800 font-black text-sm">اختيار وقت الحضور</label>
                     <button
                       type="button"
                       onClick={setNowForCheckIn}
@@ -342,7 +342,7 @@ export default function EmployeeDashboard() {
                 {/* Check-out Time Dropdown Lists (Hour & Minute) */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف (ساعة : دقيقة)</label>
+                    <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف</label>
                     <button
                       type="button"
                       onClick={setNowForCheckOut}
