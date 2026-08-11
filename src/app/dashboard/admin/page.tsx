@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   const [empPin, setEmpPin] = useState('');
   const [empDepartmentId, setEmpDepartmentId] = useState('');
   const [empJobRoleId, setEmpJobRoleId] = useState('');
-  const [empMonthlySalary, setEmpMonthlySalary] = useState('500');
+  const [empMonthlySalary, setEmpMonthlySalary] = useState('0');
   const [empTargetHours, setEmpTargetHours] = useState('160');
   const [empRate, setEmpRate] = useState('50');
   const [userMsg, setUserMsg] = useState<string | null>(null);
@@ -130,6 +130,10 @@ export default function AdminDashboard() {
 
   const handleJobRoleChange = (roleId: string) => {
     setEmpJobRoleId(roleId);
+    if (!roleId) {
+      setEmpMonthlySalary('0');
+      return;
+    }
     const role = availableJobRoles.find((r) => r.id === roleId);
     if (role) {
       setEmpMonthlySalary(String(role.monthlySalary));
@@ -158,9 +162,9 @@ export default function AdminDashboard() {
           pinCode: empPin,
           departmentId: empDepartmentId || null,
           jobRoleId: empJobRoleId || null,
-          monthlySalary: Number(empMonthlySalary) || 500,
+          monthlySalary: empJobRoleId ? Number(empMonthlySalary) : 0,
           targetMonthlyHours: Number(empTargetHours) || 160,
-          hourlyRate: Number(empRate) || 50
+          hourlyRate: Number(empRate) || 0
         })
       });
 
@@ -201,9 +205,9 @@ export default function AdminDashboard() {
           pinCode: empPin,
           departmentId: empDepartmentId || null,
           jobRoleId: empJobRoleId || null,
-          monthlySalary: Number(empMonthlySalary) || 500,
+          monthlySalary: empJobRoleId ? Number(empMonthlySalary) : 0,
           targetMonthlyHours: Number(empTargetHours) || 160,
-          hourlyRate: Number(empRate) || 50
+          hourlyRate: Number(empRate) || 0
         })
       });
 
@@ -247,7 +251,7 @@ export default function AdminDashboard() {
     setEmpPin('1234');
     setEmpDepartmentId('');
     setEmpJobRoleId('');
-    setEmpMonthlySalary('500');
+    setEmpMonthlySalary('0');
     setEmpTargetHours('160');
     setEmpRate('50');
     setUserMsg(null);
@@ -261,7 +265,7 @@ export default function AdminDashboard() {
     setEmpPin(u.pinCode);
     setEmpDepartmentId(u.departmentId || '');
     setEmpJobRoleId(u.jobRoleId || '');
-    setEmpMonthlySalary(String(u.monthlySalary || 500));
+    setEmpMonthlySalary(String(u.monthlySalary || 0));
     setEmpTargetHours(String(u.targetMonthlyHours || 160));
     setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
@@ -497,7 +501,7 @@ export default function AdminDashboard() {
                   قسم إدارة وتحديث بيانات الموظفين
                 </h2>
                 <p className="text-slate-500 text-xs font-semibold">
-                  إضافة موظف جديد، تعيين أجر ساعته المباشر وراتب الوظيفة الشهري، أو حذفه
+                  إضافة موظف جديد، تعيين أجر ساعته المباشر وراتب الوظيفة الخاص، أو حذفه
                 </p>
               </div>
 
@@ -520,7 +524,7 @@ export default function AdminDashboard() {
                     <th className="py-3.5 px-4 font-bold text-center">رقم الموظف (ID)</th>
                     <th className="py-3.5 px-4 font-bold text-center">الرقم السري (PIN)</th>
                     <th className="py-3.5 px-4 font-bold text-center">أجر الساعة المباشر</th>
-                    <th className="py-3.5 px-4 font-bold text-center">راتب الوظيفة الشهري</th>
+                    <th className="py-3.5 px-4 font-bold text-center">راتب الوظيفة الخاص</th>
                     <th className="py-3.5 px-4 font-bold text-center">نوع الحساب</th>
                     <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
                   </tr>
@@ -549,8 +553,14 @@ export default function AdminDashboard() {
                       <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700">
                         {u.hourlyRate || 0} د.ل/س
                       </td>
-                      <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700">
-                        {u.monthlySalary || 0} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
+                      <td className="py-3.5 px-4 text-center font-mono font-black">
+                        {u.jobRoleId && u.monthlySalary && u.monthlySalary > 0 ? (
+                          <span className="text-emerald-700">
+                            {u.monthlySalary} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-sans font-medium text-[11px]">بدون وظيفة خاصة</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {u.role === 'ADMIN' ? (
@@ -651,13 +661,13 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة</label>
+                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
                   <select
                     value={empJobRoleId}
                     onChange={(e) => handleJobRoleChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
-                    <option value="">اختر الوظيفة (اختياري)</option>
+                    <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.title} ({r.monthlySalary} د.ل)
@@ -724,17 +734,17 @@ export default function AdminDashboard() {
                 <div>
                   <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                     <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                    راتب الوظيفة الشهري (د.ل) *
+                    راتب الوظيفة الخاص (د.ل)
                   </label>
                   <input
                     type="text"
-                    required
                     lang="en-US"
                     dir="ltr"
                     value={empMonthlySalary}
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
-                    placeholder="500"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                    placeholder="0"
+                    disabled={!empJobRoleId}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -809,13 +819,13 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة</label>
+                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
                   <select
                     value={empJobRoleId}
                     onChange={(e) => handleJobRoleChange(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
-                    <option value="">اختر الوظيفة</option>
+                    <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.title} ({r.monthlySalary} د.ل)
@@ -868,15 +878,15 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">راتب الوظيفة الشهري (د.ل)</label>
+                  <label className="block text-slate-700 font-bold mb-1">راتب الوظيفة الخاص (د.ل)</label>
                   <input
                     type="text"
-                    required
                     lang="en-US"
                     dir="ltr"
                     value={empMonthlySalary}
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                    disabled={!empJobRoleId}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                   />
                 </div>
               </div>
