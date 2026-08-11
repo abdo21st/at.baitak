@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const [empJobRoleId, setEmpJobRoleId] = useState('');
   const [empMonthlySalary, setEmpMonthlySalary] = useState('500');
   const [empTargetHours, setEmpTargetHours] = useState('160');
-  const [empRate, setEmpRate] = useState('');
+  const [empRate, setEmpRate] = useState('50');
   const [userMsg, setUserMsg] = useState<string | null>(null);
 
   const fetchEmployeesAndDeps = () => {
@@ -134,7 +134,6 @@ export default function AdminDashboard() {
     if (role) {
       setEmpMonthlySalary(String(role.monthlySalary));
       setEmpTargetHours(String(role.targetMonthlyHours));
-      setEmpRate(String(role.monthlySalary / role.targetMonthlyHours));
     }
   };
 
@@ -161,7 +160,7 @@ export default function AdminDashboard() {
           jobRoleId: empJobRoleId || null,
           monthlySalary: Number(empMonthlySalary) || 500,
           targetMonthlyHours: Number(empTargetHours) || 160,
-          hourlyRate: Number(empRate) || (Number(empMonthlySalary) / 160)
+          hourlyRate: Number(empRate) || 50
         })
       });
 
@@ -204,7 +203,7 @@ export default function AdminDashboard() {
           jobRoleId: empJobRoleId || null,
           monthlySalary: Number(empMonthlySalary) || 500,
           targetMonthlyHours: Number(empTargetHours) || 160,
-          hourlyRate: Number(empRate) || (Number(empMonthlySalary) / 160)
+          hourlyRate: Number(empRate) || 50
         })
       });
 
@@ -250,7 +249,7 @@ export default function AdminDashboard() {
     setEmpJobRoleId('');
     setEmpMonthlySalary('500');
     setEmpTargetHours('160');
-    setEmpRate('3.125');
+    setEmpRate('50');
     setUserMsg(null);
     setIsAddUserOpen(true);
   };
@@ -264,7 +263,7 @@ export default function AdminDashboard() {
     setEmpJobRoleId(u.jobRoleId || '');
     setEmpMonthlySalary(String(u.monthlySalary || 500));
     setEmpTargetHours(String(u.targetMonthlyHours || 160));
-    setEmpRate(String(u.hourlyRate));
+    setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
   };
 
@@ -498,7 +497,7 @@ export default function AdminDashboard() {
                   قسم إدارة وتحديث بيانات الموظفين
                 </h2>
                 <p className="text-slate-500 text-xs font-semibold">
-                  إضافة موظف جديد، تعيين قسمه ووظيفته وقيمتها الشهرية، أو حذفه
+                  إضافة موظف جديد، تعيين أجر ساعته المباشر وراتب الوظيفة الشهري، أو حذفه
                 </p>
               </div>
 
@@ -520,7 +519,8 @@ export default function AdminDashboard() {
                     <th className="py-3.5 px-4 font-bold">القسم والوظيفة</th>
                     <th className="py-3.5 px-4 font-bold text-center">رقم الموظف (ID)</th>
                     <th className="py-3.5 px-4 font-bold text-center">الرقم السري (PIN)</th>
-                    <th className="py-3.5 px-4 font-bold text-center">الراتب الشهري / 160 س</th>
+                    <th className="py-3.5 px-4 font-bold text-center">أجر الساعة المباشر</th>
+                    <th className="py-3.5 px-4 font-bold text-center">راتب الوظيفة الشهري</th>
                     <th className="py-3.5 px-4 font-bold text-center">نوع الحساب</th>
                     <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
                   </tr>
@@ -546,8 +546,11 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700">{u.employeeCode}</td>
                       <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600">{u.pinCode}</td>
+                      <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700">
+                        {u.hourlyRate || 0} د.ل/س
+                      </td>
                       <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700">
-                        {u.monthlySalary || 500} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
+                        {u.monthlySalary || 0} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
                       </td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {u.role === 'ADMIN' ? (
@@ -700,21 +703,40 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
-                  <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                  4. قيمة الوظيفة الشهرية (بالدينار الليبي د.ل) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empMonthlySalary}
-                  onChange={(e) => setEmpMonthlySalary(e.target.value)}
-                  placeholder="500"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-blue-600" />
+                    أجر الساعة المباشر (د.ل/س) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empRate}
+                    onChange={(e) => setEmpRate(e.target.value)}
+                    placeholder="50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                    راتب الوظيفة الشهري (د.ل) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empMonthlySalary}
+                    onChange={(e) => setEmpMonthlySalary(e.target.value)}
+                    placeholder="500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}
@@ -831,17 +853,32 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">4. قيمة الوظيفة الشهرية (د.ل) *</label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empMonthlySalary}
-                  onChange={(e) => setEmpMonthlySalary(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">أجر الساعة المباشر (د.ل/س)</label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empRate}
+                    onChange={(e) => setEmpRate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">راتب الوظيفة الشهري (د.ل)</label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empMonthlySalary}
+                    onChange={(e) => setEmpMonthlySalary(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}

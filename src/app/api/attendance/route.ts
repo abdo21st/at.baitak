@@ -19,12 +19,23 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   return true;
 }
 
-// Helper formula: (workHours * monthlySalary) / targetMonthlyHours
-function calculateEarnedCost(workHours: number, monthlySalary: number = 500, targetMonthlyHours: number = 160): number {
+// Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours)
+function calculateDualEarnedCost(
+  workHours: number,
+  directHourlyRate: number = 0,
+  monthlySalary: number = 0,
+  targetMonthlyHours: number = 160
+): number {
   if (!workHours || workHours <= 0) return 0;
-  const target = targetMonthlyHours || 160;
-  const salary = monthlySalary || 500;
-  return Number(((workHours * salary) / target).toFixed(2));
+
+  // Part 1: Direct Hourly Rate earnings
+  const directCost = workHours * (directHourlyRate || 0);
+
+  // Part 2: Job Role Salary portion = (workHours * monthlySalary) / 160
+  const targetHours = targetMonthlyHours || 160;
+  const jobRoleCost = monthlySalary > 0 ? (workHours * monthlySalary) / targetHours : 0;
+
+  return Number((directCost + jobRoleCost).toFixed(2));
 }
 
 // Fetch or seed records in PostgreSQL
@@ -36,19 +47,26 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
     });
 
     if (dbRecords.length > 0) {
-      const mapped = dbRecords.map((r) => ({
-        id: r.id,
-        userId: r.userId,
-        userName: r.user?.name || 'موظف',
-        employeeCode: r.user?.employeeCode || '101',
-        date: r.date,
-        checkInTime: r.checkInTime,
-        checkOutTime: r.checkOutTime || null,
-        workHours: r.workHours,
-        earnedCost: r.earnedCost || calculateEarnedCost(r.workHours, r.user?.monthlySalary, r.user?.targetMonthlyHours),
-        isVerified: false,
-        createdAt: r.createdAt.toISOString()
-      }));
+      const mapped = dbRecords.map((r) => {
+        const directRate = r.user?.hourlyRate || 0;
+        const jobSalary = r.user?.monthlySalary || 0;
+        const targetHours = r.user?.targetMonthlyHours || 160;
+        const dualCost = calculateDualEarnedCost(r.workHours, directRate, jobSalary, targetHours);
+
+        return {
+          id: r.id,
+          userId: r.userId,
+          userName: r.user?.name || 'موظف',
+          employeeCode: r.user?.employeeCode || '101',
+          date: r.date,
+          checkInTime: r.checkInTime,
+          checkOutTime: r.checkOutTime || null,
+          workHours: r.workHours,
+          earnedCost: r.earnedCost > 0 ? r.earnedCost : dualCost,
+          isVerified: false,
+          createdAt: r.createdAt.toISOString()
+        };
+      });
 
       return userIdFilter
         ? mapped.filter((r) => r.userId === userIdFilter)
@@ -109,13 +127,15 @@ export async function POST(req: NextRequest) {
 
     const todayDate = date || new Date().toISOString().split('T')[0];
 
-    // Fetch user for job role salary & target hours
-    let monthlySalary = 500;
+    let directHourlyRate = 0;
+    let monthlySalary = 0;
     let targetMonthlyHours = 160;
+
     try {
       const u = await prisma.user.findUnique({ where: { id: userId } });
       if (u) {
-        monthlySalary = u.monthlySalary || 500;
+        directHourlyRate = u.hourlyRate || 0;
+        monthlySalary = u.monthlySalary || 0;
         targetMonthlyHours = u.targetMonthlyHours || 160;
       }
     } catch {}
@@ -133,7 +153,7 @@ export async function POST(req: NextRequest) {
 
       const totalMins = endMins - startMins;
       workHours = Number((totalMins / 60).toFixed(2));
-      earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
+      earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours);
     }
 
     let newRecord: AttendanceRecord;
@@ -221,7 +241,7 @@ export async function PUT(req: NextRequest) {
 
       const totalMins = endMins - startMins;
       memRec.workHours = Number((totalMins / 60).toFixed(2));
-      memRec.earnedCost = calculateEarnedCost(memRec.workHours, 500, 160);
+      memRec.earnedCost = calculateDualEarnedCost(memRec.workHours, 50, 500, 160);
       memRec.checkOutTime = checkOutTime;
 
       return NextResponse.json({ success: true, record: memRec });
@@ -234,7 +254,8 @@ export async function PUT(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const monthlySalary = targetRec.user?.monthlySalary || 500;
+    const directHourlyRate = targetRec.user?.hourlyRate || 0;
+    const monthlySalary = targetRec.user?.monthlySalary || 0;
     const targetMonthlyHours = targetRec.user?.targetMonthlyHours || 160;
 
     const [inH, inM] = targetRec.checkInTime.split(':').map(Number);
@@ -245,7 +266,7 @@ export async function PUT(req: NextRequest) {
 
     const totalMins = endMins - startMins;
     const workHours = Number((totalMins / 60).toFixed(2));
-    const earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
+    const earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours);
 
     const updated = await prisma.attendanceRecord.update({
       where: { id: recordId },
@@ -307,7 +328,8 @@ export async function PATCH(req: NextRequest) {
 
           let workHours = target.workHours;
           let earnedCost = target.earnedCost;
-          const monthlySalary = target.user?.monthlySalary || 500;
+          const directHourlyRate = target.user?.hourlyRate || 0;
+          const monthlySalary = target.user?.monthlySalary || 0;
           const targetMonthlyHours = target.user?.targetMonthlyHours || 160;
 
           if (newIn && newOut) {
@@ -319,7 +341,7 @@ export async function PATCH(req: NextRequest) {
 
             const totalMins = endMins - startMins;
             workHours = Number((totalMins / 60).toFixed(2));
-            earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
+            earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours);
           }
 
           const updated = await prisma.attendanceRecord.update({
