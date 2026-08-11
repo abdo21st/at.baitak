@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Plus, Check } from 'lucide-react';
-import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
+import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Plus } from 'lucide-react';
+import { getCurrentTimeFormatted, getCurrentDateFormatted, formatArabicDate } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
   const router = useRouter();
@@ -40,7 +40,6 @@ export default function EmployeeDashboard() {
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
 
-  // Fill Current Time Helper
   const setNowForCheckIn = () => {
     const now = getCurrentTimeFormatted();
     setCheckInTime(now.substring(0, 5));
@@ -51,7 +50,6 @@ export default function EmployeeDashboard() {
     setCheckOutTime(now.substring(0, 5));
   };
 
-  // Submit Manual Attendance Record
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkInTime) {
@@ -137,14 +135,13 @@ export default function EmployeeDashboard() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-emerald-600" />
-              إدخال وقت الحضور والانصراف يدويًا
+              إدخال وقت الحضور والانصراف يدويًا (بالأرقام الغربية 0-9)
             </h2>
             <span className="text-xs font-bold text-slate-400">يمكنك كتابة أو اختيار الوقت والتاريخ مباشرة</span>
           </div>
 
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
-              {/* Date Entry */}
               <div>
                 <label className="block text-slate-700 mb-1">التاريخ</label>
                 <input
@@ -152,11 +149,10 @@ export default function EmployeeDashboard() {
                   required
                   value={entryDate}
                   onChange={(e) => setEntryDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              {/* Manual Check-in Time Entry */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-slate-700">وقت الحضور *</label>
@@ -177,7 +173,6 @@ export default function EmployeeDashboard() {
                 />
               </div>
 
-              {/* Manual Check-out Time Entry */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-slate-700">وقت الانصراف</label>
@@ -222,14 +217,14 @@ export default function EmployeeDashboard() {
         </div>
 
         {/* Monthly Summary Cards Header */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <Clock className="w-7 h-7" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-bold block">إجمالي ساعات العمل هذا الشهر</span>
-              <span className="text-3xl font-black font-mono text-slate-900">{totalMonthlyHours} ساعة</span>
+              <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي ساعات العمل هذا الشهر</span>
+              <span className="text-3xl font-black text-slate-900">{totalMonthlyHours} ساعة</span>
             </div>
           </div>
 
@@ -238,8 +233,8 @@ export default function EmployeeDashboard() {
               <Coins className="w-7 h-7" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-bold block">إجمالي قيمة ساعات العمل لهذا الشهر</span>
-              <span className="text-3xl font-black font-mono text-emerald-700">{totalMonthlyEarned} د.ل</span>
+              <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي قيمة ساعات العمل لهذا الشهر</span>
+              <span className="text-3xl font-black text-emerald-700">{totalMonthlyEarned} د.ل</span>
             </div>
           </div>
         </div>
@@ -248,7 +243,7 @@ export default function EmployeeDashboard() {
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
           <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-emerald-600" />
-            جدول ساعات عمل الشهر الحالي ({new Date().toLocaleDateString('ar-LY-u-nu-latn', { month: 'long', year: 'numeric' })})
+            جدول ساعات عمل الشهر الحالي
           </h2>
 
           <div className="overflow-x-auto">
