@@ -42,7 +42,7 @@ def main():
         "mkdir -p /opt/at.baitak",
         "cd /opt/at.baitak && if [ -d .git ]; then git pull origin main; else git clone https://github.com/abdo21st/at.baitak.git .; fi",
         "cd /opt/at.baitak && docker compose up -d --build",
-        "docker exec hodoork_app npx prisma db push --skip-generate"
+        "docker exec hodoork_app npx prisma db push --accept-data-loss"
     ]
 
     for cmd in deploy_cmds:
