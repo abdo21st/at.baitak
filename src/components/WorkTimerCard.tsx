@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Clock, FolderKanban, FileText, CheckCircle2, Award, Zap, Sparkles } from 'lucide-react';
+import { Play, Square, Clock, Stethoscope, FileText, CheckCircle2, Award, Zap, Sparkles } from 'lucide-react';
 import { User, AttendanceRecord, Project } from '@/lib/types';
 import { getCurrentTimeFormatted } from '@/lib/utils';
 
@@ -93,9 +93,9 @@ export default function WorkTimerCard({
       const data = await res.json();
       if (data.success) {
         onAttendanceUpdated(data.record);
-        setMsg({ text: `تم بدء جلسة العمل في تمام الساعة ${checkInTime}`, type: 'success' });
+        setMsg({ text: `تم بدء شفت المناوبة الصيدلانية بنجاح الساعة ${checkInTime}`, type: 'success' });
       } else {
-        setMsg({ text: data.error || 'حدث خطأ أثناء بدء العمل', type: 'error' });
+        setMsg({ text: data.error || 'حدث خطأ أثناء بدء الدوام', type: 'error' });
       }
     } catch {
       setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
@@ -128,10 +128,10 @@ export default function WorkTimerCard({
       const data = await res.json();
       if (data.success) {
         onAttendanceUpdated(data.record);
-        setMsg({ text: `تم إنهاء جلسة العمل وتدوين ${data.record.workHours} ساعة بنجاح!`, type: 'success' });
+        setMsg({ text: `تم تسليم المناوبة وإنهاء الشفت وتدوين ${data.record.workHours} ساعة بنجاح!`, type: 'success' });
         setTaskNotes('');
       } else {
-        setMsg({ text: data.error || 'حدث خطأ في إنهاء العمل', type: 'error' });
+        setMsg({ text: data.error || 'حدث خطأ في إنهاء الشفت', type: 'error' });
       }
     } catch {
       setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
@@ -147,79 +147,74 @@ export default function WorkTimerCard({
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Progress towards target monthly hours
   const target = user.targetMonthlyHours || 160;
   const progressPercent = Math.min(100, Math.round((monthlyTotalHours / target) * 100));
 
   return (
-    <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-sky-500/20 shadow-2xl relative overflow-hidden">
-      {/* Dynamic Background Glow */}
-      <div className={`absolute top-0 right-0 w-96 h-96 rounded-full filter blur-3xl opacity-10 pointer-events-none ${isWorking ? 'bg-emerald-500' : 'bg-sky-500'}`} />
-
+    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-emerald-200 shadow-lg relative overflow-hidden">
       {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-sky-400 font-semibold text-xs uppercase tracking-wider">
-            <Clock className="w-4 h-4 animate-spin text-sky-400" style={{ animationDuration: '6s' }} />
-            <span>الساعة الحالية للنظام</span>
+          <div className="flex items-center gap-2 text-emerald-600 font-semibold text-xs uppercase tracking-wider">
+            <Clock className="w-4 h-4 animate-spin text-emerald-600" style={{ animationDuration: '6s' }} />
+            <span>الساعة الحية لمناوبة الصيدلية</span>
           </div>
-          <h2 className="text-3xl font-black text-white mt-1 tracking-tight">{currentTime || '--:--:--'}</h2>
-          <p className="text-slate-400 text-xs mt-0.5">{currentDate}</p>
+          <h2 className="text-3xl font-black text-slate-900 mt-1 tracking-tight">{currentTime || '--:--:--'}</h2>
+          <p className="text-slate-500 text-xs mt-0.5">{currentDate}</p>
         </div>
 
         {/* Live Status indicator */}
         <div>
           {isWorking ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold animate-pulse">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-              نشط الآن - قيد تدوين ساعات العمل
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold animate-pulse">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping" />
+              على رأس شفت المناوبة الصيدلانية
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-xs font-semibold">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-              متوقف - جاهز لبدء الدوام
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+              خارج الشفت - جاهز لبدء المناوبة
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Stopwatch Counter & Target Goal */}
+      {/* Main Stopwatch Counter */}
       <div className="my-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left 7 cols: Stopwatch */}
-        <div className="lg:col-span-7 bg-slate-900/80 rounded-2xl p-6 border border-slate-800 flex flex-col justify-between shadow-inner">
+        <div className="lg:col-span-7 bg-slate-50 rounded-2xl p-6 border border-slate-200 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-sky-400" />
-              عداد الوقت المباشر للجلسة الحالية
+            <span className="text-slate-600 text-xs font-bold flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              عدّاد ساعات المناوبة الحية
             </span>
             {activeRecord?.projectName && (
-              <span className="bg-sky-950 text-sky-300 border border-sky-800/60 px-3 py-0.5 rounded-full text-xs font-semibold">
+              <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-3 py-0.5 rounded-full text-xs font-extrabold">
                 {activeRecord.projectName}
               </span>
             )}
           </div>
 
           <div className="my-6 text-center">
-            <div className="text-5xl sm:text-6xl font-black font-mono tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-teal-300 to-indigo-300">
+            <div className="text-5xl sm:text-6xl font-black font-mono tracking-wider text-slate-900">
               {isWorking ? formatStopwatch(elapsedSeconds) : '00:00:00'}
             </div>
-            <span className="text-slate-400 text-xs mt-2 block font-medium">
-              {isWorking ? `تم بدء الجلسة في الساعة ${activeRecord.checkInTime}` : 'انقر على زر البدء لتدوين وقت العمل'}
+            <span className="text-slate-500 text-xs mt-2 block font-medium">
+              {isWorking ? `تم استلام الشفت الساعة ${activeRecord.checkInTime}` : 'اختر الفرع/الشفت وانقر على بدء المناوبة'}
             </span>
           </div>
 
           {/* Target Progress Bar */}
-          <div className="border-t border-slate-800/80 pt-4">
+          <div className="border-t border-slate-200 pt-4">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Award className="w-3.5 h-3.5 text-amber-400" />
-                إنجاز الهدف الشهري ({monthlyTotalHours} / {target} ساعة)
+              <span className="text-slate-600 flex items-center gap-1 font-bold">
+                <Award className="w-3.5 h-3.5 text-amber-500" />
+                هدف مناوبات الشهر ({monthlyTotalHours} / {target} ساعة)
               </span>
-              <span className="text-sky-400 font-bold">{progressPercent}%</span>
+              <span className="text-emerald-700 font-black">{progressPercent}%</span>
             </div>
-            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5">
+            <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden p-0.5">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -227,21 +222,20 @@ export default function WorkTimerCard({
         </div>
 
         {/* Right 5 cols: Options & Start/Stop Controls */}
-        <div className="lg:col-span-5 bg-slate-900/50 rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-5 bg-slate-50 rounded-2xl p-6 border border-slate-200 flex flex-col justify-between space-y-4">
           {!isWorking ? (
             <>
-              {/* Optional Project Selector */}
               <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-                  <FolderKanban className="w-4 h-4 text-sky-400" />
-                  اختيار مشروع الدوام (اختياري)
+                <label className="block text-slate-700 text-xs font-extrabold mb-1.5 flex items-center gap-1.5">
+                  <Stethoscope className="w-4 h-4 text-emerald-600" />
+                  اختيار فرع الصيدلية أو الشفت (اختياري)
                 </label>
                 <select
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3 text-white text-xs focus:outline-none focus:border-sky-500"
+                  className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-3 text-slate-900 text-xs font-semibold focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="">بدون مشروع (تسجيل دوام حر مباشر)</option>
+                  <option value="">بدون تحديد فرع (بدء دوام مناوبة سريع)</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} {p.clientName ? `(${p.clientName})` : ''}
@@ -250,67 +244,63 @@ export default function WorkTimerCard({
                 </select>
               </div>
 
-              {/* Task Notes */}
               <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-sky-400" />
-                  ملاحظات أو مهام الجلسة (اختياري)
+                <label className="block text-slate-700 text-xs font-extrabold mb-1.5 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  ملاحظات أو مهام المناوبة (اختياري)
                 </label>
                 <input
                   type="text"
                   value={taskNotes}
                   onChange={(e) => setTaskNotes(e.target.value)}
-                  placeholder="مثال: تطوير واجهة التسجيل وإصلاح الثغرات..."
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3 text-white text-xs focus:outline-none focus:border-sky-500"
+                  placeholder="مثال: استلام الوصفات الطبية، جرد الأدوية..."
+                  className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-3 text-slate-900 text-xs font-semibold focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <button
                   onClick={() => handleStartSession(selectedProjectId ? 'PROJECT' : 'QUICK')}
                   disabled={loading}
-                  className="w-full py-3.5 px-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  {selectedProjectId ? 'بدء عمل المشروع' : 'بدء دوام سريع'}
+                  {selectedProjectId ? 'بدء مناوبة الفرع' : 'بدء شفت سريع'}
                 </button>
 
                 <button
                   onClick={() => handleStartSession('QUICK')}
                   disabled={loading}
-                  className="w-full py-3.5 px-4 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 font-bold text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full py-3.5 px-4 bg-white hover:bg-slate-100 text-emerald-700 border border-slate-300 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
-                  <Zap className="w-4 h-4 text-amber-400" />
-                  تدوين فوري
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  تسجيل استلام الدوام
                 </button>
               </div>
             </>
           ) : (
             <>
-              {/* Working Session Notes update */}
               <div>
-                <label className="block text-slate-300 text-xs font-semibold mb-1.5 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-emerald-400" />
-                  تعديل ملخص الإنجاز أو الملاحظات عند الإنهاء
+                <label className="block text-slate-700 text-xs font-extrabold mb-1.5 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  تعديل ملخص الإنجاز وتصفية الشفت قبل التسليم
                 </label>
                 <textarea
                   rows={3}
                   value={taskNotes}
                   onChange={(e) => setTaskNotes(e.target.value)}
-                  placeholder="اكتب ماذا أنجزت في هذه الجلسة قبل الإنهاء..."
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  placeholder="اكتب تم تسليم الشفت والوصفات وحالة الصيدلية..."
+                  className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-3 text-slate-900 text-xs font-semibold focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              {/* Stop Session Button */}
               <button
                 onClick={handleStopSession}
                 disabled={loading}
-                className="w-full py-4 px-6 bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-black text-base rounded-xl shadow-xl flex items-center justify-center gap-3 transition-all cursor-pointer"
+                className="w-full py-4 px-6 bg-rose-600 hover:bg-rose-500 text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all cursor-pointer"
               >
                 <Square className="w-5 h-5 fill-white" />
-                {loading ? 'جاري إنهاء وتدوين الساعات...' : 'إنهاء الجلسة وتدوين ساعات العمل'}
+                {loading ? 'جاري إنهاء وتدوين الشفت...' : 'تسليم المناوبة وإنهاء الشفت'}
               </button>
             </>
           )}
@@ -320,10 +310,10 @@ export default function WorkTimerCard({
       {/* Messages */}
       {msg && (
         <div
-          className={`p-3 rounded-xl text-xs font-semibold text-center transition-all ${
+          className={`p-3 rounded-xl text-xs font-bold text-center transition-all ${
             msg.type === 'success'
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-rose-50 text-rose-700 border border-rose-200'
           }`}
         >
           {msg.text}
