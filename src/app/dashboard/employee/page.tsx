@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square, Plus, Zap } from 'lucide-react';
+import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square, Plus, Zap, Moon } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
@@ -17,8 +17,8 @@ export default function EmployeeDashboard() {
 
   // Manual Form Inputs
   const [entryDate, setEntryDate] = useState<string>(getCurrentDateFormatted());
-  const [checkInTime, setCheckInTime] = useState<string>('08:00');
-  const [checkOutTime, setCheckOutTime] = useState<string>('16:00');
+  const [checkInTime, setCheckInTime] = useState<string>('23:00');
+  const [checkOutTime, setCheckOutTime] = useState<string>('02:00');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -44,6 +44,14 @@ export default function EmployeeDashboard() {
   const totalMonthlyEarned = Number(
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
+
+  // Detect overnight shift across midnight
+  const isOvernight = (() => {
+    if (!checkInTime || !checkOutTime) return false;
+    const [inH, inM] = checkInTime.split(':').map(Number);
+    const [outH, outM] = checkOutTime.split(':').map(Number);
+    return outH * 60 + outM < inH * 60 + inM;
+  })();
 
   // 1. Automatic 1-Click Check-in / Check-out
   const handleAutoCheckIn = async () => {
@@ -139,8 +147,9 @@ export default function EmployeeDashboard() {
       const data = await res.json();
       if (data.success) {
         setRecords((prev) => [data.record, ...prev]);
+        const overnightNote = data.record.workHours > 0 ? ` (شفت مبيت: ${data.record.workHours} ساعة)` : '';
         setMsg({
-          text: `تم تسجيل ساعات الدوام اليدوي (${checkInTime} إلى ${checkOutTime || 'لم يحدد'}) بنجاح!`,
+          text: `تم تسجيل ساعات الدوام (${checkInTime} إلى ${checkOutTime || 'لم يحدد'})${overnightNote} بنجاح!`,
           type: 'success'
         });
       } else {
@@ -221,7 +230,7 @@ export default function EmployeeDashboard() {
             }`}
           >
             <Clock className="w-4 h-4" />
-            إدخال وقت الحضور والانصراف يدويًا (Manual Entry)
+            إدخال يدوي (يشمل شفتات المبيت عبر منتصف الليل)
           </button>
         </div>
 
@@ -269,15 +278,15 @@ export default function EmployeeDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-emerald-600" />
-                تحديد وقت الحضور والانصراف يدويًا (الأرقام الغربية 0-9)
+                تحديد وقت الحضور والانصراف يدويًا (يشمل شفتات منتصف الليل والمبيت)
               </h2>
-              <span className="text-xs font-bold text-slate-400">يمكنك كتابة الوقت والتاريخ المباشر</span>
+              <span className="text-xs font-bold text-slate-400">مثال: حضور 23:00 وانصراف 02:00 اليوم التالي</span>
             </div>
 
             <form onSubmit={handleManualSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
                 <div>
-                  <label className="block text-slate-700 mb-1">التاريخ</label>
+                  <label className="block text-slate-700 mb-1">تاريخ الحضور</label>
                   <input
                     type="date"
                     required
@@ -289,7 +298,7 @@ export default function EmployeeDashboard() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-slate-700">وقت الحضور *</label>
+                    <label className="text-slate-700">وقت الحضور (مثلاً 23:00)</label>
                     <button
                       type="button"
                       onClick={setNowForCheckIn}
@@ -309,7 +318,7 @@ export default function EmployeeDashboard() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-slate-700">وقت الانصراف</label>
+                    <label className="text-slate-700">وقت الانصراف (مثلاً 02:00)</label>
                     <button
                       type="button"
                       onClick={setNowForCheckOut}
@@ -326,6 +335,14 @@ export default function EmployeeDashboard() {
                   />
                 </div>
               </div>
+
+              {/* Overnight Shift Banner Indicator */}
+              {isOvernight && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs font-bold flex items-center gap-2">
+                  <Moon className="w-4 h-4 text-amber-600" />
+                  تم رصد شفت مبيت (تم الحضور قبل منتصف الليل والانصراف في اليوم التالي)، سيتم حساب الساعات عبر منتصف الليل تلقائياً!
+                </div>
+              )}
 
               <button
                 type="submit"
