@@ -11,6 +11,15 @@ export interface CustomLabels {
   monthlyTargetTitle: string;
   checkInBtnText: string;
   checkOutBtnText: string;
+  badgeBtnText: string;
+  notesPlaceholder: string;
+  tableTitle: string;
+  workHoursLabel: string;
+  earnedCostLabel: string;
+  excelBtnText: string;
+  pdfBtnText: string;
+  activeSessionsLabel: string;
+  pendingLeavesLabel: string;
 }
 
 export interface PharmacyBranch {

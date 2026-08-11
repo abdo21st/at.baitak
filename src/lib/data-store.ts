@@ -10,7 +10,16 @@ export const defaultCustomLabels: CustomLabels = {
   currencySymbol: 'د.ل',
   monthlyTargetTitle: 'هدف مناوبات الشهر',
   checkInBtnText: 'استلام المناوبة / بدء الشفت',
-  checkOutBtnText: 'تسليم المناوبة / إنهاء الشفت'
+  checkOutBtnText: 'تسليم المناوبة / إنهاء الشفت',
+  badgeBtnText: 'بطاقة ID المعرفية',
+  notesPlaceholder: 'اكتب ملاحظات وإنجازات الشفت الصيدلاني...',
+  tableTitle: 'كشف مناوبات وساعات الدوام الصيدلاني التفصيلي',
+  workHoursLabel: 'ساعات المناوبة',
+  earnedCostLabel: 'الأجر المستحق',
+  excelBtnText: 'تصدير Excel',
+  pdfBtnText: 'تصدير PDF',
+  activeSessionsLabel: 'المناوبات النشطة الآن',
+  pendingLeavesLabel: 'طلبات التبديل والاستئذان'
 };
 
 export const initialProjects: Project[] = [
