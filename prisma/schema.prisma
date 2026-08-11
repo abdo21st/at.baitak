@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceMethod {
+  QUICK
+  PROJECT
+  GPS
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  EMERGENCY
+  EXCUSE
+}
+
+model Project {
+  id           String             @id @default(uuid())
+  name         String
+  clientName   String?
+  hourlyRate   Float              @default(0.0)
+  budgetHours  Float              @default(0.0)
+  color        String             @default("#0284c7")
+  attendances  AttendanceRecord[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  employeeCode       String             @unique
+  name               String
+  email              String             @unique
+  password           String             @default("123456")
+  role               UserRole           @default(EMPLOYEE)
+  avatar             String?
+  phone              String?
+  jobTitle           String
+  targetMonthlyHours Float              @default(160.0)
+  hourlyRate         Float              @default(0.0) // Employee base hourly rate
+  attendances        AttendanceRecord[]
+  leaves             LeaveRequest[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model AttendanceRecord {
+  id           String           @id @default(uuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         String           // YYYY-MM-DD
+  checkInTime  String           // HH:mm:ss
+  checkOutTime String?          // HH:mm:ss
+  workHours    Float            @default(0.0)
+  earnedCost   Float            @default(0.0) // Calculated workHours * hourlyRate
+  projectId    String?
+  project      Project?         @relation(fields: [projectId], references: [id])
+  projectName  String?
+  taskNotes    String?
+  attachments  Attachment[]
+  method       AttendanceMethod @default(QUICK)
+  createdAt    DateTime         @default(now())
+}
+
+model Attachment {
+  id           String           @id @default(uuid())
+  attendanceId String
+  attendance   AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  fileName     String
+  filePath     String
+  fileType     String
+  createdAt    DateTime         @default(now())
+}
+
+model LeaveRequest {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      LeaveType
+  startDate String
+  endDate   String
+  reason    String
+  status    LeaveStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+}
+
+model CompanySettings {
+  id                        String   @id @default("default")
+  companyName               String   @default("نظام تدوين ساعات العمل المخصص")
+  logoUrl                   String?
+  n8nWebhookUrl             String   @default("https://n8n.ordermt.ly/webhook/attendance-alert")
+  defaultTargetMonthlyHours Float    @default(160.0)
+  autoCloseHours            Float    @default(12.0)
+  updatedAt                 DateTime @updatedAt
+}
