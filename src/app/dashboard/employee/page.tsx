@@ -53,7 +53,7 @@ export default function EmployeeDashboard() {
   const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;
   const isCheckedIn = !!activeRecord;
 
-  // Monthly Calculations with exact minute precision
+  // Monthly Calculations
   const totalMonthlyHours = Number(
     userRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2)
   );
@@ -62,19 +62,20 @@ export default function EmployeeDashboard() {
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
 
-  // Helper to format hours & minutes text clearly (e.g. 0.5 ساعة أو 8.25 ساعة)
+  // Helper to format work time strictly in Hours and Minutes (ساعة و دقيقة)
   const formatHoursText = (hoursNum: number) => {
-    if (!hoursNum && hoursNum !== 0) return '0 ساعة';
+    if (!hoursNum && hoursNum !== 0) return '0 دقيقة';
     const totalMinutes = Math.round(hoursNum * 60);
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
 
     if (hrs > 0 && mins > 0) {
-      return `${hoursNum} ساعة (${hrs} س و ${mins} د)`;
-    } else if (hrs === 0 && mins > 0) {
-      return `${hoursNum} ساعة (${mins} دقيقة)`;
+      return `${hrs} ساعة و ${mins} دقيقة`;
+    } else if (hrs > 0 && mins === 0) {
+      return `${hrs} ساعة`;
+    } else {
+      return `${mins} دقيقة`;
     }
-    return `${hoursNum} ساعة`;
   };
 
   // 1. Separate Check-in action (اختيار الحضور من القائمة)
@@ -115,7 +116,7 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // 2. Separate Check-out action (اختيار الانصراف بحساب الدقائق)
+  // 2. Separate Check-out action (عرض بالدقيقة والساعة)
   const handleCheckOutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRecord) return;
@@ -228,7 +229,7 @@ export default function EmployeeDashboard() {
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              اختيار وقت الحضور والانصراف من القائمة (يشمل الدقائق)
+              اختيار وقت الحضور والانصراف من القائمة
             </h2>
           </div>
 
@@ -419,7 +420,7 @@ export default function EmployeeDashboard() {
             </div>
             <div>
               <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي ساعات العمل هذا الشهر</span>
-              <span className="text-3xl font-black text-slate-900">{totalMonthlyHours} ساعة</span>
+              <span className="text-3xl font-black text-slate-900">{formatHoursText(totalMonthlyHours)}</span>
             </div>
           </div>
 
