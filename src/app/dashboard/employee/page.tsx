@@ -4,15 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Plus } from 'lucide-react';
-import { getCurrentTimeFormatted, getCurrentDateFormatted, formatArabicDate } from '@/lib/utils';
+import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square, Plus, Zap } from 'lucide-react';
+import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (101)
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
 
-  // Manual Entry Form Inputs
+  // Mode Selection: 'AUTO' vs 'MANUAL'
+  const [activeTab, setActiveTab] = useState<'AUTO' | 'MANUAL'>('AUTO');
+
+  // Manual Form Inputs
   const [entryDate, setEntryDate] = useState<string>(getCurrentDateFormatted());
   const [checkInTime, setCheckInTime] = useState<string>('08:00');
   const [checkOutTime, setCheckOutTime] = useState<string>('16:00');
@@ -30,6 +33,8 @@ export default function EmployeeDashboard() {
   }, []);
 
   const userRecords = records.filter((r) => r.userId === user.id);
+  const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;
+  const isCheckedIn = !!activeRecord;
 
   // Monthly Calculations
   const totalMonthlyHours = Number(
@@ -40,16 +45,70 @@ export default function EmployeeDashboard() {
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
 
-  const setNowForCheckIn = () => {
-    const now = getCurrentTimeFormatted();
-    setCheckInTime(now.substring(0, 5));
+  // 1. Automatic 1-Click Check-in / Check-out
+  const handleAutoCheckIn = async () => {
+    setLoading(true);
+    setMsg(null);
+    const timeNow = getCurrentTimeFormatted();
+
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          userName: user.name,
+          employeeCode: user.employeeCode,
+          checkInTime: timeNow,
+          date: getCurrentDateFormatted()
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) => [data.record, ...prev]);
+        setMsg({ text: `تم تسجيل الحضور التلقائي بنجاح الساعة ${timeNow}`, type: 'success' });
+      } else {
+        setMsg({ text: data.error || 'حدث خطأ في التسجيل', type: 'error' });
+      }
+    } catch {
+      setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const setNowForCheckOut = () => {
-    const now = getCurrentTimeFormatted();
-    setCheckOutTime(now.substring(0, 5));
+  const handleAutoCheckOut = async () => {
+    if (!activeRecord) return;
+    setLoading(true);
+    setMsg(null);
+    const timeNow = getCurrentTimeFormatted();
+
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recordId: activeRecord.id,
+          checkOutTime: timeNow
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) => prev.map((r) => (r.id === data.record.id ? data.record : r)));
+        setMsg({ text: `تم تسجيل الانصراف التلقائي بنجاح الساعة ${timeNow} (${data.record.workHours} ساعة)!`, type: 'success' });
+      } else {
+        setMsg({ text: data.error || 'حدث خطأ في تسجيل الانصراف', type: 'error' });
+      }
+    } catch {
+      setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // 2. Manual Time Entry Submission
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkInTime) {
@@ -73,8 +132,7 @@ export default function EmployeeDashboard() {
           employeeCode: user.employeeCode,
           date: entryDate,
           checkInTime: inTimeFormatted,
-          checkOutTime: outTimeFormatted,
-          isManual: true
+          checkOutTime: outTimeFormatted
         })
       });
 
@@ -82,17 +140,27 @@ export default function EmployeeDashboard() {
       if (data.success) {
         setRecords((prev) => [data.record, ...prev]);
         setMsg({
-          text: `تم تسجيل وقت الحضور (${checkInTime}) والانصراف (${checkOutTime || 'لم يحدد'}) بنجاح!`,
+          text: `تم تسجيل ساعات الدوام اليدوي (${checkInTime} إلى ${checkOutTime || 'لم يحدد'}) بنجاح!`,
           type: 'success'
         });
       } else {
-        setMsg({ text: data.error || 'حدث خطأ في التسجيل', type: 'error' });
+        setMsg({ text: data.error || 'حدث خطأ في التسجيل اليدوي', type: 'error' });
       }
     } catch {
       setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const setNowForCheckIn = () => {
+    const now = getCurrentTimeFormatted();
+    setCheckInTime(now.substring(0, 5));
+  };
+
+  const setNowForCheckOut = () => {
+    const now = getCurrentTimeFormatted();
+    setCheckOutTime(now.substring(0, 5));
   };
 
   const handleLogout = () => {
@@ -130,91 +198,159 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Manual Time Entry Box */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-600" />
-              إدخال وقت الحضور والانصراف يدويًا (بالأرقام الغربية 0-9)
-            </h2>
-            <span className="text-xs font-bold text-slate-400">يمكنك كتابة أو اختيار الوقت والتاريخ مباشرة</span>
-          </div>
+        {/* Mode Selector Tabs (تلقائي vs يدوي) */}
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab('AUTO')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'AUTO'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            تسجيل تلقائي بنقرة واحدة (Auto Clock-in/out)
+          </button>
 
-          <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
-              <div>
-                <label className="block text-slate-700 mb-1">التاريخ</label>
-                <input
-                  type="date"
-                  required
-                  value={entryDate}
-                  onChange={(e) => setEntryDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-700">وقت الحضور *</label>
-                  <button
-                    type="button"
-                    onClick={setNowForCheckIn}
-                    className="text-[10px] text-emerald-600 hover:underline"
-                  >
-                    الوقت الحالي
-                  </button>
-                </div>
-                <input
-                  type="time"
-                  required
-                  value={checkInTime}
-                  onChange={(e) => setCheckInTime(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center text-sm font-bold focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-700">وقت الانصراف</label>
-                  <button
-                    type="button"
-                    onClick={setNowForCheckOut}
-                    className="text-[10px] text-emerald-600 hover:underline"
-                  >
-                    الوقت الحالي
-                  </button>
-                </div>
-                <input
-                  type="time"
-                  value={checkOutTime}
-                  onChange={(e) => setCheckOutTime(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center text-sm font-bold focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              {loading ? 'جاري الحفظ...' : 'تسجيل وحفظ ساعات الدوام'}
-            </button>
-          </form>
-
-          {msg && (
-            <div
-              className={`p-3 rounded-xl text-xs font-extrabold text-center ${
-                msg.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-rose-50 text-rose-800 border border-rose-200'
-              }`}
-            >
-              {msg.text}
-            </div>
-          )}
+          <button
+            onClick={() => setActiveTab('MANUAL')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'MANUAL'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            إدخال وقت الحضور والانصراف يدويًا (Manual Entry)
+          </button>
         </div>
+
+        {/* Tab 1: Automatic 1-Click Entry */}
+        {activeTab === 'AUTO' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md text-center space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              الوقت والتاريخ الحالي: {new Date().toLocaleDateString('ar-LY-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+
+            <div>
+              {!isCheckedIn ? (
+                <button
+                  onClick={handleAutoCheckIn}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-10 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 mx-auto transition-all cursor-pointer"
+                >
+                  <Play className="w-6 h-6 fill-white" />
+                  تسجيل وقت الحضور التلقائي الآن
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl max-w-md mx-auto text-emerald-800 text-sm font-extrabold">
+                    🟢 تم تسجيل حضورك التلقائي اليوم الساعة <span className="font-mono text-base">{activeRecord?.checkInTime}</span>
+                  </div>
+
+                  <button
+                    onClick={handleAutoCheckOut}
+                    disabled={loading}
+                    className="w-full sm:w-auto px-10 py-5 bg-rose-600 hover:bg-rose-500 text-white font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-3 mx-auto transition-all cursor-pointer"
+                  >
+                    <Square className="w-6 h-6 fill-white" />
+                    تسجيل وقت الانصراف التلقائي الآن
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Manual Entry Form */}
+        {activeTab === 'MANUAL' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-600" />
+                تحديد وقت الحضور والانصراف يدويًا (الأرقام الغربية 0-9)
+              </h2>
+              <span className="text-xs font-bold text-slate-400">يمكنك كتابة الوقت والتاريخ المباشر</span>
+            </div>
+
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-bold">
+                <div>
+                  <label className="block text-slate-700 mb-1">التاريخ</label>
+                  <input
+                    type="date"
+                    required
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700">وقت الحضور *</label>
+                    <button
+                      type="button"
+                      onClick={setNowForCheckIn}
+                      className="text-[10px] text-emerald-600 hover:underline font-bold"
+                    >
+                      الوقت الحالي
+                    </button>
+                  </div>
+                  <input
+                    type="time"
+                    required
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center text-sm font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700">وقت الانصراف</label>
+                    <button
+                      type="button"
+                      onClick={setNowForCheckOut}
+                      className="text-[10px] text-emerald-600 hover:underline font-bold"
+                    >
+                      الوقت الحالي
+                    </button>
+                  </div>
+                  <input
+                    type="time"
+                    value={checkOutTime}
+                    onChange={(e) => setCheckOutTime(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-mono text-center text-sm font-bold focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                {loading ? 'جاري الحفظ...' : 'حفظ ساعات الدوام اليدوي'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Message Banner */}
+        {msg && (
+          <div
+            className={`p-3.5 rounded-2xl text-xs font-extrabold text-center max-w-md mx-auto ${
+              msg.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
+            }`}
+          >
+            {msg.text}
+          </div>
+        )}
 
         {/* Monthly Summary Cards Header */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono">
