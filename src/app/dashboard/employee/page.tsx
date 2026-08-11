@@ -12,10 +12,28 @@ export default function EmployeeDashboard() {
   const [user, setUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (101)
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
 
-  // Separate Check-in vs Check-out Inputs
-  const [entryDate, setEntryDate] = useState<string>(getCurrentDateFormatted());
-  const [checkInTime, setCheckInTime] = useState<string>('08:00');
-  const [checkOutTime, setCheckOutTime] = useState<string>('16:00');
+  // Generate Date List (Recent 30 Days)
+  const recentDatesList = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  });
+
+  // Hours: 00 to 23
+  const hoursList = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+
+  // Minutes: 00 to 59
+  const minutesList = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+  // Selected State for Check-in
+  const [selectedDate, setSelectedDate] = useState<string>(getCurrentDateFormatted());
+  const [checkInHour, setCheckInHour] = useState<string>('08');
+  const [checkInMinute, setCheckInMinute] = useState<string>('00');
+
+  // Selected State for Check-out
+  const [checkOutHour, setCheckOutHour] = useState<string>('16');
+  const [checkOutMinute, setCheckOutMinute] = useState<string>('00');
+
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -44,18 +62,13 @@ export default function EmployeeDashboard() {
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
 
-  // 1. Separate Check-in action (تسجيل وقت الحضور فقط)
+  // 1. Separate Check-in action (اختيار الحضور من القائمة)
   const handleCheckInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkInTime) {
-      setMsg({ text: 'يرجى إدخال وقت الحضور', type: 'error' });
-      return;
-    }
+    const formattedCheckIn = `${checkInHour}:${checkInMinute}:00`;
 
     setLoading(true);
     setMsg(null);
-
-    const inTimeFormatted = checkInTime.length === 5 ? `${checkInTime}:00` : checkInTime;
 
     try {
       const res = await fetch('/api/attendance', {
@@ -65,8 +78,8 @@ export default function EmployeeDashboard() {
           userId: user.id,
           userName: user.name,
           employeeCode: user.employeeCode,
-          date: entryDate,
-          checkInTime: inTimeFormatted
+          date: selectedDate,
+          checkInTime: formattedCheckIn
         })
       });
 
@@ -74,7 +87,7 @@ export default function EmployeeDashboard() {
       if (data.success) {
         setRecords((prev) => [data.record, ...prev]);
         setMsg({
-          text: `تم تسجيل وقت الحضور (${checkInTime}) بنجاح!`,
+          text: `تم تسجيل وقت الحضور (${checkInHour}:${checkInMinute}) بنجاح!`,
           type: 'success'
         });
       } else {
@@ -87,25 +100,25 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // 2. Separate Check-out action (يمنع الانصراف بزمن يسبق الحضور)
+  // 2. Separate Check-out action (اختيار الانصراف من القائمة)
   const handleCheckOutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRecord) return;
-    if (!checkOutTime) {
-      setMsg({ text: 'يرجى إدخال وقت الانصراف', type: 'error' });
-      return;
-    }
+
+    const formattedCheckOut = `${checkOutHour}:${checkOutMinute}:00`;
 
     // Client-side validation for check-out time before check-in time
     if (activeRecord.checkInTime) {
       const [inH, inM] = activeRecord.checkInTime.split(':').map(Number);
-      const [outH, outM] = checkOutTime.split(':').map(Number);
+      const outH = Number(checkOutHour);
+      const outM = Number(checkOutMinute);
+
       const inMins = inH * 60 + inM;
       const outMins = outH * 60 + outM;
 
       if (outMins < inMins && !(inH >= 18 && outH < 12)) {
         setMsg({
-          text: `خطأ: يمنع تسجيل وقت الانصراف (${checkOutTime}) قبل وقت الحضور (${activeRecord.checkInTime})!`,
+          text: `خطأ: يمنع تسجيل وقت الانصراف (${checkOutHour}:${checkOutMinute}) قبل وقت الحضور (${activeRecord.checkInTime})!`,
           type: 'error'
         });
         return;
@@ -115,15 +128,13 @@ export default function EmployeeDashboard() {
     setLoading(true);
     setMsg(null);
 
-    const outTimeFormatted = checkOutTime.length === 5 ? `${checkOutTime}:00` : checkOutTime;
-
     try {
       const res = await fetch('/api/attendance', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recordId: activeRecord.id,
-          checkOutTime: outTimeFormatted
+          checkOutTime: formattedCheckOut
         })
       });
 
@@ -131,7 +142,7 @@ export default function EmployeeDashboard() {
       if (data.success) {
         setRecords((prev) => prev.map((r) => (r.id === data.record.id ? data.record : r)));
         setMsg({
-          text: `تم تسجيل وقت الانصراف (${checkOutTime}) وتدوين ${data.record.workHours} ساعة عمل بنجاح!`,
+          text: `تم تسجيل وقت الانصراف (${checkOutHour}:${checkOutMinute}) وتدوين ${data.record.workHours} ساعة عمل بنجاح!`,
           type: 'success'
         });
       } else {
@@ -145,17 +156,21 @@ export default function EmployeeDashboard() {
   };
 
   const setNowForCheckIn = () => {
-    const now = getCurrentTimeFormatted();
-    setCheckInTime(now.substring(0, 5));
+    const now = getCurrentTimeFormatted(); // e.g. "14:25:00"
+    const parts = now.split(':');
+    setCheckInHour(parts[0] || '08');
+    setCheckInMinute(parts[1] || '00');
   };
 
   const setNowForCheckOut = () => {
     const now = getCurrentTimeFormatted();
-    setCheckOutTime(now.substring(0, 5));
+    const parts = now.split(':');
+    setCheckOutHour(parts[0] || '16');
+    setCheckOutMinute(parts[1] || '00');
   };
 
   const setTodayDate = () => {
-    setEntryDate(getCurrentDateFormatted());
+    setSelectedDate(getCurrentDateFormatted());
   };
 
   const handleLogout = () => {
@@ -198,18 +213,18 @@ export default function EmployeeDashboard() {
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              إدخال وقت الحضور والانصراف يدويًا
+              اختيار وقت الحضور والانصراف من القائمة
             </h2>
           </div>
 
-          {/* STEP 1: CHECK-IN FORM */}
+          {/* STEP 1: CHECK-IN FORM (قائمة اختيار الحضور والتاريخ) */}
           {!isCheckedIn ? (
             <form onSubmit={handleCheckInSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
-                {/* Date Input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs font-bold">
+                {/* Date Dropdown List */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold text-sm">التاريخ</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-slate-800 font-black text-sm">اختيار التاريخ</label>
                     <button
                       type="button"
                       onClick={setTodayDate}
@@ -219,22 +234,23 @@ export default function EmployeeDashboard() {
                       تاريخ اليوم
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    lang="en-US"
-                    dir="ltr"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    placeholder="2026-08-11"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500"
-                  />
+                  <select
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+                  >
+                    {recentDatesList.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Check-in Time Input */}
+                {/* Check-in Time Dropdown Lists (Hour & Minute) */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold text-sm">وقت الحضور *</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-slate-800 font-black text-sm">اختيار وقت الحضور (ساعة : دقيقة)</label>
                     <button
                       type="button"
                       onClick={setNowForCheckIn}
@@ -244,16 +260,40 @@ export default function EmployeeDashboard() {
                       الوقت الحالي
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    lang="en-US"
-                    dir="ltr"
-                    value={checkInTime}
-                    onChange={(e) => setCheckInTime(e.target.value)}
-                    placeholder="08:00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500"
-                  />
+
+                  <div className="flex items-center gap-2 font-mono">
+                    <div className="flex-1">
+                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الساعة</label>
+                      <select
+                        value={checkInHour}
+                        onChange={(e) => setCheckInHour(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+                      >
+                        {hoursList.map((h) => (
+                          <option key={h} value={h}>
+                            {h}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
+
+                    <div className="flex-1">
+                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الدقيقة</label>
+                      <select
+                        value={checkInMinute}
+                        onChange={(e) => setCheckInMinute(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+                      >
+                        {minutesList.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -261,14 +301,14 @@ export default function EmployeeDashboard() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-base rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-base rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-4"
               >
                 <Play className="w-5 h-5 fill-white" />
                 {loading ? 'جاري التسجيل...' : 'تسجيل وقت الحضور'}
               </button>
             </form>
           ) : (
-            /* STEP 2: CHECK-OUT FORM */
+            /* STEP 2: CHECK-OUT FORM (قائمة اختيار الانصراف) */
             <form onSubmit={handleCheckOutSubmit} className="space-y-5">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-900">
                 <div className="flex items-center gap-2">
@@ -281,10 +321,10 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 text-xs font-bold">
-                {/* Check-out Time Input */}
+                {/* Check-out Time Dropdown Lists (Hour & Minute) */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold text-sm">وقت الانصراف *</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف (ساعة : دقيقة)</label>
                     <button
                       type="button"
                       onClick={setNowForCheckOut}
@@ -294,16 +334,40 @@ export default function EmployeeDashboard() {
                       الوقت الحالي
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    required
-                    lang="en-US"
-                    dir="ltr"
-                    value={checkOutTime}
-                    onChange={(e) => setCheckOutTime(e.target.value)}
-                    placeholder="16:00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-red-500"
-                  />
+
+                  <div className="flex items-center gap-2 font-mono">
+                    <div className="flex-1">
+                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الساعة</label>
+                      <select
+                        value={checkOutHour}
+                        onChange={(e) => setCheckOutHour(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm"
+                      >
+                        {hoursList.map((h) => (
+                          <option key={h} value={h}>
+                            {h}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
+
+                    <div className="flex-1">
+                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الدقيقة</label>
+                      <select
+                        value={checkOutMinute}
+                        onChange={(e) => setCheckOutMinute(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm"
+                      >
+                        {minutesList.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
