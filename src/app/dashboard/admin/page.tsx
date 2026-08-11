@@ -1,142 +1,136 @@
 'use client';
 
-import React, { useState } from 'react';
-import Navbar from '@/components/Navbar';
-import AttendanceLogTable from '@/components/AttendanceLogTable';
-import ProjectManagerModal from '@/components/ProjectManagerModal';
-import EmployeeManagerModal from '@/components/EmployeeManagerModal';
-import LabelCustomizerModal from '@/components/LabelCustomizerModal';
-import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings, CustomLabels } from '@/lib/types';
-import { initialUsers, initialProjects, initialAttendanceRecords, initialLeaveRequests, initialCompanySettings } from '@/lib/data-store';
-import { Clock, Users, FolderPlus, Coins, CheckCircle2, XCircle, RotateCcw, Send, Sparkles, HeartPulse, Bell, Settings, Type, Building2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { User, AttendanceRecord } from '@/lib/types';
+import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
+import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, Search, UserPlus } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]);
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
-  const [leaves, setLeaves] = useState<LeaveRequest[]>(initialLeaveRequests);
-  const [settings, setSettings] = useState<CompanySettings>(initialCompanySettings);
 
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
-  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+  // Edit Modal State
+  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [editCheckIn, setEditCheckIn] = useState('');
+  const [editCheckOut, setEditCheckOut] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const labels = settings.customLabels;
+  // Filter state
+  const [selectedUserId, setSelectedUserId] = useState<string>('ALL');
 
-  // Compute live system stats
-  const activeSessionsCount = records.filter((r) => !r.checkOutTime).length;
-  const totalHoursWorked = Number(records.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1));
-  const totalEarnedCost = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
-  const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;
+  const filteredRecords = selectedUserId === 'ALL'
+    ? records
+    : records.filter((r) => r.userId === selectedUserId);
 
-  // Chart data
-  const chartData = projects.map((p) => {
-    const projRecords = records.filter((r) => r.projectId === p.id);
-    const hrs = Number(projRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1));
-    return { name: p.name.split(' ')[0], ساعات: hrs, budget: p.budgetHours };
-  });
+  const totalMonthlyHours = Number(records.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
+  const totalMonthlyEarned = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
 
-  const handleApproveLeave = (leaveId: string, newStatus: 'APPROVED' | 'REJECTED') => {
-    setLeaves((prev) =>
-      prev.map((l) => (l.id === leaveId ? { ...l, status: newStatus } : l))
-    );
+  // Verify attendance action (توثيق الحضور)
+  const handleVerifyRecord = async (recordId: string) => {
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'VERIFY', recordId })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, isVerified: true } : r)));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleFactoryReset = async () => {
-    if (window.confirm('هل أنت تأكد من إعادة ضبط المصنع واسترجاع بيانات النظام والأولية؟')) {
-      setRecords([...initialAttendanceRecords]);
-      setProjects([...initialProjects]);
-      setUsers([...initialUsers]);
-      setLeaves([...initialLeaveRequests]);
-      setSettings({ ...initialCompanySettings });
-      setMsg('تمت إعادة ضبط المصنع بنجاح!');
+  // Save edited check-in / check-out times (تعديل وقت الحضور والانصراف)
+  const handleSaveTimeEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'EDIT_TIME',
+          recordId: editingRecord.id,
+          checkInTime: editCheckIn,
+          checkOutTime: editCheckOut
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) => prev.map((r) => (r.id === data.record.id ? data.record : r)));
+        setEditingRecord(null);
+      } else {
+        setMsg(data.error || 'خطأ في التعديل');
+      }
+    } catch {
+      setMsg('خطأ في الاتصال بالخادم');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const openEditModal = (rec: AttendanceRecord) => {
+    setEditingRecord(rec);
+    setEditCheckIn(rec.checkInTime || '');
+    setEditCheckOut(rec.checkOutTime || '');
+    setMsg(null);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    router.push('/login');
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">
-      {/* Navbar */}
-      <Navbar
-        user={currentUser}
-        onSwitchUser={setCurrentUser}
-        allUsers={users}
-      />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Control Bar & Dynamic Title */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                {labels.dashboardTitle}
-              </h2>
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
-                {labels.companyName}
-              </span>
-            </div>
-            <p className="text-slate-500 text-xs mt-0.5 font-medium">
-              مراقبة مناوبات الدوام المباشرة، الأجور بالعملة {labels.currencySymbol}، والتكامل مع n8n والسيرفر
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => setIsLabelModalOpen(true)}
-              className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold rounded-xl shadow-sm flex items-center gap-2 text-xs transition-all cursor-pointer"
-            >
-              <Type className="w-4 h-4 text-emerald-600" />
-              تخصيص جميع العناوين والشركة
-            </button>
-
-            <button
-              onClick={() => setIsProjectModalOpen(true)}
-              className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
-            >
-              <FolderPlus className="w-4 h-4" />
-              {labels.projectsTitle}
-            </button>
-
-            <button
-              onClick={() => setIsEmployeeModalOpen(true)}
-              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
-            >
-              <Users className="w-4 h-4" />
-              {labels.employeesTitle}
-            </button>
-
-            <button
-              onClick={handleFactoryReset}
-              className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              title="إعادة ضبط المصنع"
-            >
-              <RotateCcw className="w-4 h-4 text-rose-600" />
-              ضبط المصنع
-            </button>
-          </div>
-        </div>
-
-        {/* Live Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <Users className="w-6 h-6" />
+      {/* Header Bar */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold shadow-md">
+              <ShieldCheck className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block font-sans">المناوبات النشطة الآن</span>
-              <span className="text-2xl font-black text-slate-900">{activeSessionsCount} عضو</span>
+              <h1 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                لوحة المدير الإدارية لتوثيق وتعديل دوام الموظفين
+              </h1>
+              <p className="text-slate-500 text-xs font-semibold">
+                صلاحية توثيق الحضور وتعديل ساعات الدخول والانصراف لكافة الكادر
+              </p>
             </div>
           </div>
 
+          <button
+            onClick={handleLogout}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            خروج
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        {/* Top Summary Widgets */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block font-sans">إجمالي ساعات الدوام المنجزة</span>
-              <span className="text-2xl font-black text-slate-900">{totalHoursWorked} ساعة</span>
+              <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي الساعات المسجلة</span>
+              <span className="text-2xl font-black text-slate-900">{totalMonthlyHours} ساعة</span>
             </div>
           </div>
 
@@ -145,188 +139,172 @@ export default function AdminDashboard() {
               <Coins className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block font-sans">إجمالي الأجور المستحقة</span>
-              <span className="text-2xl font-black text-emerald-700">{totalEarnedCost} {labels.currencySymbol}</span>
+              <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي الأجور المستحقة</span>
+              <span className="text-2xl font-black text-emerald-700">{totalMonthlyEarned} د.ل</span>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <Bell className="w-6 h-6" />
-            </div>
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
-              <span className="text-slate-400 text-xs font-semibold block font-sans">طلبات التبديل المعلقة</span>
-              <span className="text-2xl font-black text-slate-900">{pendingLeavesCount} طلب</span>
+              <span className="text-slate-400 text-xs font-bold block">تصفية حسب الموظف</span>
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-500"
+              >
+                <option value="ALL">جميع الموظفين ({records.length})</option>
+                {users.filter(u => u.role !== 'ADMIN').map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} (كود: {u.employeeCode})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Charts & Dedicated Settings Section Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left 8 Cols: Recharts Project Hours Analytics */}
-          <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
-              تحليل ساعات الدوام وتوزيعها على {labels.projectsTitle}
-            </h3>
-
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', borderColor: '#e2e8f0', fontSize: '12px' }}
-                  />
-                  <Bar dataKey="ساعات" fill="#059669" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Attendance Verification & Editing Log Table */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-emerald-600" />
+              سجل الحضور والانصراف وتوثيق ساعات الموظفين
+            </h2>
           </div>
 
-          {/* Right 4 Cols: Dedicated Settings Section */}
-          <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-            <div>
-              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm border-b border-slate-100 pb-3">
-                <Settings className="w-5 h-5 text-emerald-600" />
-                قسم إعدادات النظام وتخصيص العناوين
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <button
-                  onClick={() => setIsLabelModalOpen(true)}
-                  className="w-full p-3 bg-slate-50 hover:bg-emerald-50 text-slate-800 border border-slate-200 hover:border-emerald-300 rounded-2xl text-xs font-extrabold flex items-center justify-between transition-all cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <Type className="w-4 h-4 text-emerald-600" />
-                    <span>تخصيص جميع العناوين والشركة</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold">تعديل</span>
-                </button>
-
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-slate-500" />
-                    اسم الشركة: <span className="text-emerald-700">{labels.companyName}</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    اسم البرنامج: <span className="text-slate-900 font-semibold">{labels.appName}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 text-xs font-bold mb-1">رابط Webhook لـ n8n والواتساب</label>
-                  <input
-                    type="text"
-                    value={settings.n8nWebhookUrl}
-                    onChange={(e) => setSettings({ ...settings, n8nWebhookUrl: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-semibold">
-              ✅ إعدادات النظام وتسميات العناوين مفعلة وحية.
-            </div>
-          </div>
-        </div>
-
-        {/* Leave Requests Approval Table */}
-        {leaves.length > 0 && (
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-            <h3 className="text-base font-extrabold text-slate-900 mb-4">
-              مراجعة واعتماد طلبات الاستئذان وتبديل المناوبات
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="py-3 px-4 font-bold">العضو / الصيدلي</th>
-                    <th className="py-3 px-4 font-bold">نوع الطلب</th>
-                    <th className="py-3 px-4 font-bold">من تاريخ</th>
-                    <th className="py-3 px-4 font-bold">إلى تاريخ</th>
-                    <th className="py-3 px-4 font-bold">السبب والتوضيح</th>
-                    <th className="py-3 px-4 font-bold text-center">الإجراء</th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-xs">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <th className="py-3.5 px-4 font-bold">التاريخ</th>
+                  <th className="py-3.5 px-4 font-bold">الموظف</th>
+                  <th className="py-3.5 px-4 font-bold">وقت الحضور</th>
+                  <th className="py-3.5 px-4 font-bold">وقت الانصراف</th>
+                  <th className="py-3.5 px-4 font-bold text-center">ساعات اليوم</th>
+                  <th className="py-3.5 px-4 font-bold text-center">المبلغ المستحق</th>
+                  <th className="py-3.5 px-4 font-bold text-center">توثيق الحضور</th>
+                  <th className="py-3.5 px-4 font-bold text-center">تعديل الساعات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-mono">
+                {filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-400 font-sans font-medium">
+                      لا توجد سجلات حضور مسجلة.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {leaves.map((l) => (
-                    <tr key={l.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-bold text-slate-900 font-sans">{l.userName}</td>
-                      <td className="py-3 px-4 font-sans">
-                        <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">
-                          {l.type}
-                        </span>
+                ) : (
+                  filteredRecords.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
+                      <td className="py-3.5 px-4 font-sans font-extrabold text-slate-900">
+                        {r.userName} <span className="text-[10px] text-slate-400 font-mono font-normal">({r.employeeCode})</span>
                       </td>
-                      <td className="py-3 px-4 text-slate-600">{l.startDate}</td>
-                      <td className="py-3 px-4 text-slate-600">{l.endDate}</td>
-                      <td className="py-3 px-4 text-slate-600 font-sans">{l.reason}</td>
-                      <td className="py-3 px-4 text-center font-sans">
-                        {l.status === 'PENDING' ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleApproveLeave(l.id, 'APPROVED')}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              موافقة
-                            </button>
-                            <button
-                              onClick={() => handleApproveLeave(l.id, 'REJECTED')}
-                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 cursor-pointer"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              رفض
-                            </button>
-                          </div>
-                        ) : (
-                          <span className={`font-bold ${l.status === 'APPROVED' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {l.status === 'APPROVED' ? 'تمت الموافقة' : 'مرفوض'}
+                      <td className="py-3.5 px-4 text-emerald-600 font-bold">{r.checkInTime || '--:--'}</td>
+                      <td className="py-3.5 px-4 text-rose-600 font-bold">{r.checkOutTime || '--:--'}</td>
+                      <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
+                      <td className="py-3.5 px-4 text-center font-black text-emerald-700">{r.earnedCost} د.ل</td>
+                      <td className="py-3.5 px-4 text-center font-sans">
+                        {r.isVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            موثّق
                           </span>
+                        ) : (
+                          <button
+                            onClick={() => handleVerifyRecord(r.id)}
+                            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 mx-auto shadow-sm cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            توثيق الحضور
+                          </button>
                         )}
                       </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
-        {/* Master Attendance Log Table */}
-        <AttendanceLogTable
-          records={records}
-          title={`كشف المناوبات وتسلّم وتدوين ساعات ${labels.employeesTitle}`}
-          showEmployeeName={true}
-        />
+                      <td className="py-3.5 px-4 text-center font-sans">
+                        <button
+                          onClick={() => openEditModal(r)}
+                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 mx-auto cursor-pointer"
+                          title="تعديل وقت الحضور والانصراف"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                          تعديل
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </main>
 
-      {/* Modals */}
-      <LabelCustomizerModal
-        currentLabels={labels}
-        isOpen={isLabelModalOpen}
-        onClose={() => setIsLabelModalOpen(false)}
-        onLabelsUpdated={(newLabels) => {
-          setSettings((prev) => ({ ...prev, customLabels: newLabels }));
-        }}
-      />
+      {/* Admin Time Editing Modal */}
+      {editingRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-600" />
+                تعديل وقت حضور وانصراف الموظف
+              </h3>
+              <button onClick={() => setEditingRecord(null)} className="p-1 text-slate-400 hover:text-slate-700 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-      <ProjectManagerModal
-        projects={projects}
-        isOpen={isProjectModalOpen}
-        onClose={() => setIsProjectModalOpen(false)}
-        onProjectsUpdated={() => {}}
-      />
+            <div className="text-xs space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200 font-semibold">
+              <div>الموظف: <span className="font-bold text-slate-900">{editingRecord.userName}</span></div>
+              <div>التاريخ: <span className="font-bold font-mono">{editingRecord.date}</span></div>
+            </div>
 
-      <EmployeeManagerModal
-        users={users}
-        isOpen={isEmployeeModalOpen}
-        onClose={() => setIsEmployeeModalOpen(false)}
-        onUsersUpdated={() => {}}
-      />
+            <form onSubmit={handleSaveTimeEdit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">وقت الحضور (HH:mm:ss)</label>
+                <input
+                  type="text"
+                  required
+                  value={editCheckIn}
+                  onChange={(e) => setEditCheckIn(e.target.value)}
+                  placeholder="08:00:00"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">وقت الانصراف (HH:mm:ss)</label>
+                <input
+                  type="text"
+                  value={editCheckOut}
+                  onChange={(e) => setEditCheckOut(e.target.value)}
+                  placeholder="16:00:00"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+                >
+                  {loading ? 'جاري الحفظ...' : 'حفظ الوقت الجديد'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingRecord(null)}
+                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

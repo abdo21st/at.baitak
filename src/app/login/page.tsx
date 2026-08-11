@@ -2,112 +2,126 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, ShieldCheck, UserCheck, ArrowLeft, Building2, Sparkles } from 'lucide-react';
 import { initialUsers } from '@/lib/data-store';
+import { Clock, ShieldCheck, Lock, User as UserIcon, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('admin@baitak.mtapp.ly');
-  const [password, setPassword] = useState('123456');
+  const [employeeCode, setEmployeeCode] = useState('101');
+  const [pinCode, setPinCode] = useState('1234');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
 
-    const user = initialUsers.find((u) => u.email === email) || initialUsers[0];
+    const foundUser = initialUsers.find(
+      (u) => u.employeeCode === employeeCode.trim() && u.pinCode === pinCode.trim()
+    );
 
-    setTimeout(() => {
-      if (user.role === 'ADMIN') {
+    if (foundUser) {
+      // Store current user in localStorage for simple demo persistence
+      localStorage.setItem('currentUser', JSON.stringify(foundUser));
+
+      if (foundUser.role === 'ADMIN') {
         router.push('/dashboard/admin');
       } else {
         router.push('/dashboard/employee');
       }
-    }, 400);
+    } else {
+      setError('رقم الموظف أو الرقم السري غير صحيح');
+      setLoading(false);
+    }
   };
 
-  const handleQuickDemoLogin = (targetUser: typeof initialUsers[0]) => {
-    if (targetUser.role === 'ADMIN') {
-      router.push('/dashboard/admin');
-    } else {
-      router.push('/dashboard/employee');
-    }
+  const handleQuickSelect = (code: string, pin: string) => {
+    setEmployeeCode(code);
+    setPinCode(pin);
+    setError(null);
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-cairo" dir="rtl">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative overflow-hidden">
-        {/* Header Branding */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-tr from-sky-600 to-indigo-600 rounded-3xl mx-auto flex items-center justify-center text-white shadow-lg shadow-sky-500/20 mb-4">
+      <div className="bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
+        {/* App Branding Logo */}
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
             <Clock className="w-9 h-9" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            حضورك <span className="text-sky-600">HodoorK</span>
+            نظام تدوين الساعات اليومي
           </h1>
-          <p className="text-slate-500 text-xs mt-1 font-medium">
-            نظام إدارة وتدوين ساعات العمل والمشاريع (at.baitak.mtapp.ly)
+          <p className="text-slate-500 text-xs font-semibold">
+            أدخل رقم الموظف والرقم السري لبدء وتسجيل وقت الحضور والانصراف
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4 text-xs">
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-slate-700 font-bold mb-1">البريد الإلكتروني</label>
+            <label className="block text-slate-700 text-xs font-extrabold mb-1.5 flex items-center gap-1.5">
+              <UserIcon className="w-4 h-4 text-emerald-600" />
+              رقم الموظف (Employee ID)
+            </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-sky-500"
+              type="text"
+              required
+              value={employeeCode}
+              onChange={(e) => setEmployeeCode(e.target.value)}
+              placeholder="مثال: 101"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-slate-700 font-bold mb-1">كلمة المرور</label>
+            <label className="block text-slate-700 text-xs font-extrabold mb-1.5 flex items-center gap-1.5">
+              <Lock className="w-4 h-4 text-emerald-600" />
+              الرقم السري (PIN)
+            </label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-semibold focus:outline-none focus:border-sky-500"
+              required
+              value={pinCode}
+              onChange={(e) => setPinCode(e.target.value)}
+              placeholder="••••"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
             />
           </div>
+
+          {error && (
+            <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold text-center">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all text-sm mt-2"
+            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
-            <UserCheck className="w-4 h-4" />
-            {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول للنظام'}
+            {loading ? 'جاري التحقق...' : 'تسجيل الدخول للنظام'}
+            <ArrowLeft className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Demo Fast Switcher */}
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <span className="text-slate-400 text-[11px] font-bold block text-center mb-3">
-            أو اختيار حساب تجريبي للدخول الفوري:
-          </span>
-          <div className="space-y-2">
+        {/* Quick Demo Login Preset Buttons */}
+        <div className="border-t border-slate-100 pt-5 text-center space-y-2">
+          <span className="text-slate-400 text-xs font-bold block">تسجيل دخول سريع للتجربة:</span>
+          <div className="grid grid-cols-2 gap-2 text-xs font-bold">
             <button
-              onClick={() => handleQuickDemoLogin(initialUsers[0])}
-              className="w-full p-2.5 bg-slate-50 hover:bg-sky-50 text-slate-800 border border-slate-200 hover:border-sky-300 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
+              onClick={() => handleQuickSelect('101', '1234')}
+              className="p-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl transition-all"
             >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-sky-600" />
-                <span>حساب المدير (م. خالد العتيبي)</span>
-              </div>
-              <ArrowLeft className="w-4 h-4 text-slate-400" />
+              الموظف (101)
             </button>
 
             <button
-              onClick={() => handleQuickDemoLogin(initialUsers[1])}
-              className="w-full p-2.5 bg-slate-50 hover:bg-emerald-50 text-slate-800 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer"
+              onClick={() => handleQuickSelect('100', '1234')}
+              className="p-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all"
             >
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-emerald-600" />
-                <span>حساب الموظف (أحمد علي)</span>
-              </div>
-              <ArrowLeft className="w-4 h-4 text-slate-400" />
+              المدير (100)
             </button>
           </div>
         </div>

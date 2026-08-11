@@ -1,57 +1,13 @@
 export type UserRole = 'ADMIN' | 'EMPLOYEE';
 
-export interface CustomLabels {
-  appName: string;
-  companyName: string;
-  dashboardTitle: string;
-  timerTitle: string;
-  projectsTitle: string;
-  employeesTitle: string;
-  currencySymbol: string;
-  monthlyTargetTitle: string;
-  checkInBtnText: string;
-  checkOutBtnText: string;
-  badgeBtnText: string;
-  notesPlaceholder: string;
-  tableTitle: string;
-  workHoursLabel: string;
-  earnedCostLabel: string;
-  excelBtnText: string;
-  pdfBtnText: string;
-  activeSessionsLabel: string;
-  pendingLeavesLabel: string;
-}
-
-export interface PharmacyBranch {
-  id: string;
-  name: string;
-  clientName?: string;
-  hourlyRate: number;
-  budgetHours: number;
-  color: string;
-}
-
-export type Project = PharmacyBranch;
-
 export interface User {
   id: string;
-  employeeCode: string;
+  employeeCode: string; // رقم الموظف (مثل 101, 102, 100)
+  pinCode: string;      // الرقم السري (مثل 1234)
   name: string;
-  email: string;
   role: UserRole;
-  avatar: string;
-  phone: string;
-  jobTitle: string;
-  targetMonthlyHours: number;
-  hourlyRate: number;
-}
-
-export interface Attachment {
-  id: string;
-  attendanceId: string;
-  fileName: string;
-  filePath: string;
-  fileType: string;
+  hourlyRate: number;   // قيمة أجر الساعة بالدينار الليبي (د.ل)
+  jobTitle?: string;
 }
 
 export interface AttendanceRecord {
@@ -59,39 +15,12 @@ export interface AttendanceRecord {
   userId: string;
   userName: string;
   employeeCode: string;
-  date: string;
-  checkInTime: string;
-  checkOutTime: string | null;
-  workHours: number;
-  earnedCost: number;
-  projectId?: string;
-  projectName?: string;
-  taskNotes?: string;
-  attachments?: Attachment[];
-  method: 'QUICK' | 'PROJECT' | 'GPS';
+  date: string;          // YYYY-MM-DD
+  checkInTime: string;   // HH:mm:ss (وقت الحضور)
+  checkOutTime: string | null; // HH:mm:ss (وقت الانصراف)
+  workHours: number;     // إجمالي ساعات اليوم
+  earnedCost: number;    // قيمة الساعات لليوم بالدينار الليبي
+  isVerified: boolean;   // توثيق الاعتماد من المدير (true / false)
+  verifiedAt?: string;   // تاريخ ووقت التوثيق
   createdAt: string;
-}
-
-export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-export type LeaveType = 'ANNUAL' | 'SICK' | 'EMERGENCY' | 'EXCUSE';
-
-export interface LeaveRequest {
-  id: string;
-  userId: string;
-  userName: string;
-  type: LeaveType;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  status: LeaveStatus;
-  createdAt: string;
-}
-
-export interface CompanySettings {
-  companyName: string;
-  logoUrl?: string;
-  n8nWebhookUrl: string;
-  defaultTargetMonthlyHours: number;
-  autoCloseHours: number;
-  customLabels: CustomLabels;
 }
