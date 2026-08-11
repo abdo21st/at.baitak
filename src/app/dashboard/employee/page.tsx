@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square, Moon } from 'lucide-react';
+import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
@@ -74,7 +74,7 @@ export default function EmployeeDashboard() {
       if (data.success) {
         setRecords((prev) => [data.record, ...prev]);
         setMsg({
-          text: `تم تسجيل وقت الحضور (${checkInTime}) بنجاح! يمكنك الآن تسجيل وقت الانصراف عند المغادرة.`,
+          text: `تم تسجيل وقت الحضور (${checkInTime}) بنجاح!`,
           type: 'success'
         });
       } else {
@@ -173,21 +173,19 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Separate Attendance Clocking Card */}
+        {/* Attendance Entry Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-emerald-600" />
               إدخال وقت الحضور والانصراف يدويًا
             </h2>
-            <span className="text-xs font-bold text-slate-400">يمكنك كتابة أو اختيار الوقت والتاريخ مباشرة</span>
           </div>
 
-          {/* STEP 1: CHECK-IN FORM (عندما لا يكون الموظف مسجلاً الحضور) */}
+          {/* STEP 1: CHECK-IN FORM (تسجيل وقت الحضور منفصل) */}
           {!isCheckedIn ? (
             <form onSubmit={handleCheckInSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
-                {/* Date Input with English Numerals */}
                 <div>
                   <label className="block text-slate-700 mb-1.5 font-extrabold">التاريخ</label>
                   <input
@@ -200,7 +198,6 @@ export default function EmployeeDashboard() {
                   />
                 </div>
 
-                {/* Check-in Time Input with English Numerals */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-slate-700 font-extrabold">وقت الحضور *</label>
@@ -235,7 +232,7 @@ export default function EmployeeDashboard() {
               </button>
             </form>
           ) : (
-            /* STEP 2: CHECK-OUT FORM (بعد تسجيل الحضور، يمكنه تسجيل الانصراف فقط) */
+            /* STEP 2: CHECK-OUT FORM (تسجيل وقت الانصراف منفصل) */
             <form onSubmit={handleCheckOutSubmit} className="space-y-5">
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs font-bold text-emerald-900">
                 <div className="flex items-center gap-2">
@@ -248,7 +245,6 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 text-xs font-bold">
-                {/* Check-out Time Input with English Numerals */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-slate-700 font-extrabold">وقت الانصراف *</label>
