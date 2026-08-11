@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { initialUsers } from '@/lib/data-store';
-import { Clock, ShieldCheck, Lock, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { Clock, Lock, User as UserIcon, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +22,6 @@ export default function LoginPage() {
     );
 
     if (foundUser) {
-      // Store current user in localStorage for simple demo persistence
       localStorage.setItem('currentUser', JSON.stringify(foundUser));
 
       if (foundUser.role === 'ADMIN') {
@@ -34,12 +33,6 @@ export default function LoginPage() {
       setError('رقم الموظف أو الرقم السري غير صحيح');
       setLoading(false);
     }
-  };
-
-  const handleQuickSelect = (code: string, pin: string) => {
-    setEmployeeCode(code);
-    setPinCode(pin);
-    setError(null);
   };
 
   return (
@@ -68,9 +61,11 @@ export default function LoginPage() {
             <input
               type="text"
               required
+              lang="en-US"
+              dir="ltr"
               value={employeeCode}
               onChange={(e) => setEmployeeCode(e.target.value)}
-              placeholder="مثال: 101"
+              placeholder="101"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
             />
           </div>
@@ -83,6 +78,8 @@ export default function LoginPage() {
             <input
               type="password"
               required
+              lang="en-US"
+              dir="ltr"
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
               placeholder="••••"
@@ -105,26 +102,6 @@ export default function LoginPage() {
             <ArrowLeft className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Quick Demo Login Preset Buttons */}
-        <div className="border-t border-slate-100 pt-5 text-center space-y-2">
-          <span className="text-slate-400 text-xs font-bold block">تسجيل دخول سريع للتجربة:</span>
-          <div className="grid grid-cols-2 gap-2 text-xs font-bold">
-            <button
-              onClick={() => handleQuickSelect('101', '1234')}
-              className="p-2.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 rounded-xl transition-all"
-            >
-              الموظف (101)
-            </button>
-
-            <button
-              onClick={() => handleQuickSelect('100', '1234')}
-              className="p-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all"
-            >
-              المدير (100)
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
