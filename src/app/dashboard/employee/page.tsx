@@ -53,7 +53,7 @@ export default function EmployeeDashboard() {
   const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;
   const isCheckedIn = !!activeRecord;
 
-  // Monthly Calculations
+  // Monthly Calculations with exact minute precision
   const totalMonthlyHours = Number(
     userRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2)
   );
@@ -61,6 +61,21 @@ export default function EmployeeDashboard() {
   const totalMonthlyEarned = Number(
     userRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)
   );
+
+  // Helper to format hours & minutes text clearly (e.g. 0.5 ساعة أو 8.25 ساعة)
+  const formatHoursText = (hoursNum: number) => {
+    if (!hoursNum && hoursNum !== 0) return '0 ساعة';
+    const totalMinutes = Math.round(hoursNum * 60);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+
+    if (hrs > 0 && mins > 0) {
+      return `${hoursNum} ساعة (${hrs} س و ${mins} د)`;
+    } else if (hrs === 0 && mins > 0) {
+      return `${hoursNum} ساعة (${mins} دقيقة)`;
+    }
+    return `${hoursNum} ساعة`;
+  };
 
   // 1. Separate Check-in action (اختيار الحضور من القائمة)
   const handleCheckInSubmit = async (e: React.FormEvent) => {
@@ -100,7 +115,7 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // 2. Separate Check-out action (اختيار الانصراف من القائمة)
+  // 2. Separate Check-out action (اختيار الانصراف بحساب الدقائق)
   const handleCheckOutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRecord) return;
@@ -142,7 +157,7 @@ export default function EmployeeDashboard() {
       if (data.success) {
         setRecords((prev) => prev.map((r) => (r.id === data.record.id ? data.record : r)));
         setMsg({
-          text: `تم تسجيل وقت الانصراف (${checkOutHour}:${checkOutMinute}) وتدوين ${data.record.workHours} ساعة عمل بنجاح!`,
+          text: `تم تسجيل وقت الانصراف (${checkOutHour}:${checkOutMinute}) وتدوين ${formatHoursText(data.record.workHours)} بقيمة (${data.record.earnedCost} د.ل) بنجاح!`,
           type: 'success'
         });
       } else {
@@ -213,7 +228,7 @@ export default function EmployeeDashboard() {
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              اختيار وقت الحضور والانصراف من القائمة
+              اختيار وقت الحضور والانصراف من القائمة (يشمل الدقائق)
             </h2>
           </div>
 
@@ -451,7 +466,7 @@ export default function EmployeeDashboard() {
                       <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
                       <td className="py-3.5 px-4 text-blue-600 font-bold">{r.checkInTime || '--:--'}</td>
                       <td className="py-3.5 px-4 text-red-600 font-bold">{r.checkOutTime || '--:--'}</td>
-                      <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
+                      <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
                       <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {r.isVerified ? (

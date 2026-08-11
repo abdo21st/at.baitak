@@ -21,8 +21,8 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   const [inH, inM] = checkInTime.split(':').map(Number);
   const [outH, outM] = checkOutTime.split(':').map(Number);
 
-  const inMins = inH * 60 + inM;
-  const outMins = outH * 60 + outM;
+  const inMins = inH * 60 + (inM || 0);
+  const outMins = outH * 60 + (outM || 0);
 
   if (outMins < inMins) {
     // Valid only if check-in is late evening (>= 18:00) and check-out is early morning (< 12:00)
@@ -59,12 +59,13 @@ export async function POST(req: NextRequest) {
       const [inH, inM] = checkInTime.split(':').map(Number);
       const [outH, outM] = checkOutTime.split(':').map(Number);
 
-      let startMins = inH * 60 + inM;
-      let endMins = outH * 60 + outM;
+      let startMins = inH * 60 + (inM || 0);
+      let endMins = outH * 60 + (outM || 0);
 
       if (endMins < startMins) endMins += 24 * 60; // Overnight shift
 
-      workHours = Number(((endMins - startMins) / 60).toFixed(2));
+      const totalMins = endMins - startMins;
+      workHours = Number((totalMins / 60).toFixed(2));
       earnedCost = Number((workHours * hourlyRate).toFixed(2));
     }
 
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 2. Update Check-out Time (تسجيل الانصراف مع منع الانصراف قبل وقت الحضور)
+// 2. Update Check-out Time (حساب الساعات والدقائق بدقة 2 أرقام عشرية)
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -113,11 +114,12 @@ export async function PUT(req: NextRequest) {
     const [inH, inM] = record.checkInTime.split(':').map(Number);
     const [outH, outM] = checkOutTime.split(':').map(Number);
 
-    let startMins = inH * 60 + inM;
-    let endMins = outH * 60 + outM;
+    let startMins = inH * 60 + (inM || 0);
+    let endMins = outH * 60 + (outM || 0);
     if (endMins < startMins) endMins += 24 * 60;
 
-    const diffHours = Number(((endMins - startMins) / 60).toFixed(2));
+    const totalMins = endMins - startMins;
+    const diffHours = Number((totalMins / 60).toFixed(2));
     const earnedCost = Number((diffHours * hourlyRate).toFixed(2));
 
     record.checkOutTime = checkOutTime;
@@ -168,11 +170,12 @@ export async function PATCH(req: NextRequest) {
         const [inH, inM] = record.checkInTime.split(':').map(Number);
         const [outH, outM] = record.checkOutTime.split(':').map(Number);
 
-        let startMins = inH * 60 + inM;
-        let endMins = outH * 60 + outM;
+        let startMins = inH * 60 + (inM || 0);
+        let endMins = outH * 60 + (outM || 0);
         if (endMins < startMins) endMins += 24 * 60;
 
-        record.workHours = Number(((endMins - startMins) / 60).toFixed(2));
+        const totalMins = endMins - startMins;
+        record.workHours = Number((totalMins / 60).toFixed(2));
         record.earnedCost = Number((record.workHours * hourlyRate).toFixed(2));
       }
 
