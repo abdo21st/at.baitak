@@ -576,9 +576,8 @@ export default function AdminDashboard() {
                   4. قيمة ساعة الموظف (بالدينار الليبي د.ل) *
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.5"
                   lang="en-US"
                   dir="ltr"
                   value={empRate}
@@ -666,9 +665,8 @@ export default function AdminDashboard() {
               <div>
                 <label className="block text-slate-700 font-bold mb-1">4. قيمة ساعة الموظف (د.ل) *</label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  step="0.5"
                   lang="en-US"
                   dir="ltr"
                   value={empRate}
