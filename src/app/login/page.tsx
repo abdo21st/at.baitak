@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { initialUsers } from '@/lib/data-store';
+import { User } from '@/lib/types';
 import { Clock, Lock, User as UserIcon, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -12,25 +13,53 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const foundUser = initialUsers.find(
-      (u) => u.employeeCode === employeeCode.trim() && u.pinCode === pinCode.trim()
-    );
+    const inputCode = employeeCode.trim();
+    const inputPin = pinCode.trim();
 
-    if (foundUser) {
-      localStorage.setItem('currentUser', JSON.stringify(foundUser));
+    try {
+      // Fetch live employees from PostgreSQL database
+      const res = await fetch('/api/employees');
+      const data = await res.json();
+      const liveUsers: User[] = (data.success && data.users?.length > 0) ? data.users : initialUsers;
 
-      if (foundUser.role === 'ADMIN') {
-        router.push('/dashboard/admin');
+      const foundUser = liveUsers.find(
+        (u) => u.employeeCode === inputCode && u.pinCode === inputPin
+      );
+
+      if (foundUser) {
+        localStorage.setItem('currentUser', JSON.stringify(foundUser));
+
+        if (foundUser.role === 'ADMIN') {
+          router.push('/dashboard/admin');
+        } else {
+          router.push('/dashboard/employee');
+        }
       } else {
-        router.push('/dashboard/employee');
+        setError('رقم الموظف أو الرقم السري غير صحيح');
       }
-    } else {
-      setError('رقم الموظف أو الرقم السري غير صحيح');
+    } catch {
+      // Offline / fallback check
+      const foundUser = initialUsers.find(
+        (u) => u.employeeCode === inputCode && u.pinCode === inputPin
+      );
+
+      if (foundUser) {
+        localStorage.setItem('currentUser', JSON.stringify(foundUser));
+
+        if (foundUser.role === 'ADMIN') {
+          router.push('/dashboard/admin');
+        } else {
+          router.push('/dashboard/employee');
+        }
+      } else {
+        setError('رقم الموظف أو الرقم السري غير صحيح');
+      }
+    } finally {
       setLoading(false);
     }
   };
