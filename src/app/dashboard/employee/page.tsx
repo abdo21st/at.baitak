@@ -12,7 +12,7 @@ export default function EmployeeDashboard() {
   const [user, setUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (101)
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
 
-  // Separate Check-in vs Check-out Inputs
+  // Date and Time inputs using strictly Western English digits (0-9)
   const [entryDate, setEntryDate] = useState<string>(getCurrentDateFormatted());
   const [checkInTime, setCheckInTime] = useState<string>('08:00');
   const [checkOutTime, setCheckOutTime] = useState<string>('16:00');
@@ -138,6 +138,10 @@ export default function EmployeeDashboard() {
     setCheckOutTime(now.substring(0, 5));
   };
 
+  const setTodayDate = () => {
+    setEntryDate(getCurrentDateFormatted());
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
     router.push('/login');
@@ -186,18 +190,31 @@ export default function EmployeeDashboard() {
           {!isCheckedIn ? (
             <form onSubmit={handleCheckInSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
+                {/* Date Input formatted strictly in Western numerals (YYYY-MM-DD) */}
                 <div>
-                  <label className="block text-slate-700 mb-1.5 font-extrabold">التاريخ</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-slate-700 font-extrabold">التاريخ (YYYY-MM-DD)</label>
+                    <button
+                      type="button"
+                      onClick={setTodayDate}
+                      className="text-[11px] text-emerald-600 hover:underline font-bold"
+                    >
+                      تاريخ اليوم
+                    </button>
+                  </div>
                   <input
-                    type="date"
+                    type="text"
                     required
                     lang="en-US"
+                    dir="ltr"
                     value={entryDate}
                     onChange={(e) => setEntryDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-sm font-bold focus:outline-none focus:border-emerald-500"
+                    placeholder="2026-08-11"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
+                {/* Check-in Time Input with Western numerals (HH:mm) */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-slate-700 font-extrabold">وقت الحضور *</label>
@@ -245,6 +262,7 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 text-xs font-bold">
+                {/* Check-out Time Input with Western numerals (HH:mm) */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-slate-700 font-extrabold">وقت الانصراف *</label>
