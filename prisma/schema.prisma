@@ -32,6 +32,30 @@ enum LeaveType {
   EXCUSE
 }
 
+model Department {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  code      String?
+  jobRoles  JobRole[]
+  users     User[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model JobRole {
+  id                 String     @id @default(uuid())
+  title              String
+  monthlySalary      Float      @default(500.0) // الراتب الشهري المحدد للوظيفة
+  targetMonthlyHours Float      @default(160.0) // ساعات الوظيفة المطلوبة في الشهر
+  departmentId       String
+  department         Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  users              User[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([departmentId, title])
+}
+
 model Project {
   id           String             @id @default(uuid())
   name         String
@@ -54,8 +78,13 @@ model User {
   avatar             String?
   phone              String?
   jobTitle           String
-  targetMonthlyHours Float              @default(160.0)
-  hourlyRate         Float              @default(0.0) // Employee base hourly rate
+  departmentId       String?
+  department         Department?        @relation(fields: [departmentId], references: [id])
+  jobRoleId          String?
+  jobRole            JobRole?           @relation(fields: [jobRoleId], references: [id])
+  monthlySalary      Float              @default(500.0) // الراتب الشهري للوظيفة
+  targetMonthlyHours Float              @default(160.0) // ساعات الوظيفة بالشهر
+  hourlyRate         Float              @default(0.0)   // أجر الساعة المستنتج
   attendances        AttendanceRecord[]
   leaves             LeaveRequest[]
   createdAt          DateTime           @default(now())
@@ -70,7 +99,7 @@ model AttendanceRecord {
   checkInTime  String           // HH:mm:ss
   checkOutTime String?          // HH:mm:ss
   workHours    Float            @default(0.0)
-  earnedCost   Float            @default(0.0) // Calculated workHours * hourlyRate
+  earnedCost   Float            @default(0.0) // Calculated (workHours * monthlySalary) / targetMonthlyHours
   projectId    String?
   project      Project?         @relation(fields: [projectId], references: [id])
   projectName  String?

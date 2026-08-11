@@ -19,6 +19,14 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   return true;
 }
 
+// Helper formula: (workHours * monthlySalary) / targetMonthlyHours
+function calculateEarnedCost(workHours: number, monthlySalary: number = 500, targetMonthlyHours: number = 160): number {
+  if (!workHours || workHours <= 0) return 0;
+  const target = targetMonthlyHours || 160;
+  const salary = monthlySalary || 500;
+  return Number(((workHours * salary) / target).toFixed(2));
+}
+
 // Fetch or seed records in PostgreSQL
 async function getOrSeedRecords(userIdFilter?: string | null): Promise<AttendanceRecord[]> {
   try {
@@ -37,7 +45,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         checkInTime: r.checkInTime,
         checkOutTime: r.checkOutTime || null,
         workHours: r.workHours,
-        earnedCost: r.earnedCost,
+        earnedCost: r.earnedCost || calculateEarnedCost(r.workHours, r.user?.monthlySalary, r.user?.targetMonthlyHours),
         isVerified: false,
         createdAt: r.createdAt.toISOString()
       }));
@@ -101,11 +109,15 @@ export async function POST(req: NextRequest) {
 
     const todayDate = date || new Date().toISOString().split('T')[0];
 
-    // Fetch user for hourly rate
-    let hourlyRate = 50;
+    // Fetch user for job role salary & target hours
+    let monthlySalary = 500;
+    let targetMonthlyHours = 160;
     try {
       const u = await prisma.user.findUnique({ where: { id: userId } });
-      if (u) hourlyRate = u.hourlyRate;
+      if (u) {
+        monthlySalary = u.monthlySalary || 500;
+        targetMonthlyHours = u.targetMonthlyHours || 160;
+      }
     } catch {}
 
     let workHours = 0;
@@ -121,7 +133,7 @@ export async function POST(req: NextRequest) {
 
       const totalMins = endMins - startMins;
       workHours = Number((totalMins / 60).toFixed(2));
-      earnedCost = Number((workHours * hourlyRate).toFixed(2));
+      earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
     }
 
     let newRecord: AttendanceRecord;
@@ -209,7 +221,7 @@ export async function PUT(req: NextRequest) {
 
       const totalMins = endMins - startMins;
       memRec.workHours = Number((totalMins / 60).toFixed(2));
-      memRec.earnedCost = Number((memRec.workHours * 50).toFixed(2));
+      memRec.earnedCost = calculateEarnedCost(memRec.workHours, 500, 160);
       memRec.checkOutTime = checkOutTime;
 
       return NextResponse.json({ success: true, record: memRec });
@@ -222,7 +234,9 @@ export async function PUT(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const hourlyRate = targetRec.user?.hourlyRate || 50;
+    const monthlySalary = targetRec.user?.monthlySalary || 500;
+    const targetMonthlyHours = targetRec.user?.targetMonthlyHours || 160;
+
     const [inH, inM] = targetRec.checkInTime.split(':').map(Number);
     const [outH, outM] = checkOutTime.split(':').map(Number);
     let startMins = inH * 60 + (inM || 0);
@@ -231,7 +245,7 @@ export async function PUT(req: NextRequest) {
 
     const totalMins = endMins - startMins;
     const workHours = Number((totalMins / 60).toFixed(2));
-    const earnedCost = Number((workHours * hourlyRate).toFixed(2));
+    const earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
 
     const updated = await prisma.attendanceRecord.update({
       where: { id: recordId },
@@ -293,7 +307,8 @@ export async function PATCH(req: NextRequest) {
 
           let workHours = target.workHours;
           let earnedCost = target.earnedCost;
-          const hourlyRate = target.user?.hourlyRate || 50;
+          const monthlySalary = target.user?.monthlySalary || 500;
+          const targetMonthlyHours = target.user?.targetMonthlyHours || 160;
 
           if (newIn && newOut) {
             const [inH, inM] = newIn.split(':').map(Number);
@@ -304,7 +319,7 @@ export async function PATCH(req: NextRequest) {
 
             const totalMins = endMins - startMins;
             workHours = Number((totalMins / 60).toFixed(2));
-            earnedCost = Number((workHours * hourlyRate).toFixed(2));
+            earnedCost = calculateEarnedCost(workHours, monthlySalary, targetMonthlyHours);
           }
 
           const updated = await prisma.attendanceRecord.update({

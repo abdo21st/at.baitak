@@ -2,18 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, AttendanceRecord } from '@/lib/types';
+import { User, AttendanceRecord, Department, JobRole } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3 } from 'lucide-react';
+import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, Briefcase } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
+import DepartmentManagement from '@/components/DepartmentManagement';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES'
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES'>('ATTENDANCE');
+  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS'
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS'>('ATTENDANCE');
 
   // Time Edit Modal State
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
@@ -33,11 +35,14 @@ export default function AdminDashboard() {
   const [empName, setEmpName] = useState('');
   const [empCode, setEmpCode] = useState('');
   const [empPin, setEmpPin] = useState('');
+  const [empDepartmentId, setEmpDepartmentId] = useState('');
+  const [empJobRoleId, setEmpJobRoleId] = useState('');
+  const [empMonthlySalary, setEmpMonthlySalary] = useState('500');
+  const [empTargetHours, setEmpTargetHours] = useState('160');
   const [empRate, setEmpRate] = useState('');
   const [userMsg, setUserMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Fetch live users from API
+  const fetchEmployeesAndDeps = () => {
     fetch('/api/employees')
       .then((res) => res.json())
       .then((data) => {
@@ -46,6 +51,19 @@ export default function AdminDashboard() {
         }
       })
       .catch(() => {});
+
+    fetch('/api/departments')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.departments) {
+          setDepartments(data.departments);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchEmployeesAndDeps();
   }, []);
 
   const filteredRecords = selectedUserId === 'ALL'
@@ -107,13 +125,26 @@ export default function AdminDashboard() {
     }
   };
 
+  // When selected department changes, filter available job roles
+  const availableJobRoles = departments.find((d) => d.id === empDepartmentId)?.jobRoles || [];
+
+  const handleJobRoleChange = (roleId: string) => {
+    setEmpJobRoleId(roleId);
+    const role = availableJobRoles.find((r) => r.id === roleId);
+    if (role) {
+      setEmpMonthlySalary(String(role.monthlySalary));
+      setEmpTargetHours(String(role.targetMonthlyHours));
+      setEmpRate(String(role.monthlySalary / role.targetMonthlyHours));
+    }
+  };
+
   // Add New Employee Action
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserMsg(null);
 
-    if (!empName || !empCode || !empPin || !empRate) {
-      setUserMsg('جميع البيانات الأربعة مطلوبة');
+    if (!empName || !empCode || !empPin) {
+      setUserMsg('الاسم، رقم الموظف، والرقم السري مطلوبة');
       return;
     }
 
@@ -126,7 +157,11 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
-          hourlyRate: Number(empRate)
+          departmentId: empDepartmentId || null,
+          jobRoleId: empJobRoleId || null,
+          monthlySalary: Number(empMonthlySalary) || 500,
+          targetMonthlyHours: Number(empTargetHours) || 160,
+          hourlyRate: Number(empRate) || (Number(empMonthlySalary) / 160)
         })
       });
 
@@ -137,7 +172,8 @@ export default function AdminDashboard() {
         setEmpName('');
         setEmpCode('');
         setEmpPin('');
-        setEmpRate('');
+        setEmpDepartmentId('');
+        setEmpJobRoleId('');
       } else {
         setUserMsg(data.error || 'حدث خطأ في إضافة الموظف');
       }
@@ -164,7 +200,11 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
-          hourlyRate: Number(empRate)
+          departmentId: empDepartmentId || null,
+          jobRoleId: empJobRoleId || null,
+          monthlySalary: Number(empMonthlySalary) || 500,
+          targetMonthlyHours: Number(empTargetHours) || 160,
+          hourlyRate: Number(empRate) || (Number(empMonthlySalary) / 160)
         })
       });
 
@@ -206,7 +246,11 @@ export default function AdminDashboard() {
     setEmpName('');
     setEmpCode('');
     setEmpPin('1234');
-    setEmpRate('50');
+    setEmpDepartmentId('');
+    setEmpJobRoleId('');
+    setEmpMonthlySalary('500');
+    setEmpTargetHours('160');
+    setEmpRate('3.125');
     setUserMsg(null);
     setIsAddUserOpen(true);
   };
@@ -216,6 +260,10 @@ export default function AdminDashboard() {
     setEmpName(u.name);
     setEmpCode(u.employeeCode);
     setEmpPin(u.pinCode);
+    setEmpDepartmentId(u.departmentId || '');
+    setEmpJobRoleId(u.jobRoleId || '');
+    setEmpMonthlySalary(String(u.monthlySalary || 500));
+    setEmpTargetHours(String(u.targetMonthlyHours || 160));
     setEmpRate(String(u.hourlyRate));
     setUserMsg(null);
   };
@@ -243,10 +291,10 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                لوحة المدير الإدارية لتوثيق الدوام وإدارة الموظفين
+                لوحة المدير الإدارية لتوثيق الدوام وإدارة الموظفين والأقسام
               </h1>
               <p className="text-slate-500 text-xs font-semibold">
-                توثيق الحضور وتعديل ساعات الدوام وإدارة بيانات الموظفين
+                توثيق الحضور وتعديل ساعات الدوام وإدارة الأقسام والوظائف وقيمها الشهرية
               </p>
             </div>
           </div>
@@ -262,7 +310,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        {/* Navigation Tabs (سجل وتوثيق الدوام vs تقويم ساعات الحضور vs إدارة الموظفين) */}
+        {/* Navigation Tabs (سجل وتوثيق الدوام vs تقويم ساعات الحضور vs قسم الموظفين vs إدارة الأقسام والوظائف) */}
         <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 print:hidden">
           <button
             onClick={() => setActiveTab('ATTENDANCE')}
@@ -298,6 +346,18 @@ export default function AdminDashboard() {
           >
             <Users className="w-4 h-4 text-blue-400" />
             قسم إدارة الموظفين ({users.filter(u => u.role !== 'ADMIN').length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('DEPARTMENTS')}
+            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'DEPARTMENTS'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Building2 className="w-4 h-4 text-indigo-400" />
+            إدارة الأقسام والوظائف
           </button>
         </div>
 
@@ -438,7 +498,7 @@ export default function AdminDashboard() {
                   قسم إدارة وتحديث بيانات الموظفين
                 </h2>
                 <p className="text-slate-500 text-xs font-semibold">
-                  إضافة موظف جديد، تعديل بياناته، أو حذفه من النظام
+                  إضافة موظف جديد، تعيين قسمه ووظيفته وقيمتها الشهرية، أو حذفه
                 </p>
               </div>
 
@@ -457,9 +517,10 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                     <th className="py-3.5 px-4 font-bold">اسم الموظف</th>
+                    <th className="py-3.5 px-4 font-bold">القسم والوظيفة</th>
                     <th className="py-3.5 px-4 font-bold text-center">رقم الموظف (ID)</th>
                     <th className="py-3.5 px-4 font-bold text-center">الرقم السري (PIN)</th>
-                    <th className="py-3.5 px-4 font-bold text-center">قيمة الساعة</th>
+                    <th className="py-3.5 px-4 font-bold text-center">الراتب الشهري / 160 س</th>
                     <th className="py-3.5 px-4 font-bold text-center">نوع الحساب</th>
                     <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
                   </tr>
@@ -474,13 +535,20 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <div>{u.name}</div>
-                            <span className="text-[10px] text-slate-400 font-semibold">{u.jobTitle || 'موظف'}</span>
                           </div>
                         </div>
                       </td>
+                      <td className="py-3.5 px-4 font-sans font-bold">
+                        <div className="text-slate-900">{u.departmentName || 'عام'}</div>
+                        <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
+                          {u.jobTitle || 'موظف'}
+                        </span>
+                      </td>
                       <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700">{u.employeeCode}</td>
                       <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600">{u.pinCode}</td>
-                      <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700">{u.hourlyRate} د.ل</td>
+                      <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700">
+                        {u.monthlySalary || 500} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
+                      </td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {u.role === 'ADMIN' ? (
                           <span className="px-2.5 py-1 rounded-full bg-slate-900 text-emerald-400 text-[10px] font-black">
@@ -522,12 +590,17 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 4: DEPARTMENT & JOB ROLE MANAGEMENT */}
+        {activeTab === 'DEPARTMENTS' && (
+          <DepartmentManagement />
+        )}
       </main>
 
       {/* Add Employee Modal */}
       {isAddUserOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-blue-600" />
@@ -554,53 +627,92 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
-                  <Hash className="w-3.5 h-3.5 text-blue-600" />
-                  2. رقم الموظف (Employee ID) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empCode}
-                  onChange={(e) => setEmpCode(e.target.value)}
-                  placeholder="104"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">القسم التابع له الموظف</label>
+                  <select
+                    value={empDepartmentId}
+                    onChange={(e) => {
+                      setEmpDepartmentId(e.target.value);
+                      setEmpJobRoleId('');
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">اختر القسم (اختياري)</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة</label>
+                  <select
+                    value={empJobRoleId}
+                    onChange={(e) => handleJobRoleChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">اختر الوظيفة (اختياري)</option>
+                    {availableJobRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.title} ({r.monthlySalary} د.ل)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
-                  <Key className="w-3.5 h-3.5 text-blue-600" />
-                  3. الرقم السري (PIN) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empPin}
-                  onChange={(e) => setEmpPin(e.target.value)}
-                  placeholder="1234"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Hash className="w-3.5 h-3.5 text-blue-600" />
+                    2. رقم الموظف (ID) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empCode}
+                    onChange={(e) => setEmpCode(e.target.value)}
+                    placeholder="104"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" />
+                    3. الرقم السري (PIN) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empPin}
+                    onChange={(e) => setEmpPin(e.target.value)}
+                    placeholder="1234"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                   <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                  4. قيمة ساعة الموظف (بالدينار الليبي د.ل) *
+                  4. قيمة الوظيفة الشهرية (بالدينار الليبي د.ل) *
                 </label>
                 <input
                   type="text"
                   required
                   lang="en-US"
                   dir="ltr"
-                  value={empRate}
-                  onChange={(e) => setEmpRate(e.target.value)}
-                  placeholder="50"
+                  value={empMonthlySalary}
+                  onChange={(e) => setEmpMonthlySalary(e.target.value)}
+                  placeholder="500"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -631,7 +743,7 @@ export default function AdminDashboard() {
       {/* Edit Employee Modal */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-blue-600" />
@@ -654,41 +766,80 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">2. رقم الموظف (ID) *</label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empCode}
-                  onChange={(e) => setEmpCode(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">القسم</label>
+                  <select
+                    value={empDepartmentId}
+                    onChange={(e) => {
+                      setEmpDepartmentId(e.target.value);
+                      setEmpJobRoleId('');
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">اختر القسم</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة</label>
+                  <select
+                    value={empJobRoleId}
+                    onChange={(e) => handleJobRoleChange(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">اختر الوظيفة</option>
+                    {availableJobRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.title} ({r.monthlySalary} د.ل)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">2. رقم الموظف (ID) *</label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empCode}
+                    onChange={(e) => setEmpCode(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">3. الرقم السري (PIN) *</label>
+                  <input
+                    type="text"
+                    required
+                    lang="en-US"
+                    dir="ltr"
+                    value={empPin}
+                    onChange={(e) => setEmpPin(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">3. الرقم السري (PIN) *</label>
+                <label className="block text-slate-700 font-bold mb-1">4. قيمة الوظيفة الشهرية (د.ل) *</label>
                 <input
                   type="text"
                   required
                   lang="en-US"
                   dir="ltr"
-                  value={empPin}
-                  onChange={(e) => setEmpPin(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">4. قيمة ساعة الموظف (د.ل) *</label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={empRate}
-                  onChange={(e) => setEmpRate(e.target.value)}
+                  value={empMonthlySalary}
+                  onChange={(e) => setEmpMonthlySalary(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                 />
               </div>

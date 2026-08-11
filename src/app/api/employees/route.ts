@@ -9,6 +9,7 @@ let memoryUsers: User[] = [...initialUsers];
 async function getOrSeedUsers(): Promise<User[]> {
   try {
     const dbUsers = await prisma.user.findMany({
+      include: { department: true, jobRole: true },
       orderBy: { createdAt: 'asc' }
     });
 
@@ -19,8 +20,14 @@ async function getOrSeedUsers(): Promise<User[]> {
         pinCode: u.password || '1234',
         name: u.name,
         role: u.role as any,
-        hourlyRate: u.hourlyRate,
-        jobTitle: u.jobTitle
+        hourlyRate: u.hourlyRate || (u.monthlySalary / u.targetMonthlyHours),
+        jobTitle: u.jobTitle || u.jobRole?.title || 'موظف',
+        departmentId: u.departmentId || undefined,
+        departmentName: u.department?.name,
+        jobRoleId: u.jobRoleId || undefined,
+        jobRoleTitle: u.jobRole?.title,
+        monthlySalary: u.monthlySalary || 500,
+        targetMonthlyHours: u.targetMonthlyHours || 160
       }));
     }
 
@@ -35,6 +42,8 @@ async function getOrSeedUsers(): Promise<User[]> {
           password: u.pinCode,
           role: u.role as any,
           hourlyRate: u.hourlyRate,
+          monthlySalary: u.hourlyRate * 160 || 500,
+          targetMonthlyHours: 160,
           jobTitle: u.jobTitle || 'موظف'
         }
       });
@@ -57,7 +66,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle } = body;
+    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, monthlySalary, targetMonthlyHours } = body;
 
     if (!name || !employeeCode) {
       return NextResponse.json({ success: false, error: 'الاسم ورقم الموظف مطلوبان' }, { status: 400 });
@@ -66,6 +75,23 @@ export async function POST(req: NextRequest) {
     const codeStr = String(employeeCode).trim();
     const pinStr = String(pinCode || '1234').trim();
     const nameStr = String(name).trim();
+
+    let finalMonthlySalary = Number(monthlySalary) || 500;
+    let finalTargetHours = Number(targetMonthlyHours) || 160;
+    let finalJobTitle = jobTitle || 'موظف';
+
+    if (jobRoleId) {
+      try {
+        const jr = await prisma.jobRole.findUnique({ where: { id: jobRoleId } });
+        if (jr) {
+          finalMonthlySalary = jr.monthlySalary;
+          finalTargetHours = jr.targetMonthlyHours;
+          finalJobTitle = jr.title;
+        }
+      } catch {}
+    } else if (hourlyRate) {
+      finalMonthlySalary = Number(hourlyRate) * 160;
+    }
 
     try {
       const existingUser = await prisma.user.findUnique({
@@ -83,20 +109,25 @@ export async function POST(req: NextRequest) {
           email: `${codeStr}-${Date.now()}@hodoork.ly`,
           password: pinStr,
           role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
-          hourlyRate: Number(hourlyRate) || 50,
-          jobTitle: jobTitle || 'صيدلي / موظف'
+          monthlySalary: finalMonthlySalary,
+          targetMonthlyHours: finalTargetHours,
+          hourlyRate: finalMonthlySalary / finalTargetHours,
+          jobTitle: finalJobTitle,
+          departmentId: departmentId || null,
+          jobRoleId: jobRoleId || null
         }
       });
     } catch (dbErr) {
-      // Memory fallback
       const newUser: User = {
         id: `usr-${Date.now()}`,
         employeeCode: codeStr,
         pinCode: pinStr,
         name: nameStr,
         role: role || 'EMPLOYEE',
-        hourlyRate: Number(hourlyRate) || 50,
-        jobTitle: jobTitle || 'موظف'
+        hourlyRate: finalMonthlySalary / finalTargetHours,
+        jobTitle: finalJobTitle,
+        monthlySalary: finalMonthlySalary,
+        targetMonthlyHours: finalTargetHours
       };
       memoryUsers.push(newUser);
     }
@@ -112,11 +143,29 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle } = body;
+    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, monthlySalary, targetMonthlyHours } = body;
 
     const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
     const pinStr = pinCode ? String(pinCode).trim() : undefined;
     const nameStr = name ? String(name).trim() : undefined;
+
+    let finalMonthlySalary = monthlySalary !== undefined ? Number(monthlySalary) : undefined;
+    let finalTargetHours = targetMonthlyHours !== undefined ? Number(targetMonthlyHours) : undefined;
+    let finalJobTitle = jobTitle;
+
+    if (jobRoleId) {
+      try {
+        const jr = await prisma.jobRole.findUnique({ where: { id: jobRoleId } });
+        if (jr) {
+          finalMonthlySalary = jr.monthlySalary;
+          finalTargetHours = jr.targetMonthlyHours;
+          finalJobTitle = jr.title;
+        }
+      } catch {}
+    } else if (hourlyRate !== undefined) {
+      finalMonthlySalary = Number(hourlyRate) * 160;
+      finalTargetHours = 160;
+    }
 
     try {
       await prisma.user.update({
@@ -125,9 +174,13 @@ export async function PUT(req: NextRequest) {
           ...(nameStr && { name: nameStr }),
           ...(codeStr && { employeeCode: codeStr }),
           ...(pinStr && { password: pinStr }),
-          ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
+          ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
+          ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),
+          ...(finalMonthlySalary && finalTargetHours && { hourlyRate: finalMonthlySalary / finalTargetHours }),
           ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
-          ...(jobTitle && { jobTitle })
+          ...(finalJobTitle && { jobTitle: finalJobTitle }),
+          ...(departmentId !== undefined && { departmentId: departmentId || null }),
+          ...(jobRoleId !== undefined && { jobRoleId: jobRoleId || null })
         }
       });
     } catch (dbErr) {
@@ -136,7 +189,7 @@ export async function PUT(req: NextRequest) {
         if (nameStr) u.name = nameStr;
         if (codeStr) u.employeeCode = codeStr;
         if (pinStr) u.pinCode = pinStr;
-        if (hourlyRate !== undefined) u.hourlyRate = Number(hourlyRate);
+        if (finalMonthlySalary) u.monthlySalary = finalMonthlySalary;
       }
     }
 
