@@ -1,4 +1,17 @@
-import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings } from './types';
+import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings, CustomLabels } from './types';
+
+export const defaultCustomLabels: CustomLabels = {
+  appName: 'صيدليات بيتك HodoorK',
+  companyName: 'مجموعة صيدليات بيتك الطبية',
+  dashboardTitle: 'لوحة إدارة وتتبع دوام ومناوبات صيدليات بيتك',
+  timerTitle: 'ساعة المناوبة الحية للصيدلية',
+  projectsTitle: 'فروع الصيدليات وشفتات الدوام',
+  employeesTitle: 'الكادر الصيدلاني والأطقم الطبية',
+  currencySymbol: 'د.ل',
+  monthlyTargetTitle: 'هدف مناوبات الشهر',
+  checkInBtnText: 'استلام المناوبة / بدء الشفت',
+  checkOutBtnText: 'تسليم المناوبة / إنهاء الشفت'
+};
 
 export const initialProjects: Project[] = [
   { id: 'proj-1', name: 'صيدلية بيتك المركزية - الشفت الصباحي', clientName: 'فرع المركز الرئيسي', hourlyRate: 45.0, budgetHours: 160, color: '#0284c7' },
@@ -59,11 +72,12 @@ export const initialUsers: User[] = [
 ];
 
 export const initialCompanySettings: CompanySettings = {
-  companyName: 'نظام إدارة دوام ومناوبات صيدليات بيتك الطبية',
+  companyName: 'مجموعة صيدليات بيتك الطبية',
   logoUrl: '',
   n8nWebhookUrl: 'https://n8n.ordermt.ly/webhook/attendance-alert',
   defaultTargetMonthlyHours: 160,
-  autoCloseHours: 12.0
+  autoCloseHours: 12.0,
+  customLabels: { ...defaultCustomLabels }
 };
 
 const todayStr = new Date().toISOString().split('T')[0];

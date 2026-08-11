@@ -5,13 +5,14 @@ import Navbar from '@/components/Navbar';
 import AttendanceLogTable from '@/components/AttendanceLogTable';
 import ProjectManagerModal from '@/components/ProjectManagerModal';
 import EmployeeManagerModal from '@/components/EmployeeManagerModal';
-import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings } from '@/lib/types';
+import LabelCustomizerModal from '@/components/LabelCustomizerModal';
+import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings, CustomLabels } from '@/lib/types';
 import { initialUsers, initialProjects, initialAttendanceRecords, initialLeaveRequests, initialCompanySettings } from '@/lib/data-store';
-import { Clock, Users, FolderPlus, Coins, CheckCircle2, XCircle, RotateCcw, Send, Sparkles, HeartPulse, Bell } from 'lucide-react';
+import { Clock, Users, FolderPlus, Coins, CheckCircle2, XCircle, RotateCcw, Send, Sparkles, HeartPulse, Bell, Settings, Type, Building2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function AdminDashboard() {
-  const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]); // Admin Pharmacist
+  const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]);
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
@@ -20,7 +21,10 @@ export default function AdminDashboard() {
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const labels = settings.customLabels;
 
   // Compute live system stats
   const activeSessionsCount = records.filter((r) => !r.checkOutTime).length;
@@ -28,7 +32,7 @@ export default function AdminDashboard() {
   const totalEarnedCost = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
   const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;
 
-  // Chart data: Total hours per pharmacy branch
+  // Chart data
   const chartData = projects.map((p) => {
     const projRecords = records.filter((r) => r.projectId === p.id);
     const hrs = Number(projRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1));
@@ -42,11 +46,12 @@ export default function AdminDashboard() {
   };
 
   const handleFactoryReset = async () => {
-    if (window.confirm('هل أنت تأكد من إعادة ضبط المصنع واسترجاع بيانات الصيدليات الأولية؟')) {
+    if (window.confirm('هل أنت تأكد من إعادة ضبط المصنع واسترجاع بيانات النظام والأولية؟')) {
       setRecords([...initialAttendanceRecords]);
       setProjects([...initialProjects]);
       setUsers([...initialUsers]);
       setLeaves([...initialLeaveRequests]);
+      setSettings({ ...initialCompanySettings });
       setMsg('تمت إعادة ضبط المصنع بنجاح!');
     }
   };
@@ -61,37 +66,50 @@ export default function AdminDashboard() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Top Control Bar & Management Buttons */}
+        {/* Top Control Bar & Dynamic Title */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              لوحة إدارة وتتبع دوام صيدليات بيتك الطبية (Admin Portal)
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                {labels.dashboardTitle}
+              </h2>
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold px-2.5 py-0.5 rounded-full">
+                {labels.companyName}
+              </span>
+            </div>
             <p className="text-slate-500 text-xs mt-0.5 font-medium">
-              مراقبة مناوبات الصيدليات المباشرة، الأجور بالدينار الليبي (د.ل)، والتكامل مع n8n والسيرفر
+              مراقبة مناوبات الدوام المباشرة، الأجور بالعملة {labels.currencySymbol}، والتكامل مع n8n والسيرفر
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => setIsLabelModalOpen(true)}
+              className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold rounded-xl shadow-sm flex items-center gap-2 text-xs transition-all cursor-pointer"
+            >
+              <Type className="w-4 h-4 text-emerald-600" />
+              تخصيص جميع العناوين والشركة
+            </button>
+
             <button
               onClick={() => setIsProjectModalOpen(true)}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
+              className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
             >
               <FolderPlus className="w-4 h-4" />
-              إدارة الفروع والشفتات
+              {labels.projectsTitle}
             </button>
 
             <button
               onClick={() => setIsEmployeeModalOpen(true)}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
+              className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
             >
               <Users className="w-4 h-4" />
-              إدارة الأطقم الصيدلانية والأجور
+              {labels.employeesTitle}
             </button>
 
             <button
               onClick={handleFactoryReset}
-              className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
               title="إعادة ضبط المصنع"
             >
               <RotateCcw className="w-4 h-4 text-rose-600" />
@@ -108,7 +126,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <span className="text-slate-400 text-xs font-semibold block font-sans">المناوبات النشطة الآن</span>
-              <span className="text-2xl font-black text-slate-900">{activeSessionsCount} صيدلي</span>
+              <span className="text-2xl font-black text-slate-900">{activeSessionsCount} عضو</span>
             </div>
           </div>
 
@@ -117,7 +135,7 @@ export default function AdminDashboard() {
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block font-sans">ساعات المناوبة المنجزة</span>
+              <span className="text-slate-400 text-xs font-semibold block font-sans">إجمالي ساعات الدوام المنجزة</span>
               <span className="text-2xl font-black text-slate-900">{totalHoursWorked} ساعة</span>
             </div>
           </div>
@@ -128,7 +146,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <span className="text-slate-400 text-xs font-semibold block font-sans">إجمالي الأجور المستحقة</span>
-              <span className="text-2xl font-black text-emerald-700">{totalEarnedCost} د.ل</span>
+              <span className="text-2xl font-black text-emerald-700">{totalEarnedCost} {labels.currencySymbol}</span>
             </div>
           </div>
 
@@ -143,12 +161,13 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Charts & n8n Integration Grid */}
+        {/* Charts & Dedicated Settings Section Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left 8 Cols: Recharts Project Hours Analytics */}
           <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-emerald-600" />
-              توزيع ساعات دوام المناوبات حسب فروع الصيدليات
+              تحليل ساعات الدوام وتوزيعها على {labels.projectsTitle}
             </h3>
 
             <div className="h-64 w-full">
@@ -166,32 +185,50 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* Right 4 Cols: Dedicated Settings Section */}
           <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
-                <Bell className="w-4 h-4" />
-                تنبيهات المناوبات عبر n8n و WhatsApp
+              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm border-b border-slate-100 pb-3">
+                <Settings className="w-5 h-5 text-emerald-600" />
+                قسم إعدادات النظام وتخصيص العناوين
               </div>
-              <h4 className="text-sm font-extrabold text-slate-900 mt-1">
-                إشعارات استلام وتسليم شفت الصيدلية
-              </h4>
-              <p className="text-slate-500 text-xs mt-1">
-                يتم إرسال إشعار فوري لـ n8n على <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">n8n.ordermt.ly</code> فور استلام المناوبة أو إنهاء الشفت.
-              </p>
 
-              <div className="mt-4">
-                <label className="block text-slate-700 text-xs font-bold mb-1">رابط Webhook الخاص بـ n8n</label>
-                <input
-                  type="text"
-                  value={settings.n8nWebhookUrl}
-                  onChange={(e) => setSettings({ ...settings, n8nWebhookUrl: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-500"
-                />
+              <div className="mt-4 space-y-3">
+                <button
+                  onClick={() => setIsLabelModalOpen(true)}
+                  className="w-full p-3 bg-slate-50 hover:bg-emerald-50 text-slate-800 border border-slate-200 hover:border-emerald-300 rounded-2xl text-xs font-extrabold flex items-center justify-between transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Type className="w-4 h-4 text-emerald-600" />
+                    <span>تخصيص جميع العناوين والشركة</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold">تعديل</span>
+                </button>
+
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-slate-500" />
+                    اسم الشركة: <span className="text-emerald-700">{labels.companyName}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    اسم البرنامج: <span className="text-slate-900 font-semibold">{labels.appName}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 text-xs font-bold mb-1">رابط Webhook لـ n8n والواتساب</label>
+                  <input
+                    type="text"
+                    value={settings.n8nWebhookUrl}
+                    onChange={(e) => setSettings({ ...settings, n8nWebhookUrl: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-semibold">
-              ✅ الربط نشط وتنبيهات الواتساب مفعلة.
+              ✅ إعدادات النظام وتسميات العناوين مفعلة وحية.
             </div>
           </div>
         </div>
@@ -207,7 +244,7 @@ export default function AdminDashboard() {
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="py-3 px-4 font-bold">الصيدلي</th>
+                    <th className="py-3 px-4 font-bold">العضو / الصيدلي</th>
                     <th className="py-3 px-4 font-bold">نوع الطلب</th>
                     <th className="py-3 px-4 font-bold">من تاريخ</th>
                     <th className="py-3 px-4 font-bold">إلى تاريخ</th>
@@ -262,12 +299,21 @@ export default function AdminDashboard() {
         {/* Master Attendance Log Table */}
         <AttendanceLogTable
           records={records}
-          title="كشف المناوبات والتسليم والتسلّم لكافة الأطقم الصيدلانية"
+          title={`كشف المناوبات وتسلّم وتدوين ساعات ${labels.employeesTitle}`}
           showEmployeeName={true}
         />
       </main>
 
       {/* Modals */}
+      <LabelCustomizerModal
+        currentLabels={labels}
+        isOpen={isLabelModalOpen}
+        onClose={() => setIsLabelModalOpen(false)}
+        onLabelsUpdated={(newLabels) => {
+          setSettings((prev) => ({ ...prev, customLabels: newLabels }));
+        }}
+      />
+
       <ProjectManagerModal
         projects={projects}
         isOpen={isProjectModalOpen}
