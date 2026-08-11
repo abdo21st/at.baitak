@@ -731,6 +731,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                {empJobRoleId && (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                     <Coins className="w-3.5 h-3.5 text-emerald-600" />
@@ -743,10 +744,10 @@ export default function AdminDashboard() {
                     value={empMonthlySalary}
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
                     placeholder="0"
-                    disabled={!empJobRoleId}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+                )}
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}
@@ -877,6 +878,7 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                {empJobRoleId && (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">راتب الوظيفة الخاص (د.ل)</label>
                   <input
@@ -885,10 +887,10 @@ export default function AdminDashboard() {
                     dir="ltr"
                     value={empMonthlySalary}
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
-                    disabled={!empJobRoleId}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+                )}
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}
