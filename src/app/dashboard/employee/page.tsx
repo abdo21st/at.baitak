@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square } from 'lucide-react';
+import { Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut, Play, Square, Zap } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
 
 export default function EmployeeDashboard() {
@@ -12,7 +12,7 @@ export default function EmployeeDashboard() {
   const [user, setUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (101)
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
 
-  // Date and Time inputs using strictly Western English digits (0-9)
+  // Separate Check-in vs Check-out Inputs
   const [entryDate, setEntryDate] = useState<string>(getCurrentDateFormatted());
   const [checkInTime, setCheckInTime] = useState<string>('08:00');
   const [checkOutTime, setCheckOutTime] = useState<string>('16:00');
@@ -153,7 +153,7 @@ export default function EmployeeDashboard() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center font-bold shadow-md">
+            <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold shadow-md">
               <Clock className="w-6 h-6" />
             </div>
             <div>
@@ -161,7 +161,7 @@ export default function EmployeeDashboard() {
                 تسجيل دوام الموظف ({user.name})
               </h1>
               <p className="text-slate-500 text-xs font-semibold">
-                رقم الموظف: <span className="font-mono text-emerald-700 font-bold">{user.employeeCode}</span> | أجر الساعة: <span className="font-mono text-slate-900 font-bold">{user.hourlyRate} د.ل</span>
+                رقم الموظف: <span className="font-mono text-blue-700 font-bold">{user.employeeCode}</span> | أجر الساعة: <span className="font-mono text-slate-900 font-bold">{user.hourlyRate} د.ل</span>
               </p>
             </div>
           </div>
@@ -181,24 +181,25 @@ export default function EmployeeDashboard() {
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-6">
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-600" />
+              <Clock className="w-5 h-5 text-blue-600" />
               إدخال وقت الحضور والانصراف يدويًا
             </h2>
           </div>
 
-          {/* STEP 1: CHECK-IN FORM (تسجيل وقت الحضور منفصل) */}
+          {/* STEP 1: CHECK-IN FORM (تسجيل وقت الحضور باللون الأزرق) */}
           {!isCheckedIn ? (
             <form onSubmit={handleCheckInSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
-                {/* Date Input formatted strictly in Western numerals (YYYY-MM-DD) */}
+                {/* Date Input */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold">التاريخ (YYYY-MM-DD)</label>
+                    <label className="text-slate-700 font-extrabold text-sm">التاريخ</label>
                     <button
                       type="button"
                       onClick={setTodayDate}
-                      className="text-[11px] text-emerald-600 hover:underline font-bold"
+                      className="px-3 py-1 bg-sky-100 hover:bg-sky-200 text-sky-700 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-sky-200 flex items-center gap-1"
                     >
+                      <Zap className="w-3.5 h-3.5" />
                       تاريخ اليوم
                     </button>
                   </div>
@@ -210,19 +211,20 @@ export default function EmployeeDashboard() {
                     value={entryDate}
                     onChange={(e) => setEntryDate(e.target.value)}
                     placeholder="2026-08-11"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
-                {/* Check-in Time Input with Western numerals (HH:mm) */}
+                {/* Check-in Time Input */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold">وقت الحضور *</label>
+                    <label className="text-slate-700 font-extrabold text-sm">وقت الحضور *</label>
                     <button
                       type="button"
                       onClick={setNowForCheckIn}
-                      className="text-[11px] text-emerald-600 hover:underline font-bold"
+                      className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-blue-200 flex items-center gap-1"
                     >
+                      <Clock className="w-3.5 h-3.5" />
                       الوقت الحالي
                     </button>
                   </div>
@@ -234,43 +236,45 @@ export default function EmployeeDashboard() {
                     value={checkInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
                     placeholder="08:00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
+              {/* BLUE CHECK-IN BUTTON */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-base rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
-                <Play className="w-4 h-4 fill-white" />
+                <Play className="w-5 h-5 fill-white" />
                 {loading ? 'جاري التسجيل...' : 'تسجيل وقت الحضور'}
               </button>
             </form>
           ) : (
-            /* STEP 2: CHECK-OUT FORM (تسجيل وقت الانصراف منفصل) */
+            /* STEP 2: CHECK-OUT FORM (تسجيل وقت الانصراف باللون الأحمر) */
             <form onSubmit={handleCheckOutSubmit} className="space-y-5">
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs font-bold text-emerald-900">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-900">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
                   <span>تم تسجيل وقت الحضور لهذا اليوم ({activeRecord.date}):</span>
                 </div>
-                <span className="font-mono text-sm font-black text-emerald-700 bg-white px-3 py-1 rounded-xl border border-emerald-200">
+                <span className="font-mono text-sm font-black text-blue-700 bg-white px-3 py-1 rounded-xl border border-blue-200">
                   {activeRecord.checkInTime}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 gap-4 text-xs font-bold">
-                {/* Check-out Time Input with Western numerals (HH:mm) */}
+                {/* Check-out Time Input */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-slate-700 font-extrabold">وقت الانصراف *</label>
+                    <label className="text-slate-700 font-extrabold text-sm">وقت الانصراف *</label>
                     <button
                       type="button"
                       onClick={setNowForCheckOut}
-                      className="text-[11px] text-emerald-600 hover:underline font-bold"
+                      className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1"
                     >
+                      <Clock className="w-3.5 h-3.5" />
                       الوقت الحالي
                     </button>
                   </div>
@@ -282,17 +286,18 @@ export default function EmployeeDashboard() {
                     value={checkOutTime}
                     onChange={(e) => setCheckOutTime(e.target.value)}
                     placeholder="16:00"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-red-500"
                   />
                 </div>
               </div>
 
+              {/* RED CHECK-OUT BUTTON */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-rose-600 hover:bg-rose-500 text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-base rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
-                <Square className="w-4 h-4 fill-white" />
+                <Square className="w-5 h-5 fill-white" />
                 {loading ? 'جاري التسجيل...' : 'تسجيل وقت الانصراف'}
               </button>
             </form>
@@ -302,8 +307,8 @@ export default function EmployeeDashboard() {
             <div
               className={`p-3.5 rounded-2xl text-xs font-extrabold text-center max-w-md mx-auto ${
                 msg.type === 'success'
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                  : 'bg-red-50 text-red-800 border border-red-200'
               }`}
             >
               {msg.text}
@@ -314,7 +319,7 @@ export default function EmployeeDashboard() {
         {/* Monthly Summary Cards Header */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono">
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <Clock className="w-7 h-7" />
             </div>
             <div>
@@ -329,7 +334,7 @@ export default function EmployeeDashboard() {
             </div>
             <div>
               <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي قيمة ساعات العمل لهذا الشهر</span>
-              <span className="text-3xl font-black text-emerald-700">{totalMonthlyEarned} د.ل</span>
+              <span className="text-3xl font-black text-teal-700">{totalMonthlyEarned} د.ل</span>
             </div>
           </div>
         </div>
@@ -337,7 +342,7 @@ export default function EmployeeDashboard() {
         {/* Monthly Attendance Log Table */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
           <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-600" />
+            <Calendar className="w-5 h-5 text-blue-600" />
             جدول ساعات عمل الشهر الحالي
           </h2>
 
@@ -364,14 +369,14 @@ export default function EmployeeDashboard() {
                   userRecords.map((r) => (
                     <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
-                      <td className="py-3.5 px-4 text-emerald-600 font-bold">{r.checkInTime || '--:--'}</td>
-                      <td className="py-3.5 px-4 text-rose-600 font-bold">{r.checkOutTime || '--:--'}</td>
+                      <td className="py-3.5 px-4 text-blue-600 font-bold">{r.checkInTime || '--:--'}</td>
+                      <td className="py-3.5 px-4 text-red-600 font-bold">{r.checkOutTime || '--:--'}</td>
                       <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
-                      <td className="py-3.5 px-4 text-center font-black text-emerald-700">{r.earnedCost} د.ل</td>
+                      <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {r.isVerified ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
                             موثّق
                           </span>
                         ) : (
