@@ -1,4 +1,4 @@
-// Distance calculation using Haversine formula (meters)
+// Haversine formula distance calculation in meters
 export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // metres
   const φ1 = (lat1 * Math.PI) / 180;
@@ -20,13 +20,16 @@ export function getCurrentDateFormatted(): string {
 
 export function getCurrentTimeFormatted(): string {
   const d = new Date();
-  return d.toTimeString().split(' ')[0];
+  const hrs = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  const secs = String(d.getSeconds()).padStart(2, '0');
+  return `${hrs}:${mins}:${secs}`;
 }
 
 export function formatArabicDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('ar-SA', {
+    return d.toLocaleDateString('ar-LY-u-nu-latn', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

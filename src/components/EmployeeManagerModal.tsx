@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, UserPlus, Users, FileSpreadsheet, Download, ShieldCheck, Mail, Phone, DollarSign } from 'lucide-react';
+import { X, UserPlus, Users, FileSpreadsheet, Download, ShieldCheck, Mail, Phone, HeartPulse } from 'lucide-react';
 import { User } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
@@ -60,7 +60,7 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
         setEmployeeCode('');
         setJobTitle('');
         setPhone('');
-        setMsg('تمت إضافة الموظف بنجاح!');
+        setMsg('تمت إضافة الصيدلي/الموظف بنجاح!');
       } else {
         setMsg(data.error || 'خطأ في إضافة الموظف');
       }
@@ -73,20 +73,20 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
 
   const exportEmployeesExcel = () => {
     const data = users.map((u) => ({
-      'كود الموظف': u.employeeCode,
+      'كود الصيدلي': u.employeeCode,
       'الاسم الكامل': u.name,
       'البريد الإلكتروني': u.email,
       'المسمى الوظيفي': u.jobTitle,
       'الهاتف': u.phone,
-      'سعر الساعة ($ / د.ل)': u.hourlyRate,
-      'الساعات المستهدفة شهرياً': u.targetMonthlyHours,
-      'الدور': u.role === 'ADMIN' ? 'مدير نظام' : 'موظف'
+      'أجر الساعة (د.ل)': u.hourlyRate,
+      'ساعات المناوبة المستهدفة شهرياً': u.targetMonthlyHours,
+      'الدور': u.role === 'ADMIN' ? 'مدير الصيدلية' : 'صيدلي'
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'الموظفين');
-    XLSX.writeFile(wb, `قائمة_الموظفين_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'الكادر_الصيدلاني');
+    XLSX.writeFile(wb, `قائمة_الأطقم_الصيدلانية_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -94,8 +94,8 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
       <div className="bg-white w-full max-w-3xl rounded-3xl p-6 border border-slate-200 shadow-2xl relative animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
           <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-5 h-5 text-sky-600" />
-            إدارة أفراد الفريق وأجور الساعات والمستهدفات
+            <HeartPulse className="w-5 h-5 text-emerald-600" />
+            إدارة الكادر الصيدلاني وأجر الساعة بالدينار الليبي (د.ل)
           </h3>
           <div className="flex items-center gap-2">
             <button
@@ -115,7 +115,7 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
           {/* New Employee Form */}
           <form onSubmit={handleAddEmployee} className="md:col-span-5 space-y-3 text-xs">
             <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-2">
-              إضافة عضو جديد
+              إضافة صيدلي / موظف جديد
             </h4>
 
             <div>
@@ -124,8 +124,8 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: علي محمد..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                placeholder="د. علي الشريف..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -135,20 +135,20 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@ordermt.ly"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                placeholder="ali@baitak.mtapp.ly"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">كود الموظف</label>
+                <label className="block text-slate-700 font-semibold mb-1">الكود الوظيفي</label>
                 <input
                   type="text"
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
-                  placeholder="EMP-105"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  placeholder="PHARM-105"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
               <div>
@@ -157,20 +157,20 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
                   type="text"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="مطور برمجيات"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  placeholder="صيدلي مناوب"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">سعر الساعة</label>
+                <label className="block text-slate-700 font-semibold mb-1">سعر الساعة (د.ل)</label>
                 <input
                   type="number"
                   value={hourlyRate}
                   onChange={(e) => setHourlyRate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
               <div>
@@ -179,7 +179,7 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
                   type="number"
                   value={targetMonthlyHours}
                   onChange={(e) => setTargetMonthlyHours(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
             </div>
@@ -189,10 +189,10 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'ADMIN' | 'EMPLOYEE')}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500"
               >
-                <option value="EMPLOYEE">عضو فريق / موظف (EMPLOYEE)</option>
-                <option value="ADMIN">مدير نظام (ADMIN)</option>
+                <option value="EMPLOYEE">صيدلي / كادر صيدلاني (EMPLOYEE)</option>
+                <option value="ADMIN">مدير الصيدليات (ADMIN)</option>
               </select>
             </div>
 
@@ -201,24 +201,24 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
             >
-              {loading ? 'جاري الإضافة...' : 'حفظ الموظف في النظام'}
+              {loading ? 'جاري الإضافة...' : 'حفظ الصيدلي في النظام'}
             </button>
           </form>
 
-          {/* Existing Employees List */}
+          {/* Existing Pharmacy Staff List */}
           <div className="md:col-span-7 border-r border-slate-100 pr-0 md:pr-4 flex flex-col justify-between">
             <div>
               <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-2 mb-3">
-                قائمة الأعضاء الحاليين ({users.length})
+                الأطقم الصيدلانية الحالية ({users.length})
               </h4>
 
               <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {users.map((u) => (
                   <div key={u.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <img src={u.avatar} alt={u.name} className="w-9 h-9 rounded-full object-cover border border-sky-400" />
+                      <img src={u.avatar} alt={u.name} className="w-9 h-9 rounded-full object-cover border border-emerald-500" />
                       <div>
                         <div className="font-bold text-slate-900 flex items-center gap-1.5">
                           {u.name}
@@ -228,8 +228,8 @@ export default function EmployeeManagerModal({ users, isOpen, onClose, onUsersUp
                       </div>
                     </div>
 
-                    <div className="text-left font-mono font-bold text-sky-700">
-                      <div>{u.hourlyRate} $/ساعة</div>
+                    <div className="text-left font-mono font-bold text-emerald-700">
+                      <div>{u.hourlyRate} د.ل/ساعة</div>
                       <div className="text-[10px] text-slate-400">هدف: {u.targetMonthlyHours}h</div>
                     </div>
                   </div>

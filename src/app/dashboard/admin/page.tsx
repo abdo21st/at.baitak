@@ -7,11 +7,11 @@ import ProjectManagerModal from '@/components/ProjectManagerModal';
 import EmployeeManagerModal from '@/components/EmployeeManagerModal';
 import { User, Project, AttendanceRecord, LeaveRequest, CompanySettings } from '@/lib/types';
 import { initialUsers, initialProjects, initialAttendanceRecords, initialLeaveRequests, initialCompanySettings } from '@/lib/data-store';
-import { Clock, Users, FolderPlus, DollarSign, CheckCircle2, XCircle, RotateCcw, Send, Sparkles, Building2, Bell } from 'lucide-react';
+import { Clock, Users, FolderPlus, Coins, CheckCircle2, XCircle, RotateCcw, Send, Sparkles, HeartPulse, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function AdminDashboard() {
-  const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]); // Admin user
+  const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]); // Admin Pharmacist
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
@@ -28,7 +28,7 @@ export default function AdminDashboard() {
   const totalEarnedCost = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
   const pendingLeavesCount = leaves.filter((l) => l.status === 'PENDING').length;
 
-  // Chart data: Total hours per project
+  // Chart data: Total hours per pharmacy branch
   const chartData = projects.map((p) => {
     const projRecords = records.filter((r) => r.projectId === p.id);
     const hrs = Number(projRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1));
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
   };
 
   const handleFactoryReset = async () => {
-    if (window.confirm('هل أنت تأكد من إعاجة ضبط المصنع لاسترجاع البيانات الأساسية الخالية من الأخطاء؟')) {
+    if (window.confirm('هل أنت تأكد من إعادة ضبط المصنع واسترجاع بيانات الصيدليات الأولية؟')) {
       setRecords([...initialAttendanceRecords]);
       setProjects([...initialProjects]);
       setUsers([...initialUsers]);
@@ -65,20 +65,20 @@ export default function AdminDashboard() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              لوحة التحكم والإدارة الشاملة (Admin Portal)
+              لوحة إدارة وتتبع دوام صيدليات بيتك الطبية (Admin Portal)
             </h2>
             <p className="text-slate-500 text-xs mt-0.5 font-medium">
-              مراقبة ساعات العمل المباشرة، المشاريع، أجور الموظفين، والتكامل مع n8n والسيرفر
+              مراقبة مناوبات الصيدليات المباشرة، الأجور بالدينار الليبي (د.ل)، والتكامل مع n8n والسيرفر
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setIsProjectModalOpen(true)}
-              className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
             >
               <FolderPlus className="w-4 h-4" />
-              إدارة المشاريع والتكاليف
+              إدارة الفروع والشفتات
             </button>
 
             <button
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
               className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow-md flex items-center gap-2 text-xs transition-all cursor-pointer"
             >
               <Users className="w-4 h-4" />
-              إدارة الموظفين والأجور
+              إدارة الأطقم الصيدلانية والأجور
             </button>
 
             <button
@@ -101,34 +101,34 @@ export default function AdminDashboard() {
         </div>
 
         {/* Live Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">الجلسات النشطة الآن</span>
-              <span className="text-2xl font-black font-mono text-slate-900">{activeSessionsCount} موظف يعمل</span>
+              <span className="text-slate-400 text-xs font-semibold block font-sans">المناوبات النشطة الآن</span>
+              <span className="text-2xl font-black text-slate-900">{activeSessionsCount} صيدلي</span>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">إجمالي الساعات المنجزة</span>
-              <span className="text-2xl font-black font-mono text-slate-900">{totalHoursWorked} ساعة</span>
+              <span className="text-slate-400 text-xs font-semibold block font-sans">ساعات المناوبة المنجزة</span>
+              <span className="text-2xl font-black text-slate-900">{totalHoursWorked} ساعة</span>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              <DollarSign className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
+              <Coins className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">إجمالي المستحقات المترتبة</span>
-              <span className="text-2xl font-black font-mono text-emerald-700">$ {totalEarnedCost}</span>
+              <span className="text-slate-400 text-xs font-semibold block font-sans">إجمالي الأجور المستحقة</span>
+              <span className="text-2xl font-black text-emerald-700">{totalEarnedCost} د.ل</span>
             </div>
           </div>
 
@@ -137,19 +137,18 @@ export default function AdminDashboard() {
               <Bell className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">طلبات الإجازات المعلقة</span>
-              <span className="text-2xl font-black font-mono text-slate-900">{pendingLeavesCount} طلب</span>
+              <span className="text-slate-400 text-xs font-semibold block font-sans">طلبات التبديل المعلقة</span>
+              <span className="text-2xl font-black text-slate-900">{pendingLeavesCount} طلب</span>
             </div>
           </div>
         </div>
 
         {/* Charts & n8n Integration Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left 8 Cols: Recharts Project Hours Analytics */}
           <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-sky-600" />
-              توزيع ساعات العمل المنجزة حسب المشاريع
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+              توزيع ساعات دوام المناوبات حسب فروع الصيدليات
             </h3>
 
             <div className="h-64 w-full">
@@ -161,24 +160,23 @@ export default function AdminDashboard() {
                   <Tooltip
                     contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', borderColor: '#e2e8f0', fontSize: '12px' }}
                   />
-                  <Bar dataKey="ساعات" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="ساعات" fill="#059669" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Right 4 Cols: n8n WhatsApp Integration settings */}
           <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <div className="flex items-center gap-2 text-sky-600 font-bold text-xs">
+              <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
                 <Bell className="w-4 h-4" />
-                تكامل التنبيهات مع n8n و WhatsApp
+                تنبيهات المناوبات عبر n8n و WhatsApp
               </div>
               <h4 className="text-sm font-extrabold text-slate-900 mt-1">
-                إرسال تنبيهات الواتساب التلقائية
+                إشعارات استلام وتسليم شفت الصيدلية
               </h4>
               <p className="text-slate-500 text-xs mt-1">
-                يتم إرسال إشعار فوري لـ n8n على <code className="text-sky-700 bg-sky-50 px-1 py-0.5 rounded font-mono">n8n.ordermt.ly</code> فور تسجبيل الدوام أو تجاوز 8 ساعات.
+                يتم إرسال إشعار فوري لـ n8n على <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">n8n.ordermt.ly</code> فور استلام المناوبة أو إنهاء الشفت.
               </p>
 
               <div className="mt-4">
@@ -187,13 +185,13 @@ export default function AdminDashboard() {
                   type="text"
                   value={settings.n8nWebhookUrl}
                   onChange={(e) => setSettings({ ...settings, n8nWebhookUrl: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 font-mono focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-semibold">
-              ✅ الربط نشط ويعمل على سيرفر ordermt.ly تلقائياً.
+              ✅ الربط نشط وتنبيهات الواتساب مفعلة.
             </div>
           </div>
         </div>
@@ -202,34 +200,34 @@ export default function AdminDashboard() {
         {leaves.length > 0 && (
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
             <h3 className="text-base font-extrabold text-slate-900 mb-4">
-              مراجعة واعتماد طلبات الإجازات والأعذار
+              مراجعة واعتماد طلبات الاستئذان وتبديل المناوبات
             </h3>
 
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="py-3 px-4 font-bold">الموظف</th>
-                    <th className="py-3 px-4 font-bold">نوع الإجازة</th>
+                    <th className="py-3 px-4 font-bold">الصيدلي</th>
+                    <th className="py-3 px-4 font-bold">نوع الطلب</th>
                     <th className="py-3 px-4 font-bold">من تاريخ</th>
                     <th className="py-3 px-4 font-bold">إلى تاريخ</th>
-                    <th className="py-3 px-4 font-bold">السبب</th>
-                    <th className="py-3 px-4 font-bold text-center">الحالة الإجراء</th>
+                    <th className="py-3 px-4 font-bold">السبب والتوضيح</th>
+                    <th className="py-3 px-4 font-bold text-center">الإجراء</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 font-mono">
                   {leaves.map((l) => (
                     <tr key={l.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-4 font-bold text-slate-900">{l.userName}</td>
-                      <td className="py-3 px-4">
-                        <span className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-full font-semibold">
+                      <td className="py-3 px-4 font-bold text-slate-900 font-sans">{l.userName}</td>
+                      <td className="py-3 px-4 font-sans">
+                        <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full font-semibold">
                           {l.type}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-600">{l.startDate}</td>
                       <td className="py-3 px-4 text-slate-600">{l.endDate}</td>
-                      <td className="py-3 px-4 text-slate-600">{l.reason}</td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-slate-600 font-sans">{l.reason}</td>
+                      <td className="py-3 px-4 text-center font-sans">
                         {l.status === 'PENDING' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -264,7 +262,7 @@ export default function AdminDashboard() {
         {/* Master Attendance Log Table */}
         <AttendanceLogTable
           records={records}
-          title="كشف الدوام وتدوين الساعات التفصيلي لكافة أعضاء الفريق"
+          title="كشف المناوبات والتسليم والتسلّم لكافة الأطقم الصيدلانية"
           showEmployeeName={true}
         />
       </main>

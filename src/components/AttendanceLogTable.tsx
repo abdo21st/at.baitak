@@ -16,7 +16,7 @@ interface AttendanceLogTableProps {
 
 export default function AttendanceLogTable({
   records,
-  title = 'كشف ساعات العمل وتدوين الإنجازات التفصيلي',
+  title = 'كشف دوام الصيدلية وتدوين ساعات المناوبات',
   showEmployeeName = false,
   onAttachmentUploaded
 }: AttendanceLogTableProps) {
@@ -50,49 +50,49 @@ export default function AttendanceLogTable({
   const exportToExcel = () => {
     const dataToExport = records.map((r) => ({
       'كود الموظف': r.employeeCode,
-      'اسم الموظف': r.userName,
+      'اسم الصيدلي': r.userName,
       'التاريخ': r.date,
-      'المشروع / المهمة': r.projectName || 'دوام حر',
+      'الفرع / المناوبة': r.projectName || 'دوام حر',
       'وقت الدخول': r.checkInTime || '-',
       'وقت الخروج': r.checkOutTime || '-',
       'إجمالي ساعات العمل': `${r.workHours} ساعة`,
-      'الأجر المستحق ($ / د.ل)': `${r.earnedCost} `,
+      'الأجر المستحق (د.ل)': `${r.earnedCost} د.ل`,
       'ملاحظات الإنجاز': r.taskNotes || 'لا يوجد',
       'طريقة التسجيل': r.method
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'كشف_الساعات');
-    XLSX.writeFile(workbook, `كشف_ساعات_العمل_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'كشف_المناوبات');
+    XLSX.writeFile(workbook, `كشف_دوام_الصيدليات_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const exportToPdf = () => {
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     doc.setFontSize(16);
-    doc.text('ordermt.ly - Official Attendance & Work Hours Report', 14, 20);
+    doc.text('Baitak Pharmacies - Duty & Work Hours Report', 14, 20);
     doc.setFontSize(10);
     doc.text(`Generated on: ${new Date().toLocaleDateString('en-US')}`, 14, 28);
 
     const tableRows = records.map((r) => [
       r.date,
       r.userName,
-      r.projectName || 'General Work',
+      r.projectName || 'General Duty',
       r.checkInTime || '-',
       r.checkOutTime || '-',
       `${r.workHours} hrs`,
-      `$ ${r.earnedCost}`
+      `${r.earnedCost} LYD`
     ]);
 
     (doc as any).autoTable({
-      head: [['Date', 'Employee', 'Project', 'Check In', 'Check Out', 'Hours', 'Cost']],
+      head: [['Date', 'Pharmacist', 'Branch/Duty', 'Check In', 'Check Out', 'Hours', 'Cost (LYD)']],
       body: tableRows,
       startY: 35,
       theme: 'grid',
       styles: { fontSize: 9 }
     });
 
-    doc.save(`Work_Hours_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`Pharmacy_Duty_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
@@ -101,10 +101,10 @@ export default function AttendanceLogTable({
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-sky-600" />
+            <Clock className="w-5 h-5 text-emerald-600" />
             {title}
           </h3>
-          <p className="text-slate-500 text-xs mt-1">كشف تفصيلي بدقائق وساعات العمل المسجلة مع تكاليف وإثباتات الجلسات</p>
+          <p className="text-slate-500 text-xs mt-1">كشف تفصيلي بساعات مناوبات الصيدلية والمستحقات بالدينار الليبي (د.ل)</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -132,27 +132,27 @@ export default function AttendanceLogTable({
           <thead>
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
               <th className="py-3.5 px-4 font-bold">التاريخ</th>
-              {showEmployeeName && <th className="py-3.5 px-4 font-bold">الموظف</th>}
-              <th className="py-3.5 px-4 font-bold">المشروع / المهمة</th>
+              {showEmployeeName && <th className="py-3.5 px-4 font-bold">الصيدلي</th>}
+              <th className="py-3.5 px-4 font-bold">الفرع / الشفت</th>
               <th className="py-3.5 px-4 font-bold">وقت البدء</th>
-              <th className="py-3.5 px-4 font-bold">وقت الإنهاء</th>
-              <th className="py-3.5 px-4 font-bold text-center">ساعات العمل</th>
-              <th className="py-3.5 px-4 font-bold text-center">الأجر المستحق</th>
-              <th className="py-3.5 px-4 font-bold">ملاحظات الإنجاز</th>
-              <th className="py-3.5 px-4 font-bold text-center">المرفقات وإثبات العمل</th>
+              <th className="py-3.5 px-4 font-bold">وقت الانصراف</th>
+              <th className="py-3.5 px-4 font-bold text-center">ساعات المناوبة</th>
+              <th className="py-3.5 px-4 font-bold text-center">الأجر المستحق (د.ل)</th>
+              <th className="py-3.5 px-4 font-bold">ملاحظات الشفت</th>
+              <th className="py-3.5 px-4 font-bold text-center">مستندات وإثباتات العمل</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 font-mono">
             {records.length === 0 ? (
               <tr>
-                <td colSpan={showEmployeeName ? 9 : 8} className="py-8 text-center text-slate-400 font-medium">
-                  لا توجد سجلات دوام أو جلسات مسجلة حتى الآن.
+                <td colSpan={showEmployeeName ? 9 : 8} className="py-8 text-center text-slate-400 font-sans font-medium">
+                  لا توجد مناوبات مسجلة حتى الآن.
                 </td>
               </tr>
             ) : (
               records.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">
+                  <td className="py-3.5 px-4 font-semibold text-slate-900 font-sans">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
                       <span>{r.date}</span>
@@ -160,19 +160,19 @@ export default function AttendanceLogTable({
                   </td>
 
                   {showEmployeeName && (
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-sky-700">{r.userName}</div>
+                    <td className="py-3.5 px-4 font-sans">
+                      <div className="font-bold text-emerald-700">{r.userName}</div>
                       <div className="text-[10px] text-slate-400 font-mono">{r.employeeCode}</div>
                     </td>
                   )}
 
-                  <td className="py-3.5 px-4 font-bold text-slate-800">
+                  <td className="py-3.5 px-4 font-bold text-slate-800 font-sans">
                     {r.projectName ? (
-                      <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-1 rounded-full text-[11px]">
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px]">
                         {r.projectName}
                       </span>
                     ) : (
-                      <span className="text-slate-400 font-normal">دوام حر</span>
+                      <span className="text-slate-400 font-normal">مناوبة حرة</span>
                     )}
                   </td>
 
@@ -191,16 +191,15 @@ export default function AttendanceLogTable({
                   </td>
 
                   <td className="py-3.5 px-4 text-center font-bold font-mono text-emerald-700">
-                    {r.earnedCost > 0 ? `$ ${r.earnedCost}` : '--'}
+                    {r.earnedCost > 0 ? `${r.earnedCost} د.ل` : '--'}
                   </td>
 
-                  <td className="py-3.5 px-4 max-w-xs text-slate-600 truncate">
+                  <td className="py-3.5 px-4 max-w-xs text-slate-600 truncate font-sans">
                     {r.taskNotes || <span className="text-slate-300">بدون ملاحظات</span>}
                   </td>
 
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-3.5 px-4 text-center font-sans">
                     <div className="flex items-center justify-center gap-2">
-                      {/* Attachments List */}
                       {r.attachments && r.attachments.length > 0 ? (
                         r.attachments.map((att) => (
                           <a
@@ -208,16 +207,15 @@ export default function AttendanceLogTable({
                             href={att.filePath}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 bg-sky-50 text-sky-700 border border-sky-200 rounded-lg text-[11px] font-bold flex items-center gap-1 hover:bg-sky-100"
+                            className="p-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold flex items-center gap-1 hover:bg-emerald-100"
                             title={att.fileName}
                           >
-                            <Paperclip className="w-3.5 h-3.5 text-sky-600" />
+                            <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
                             مرفق
                           </a>
                         ))
                       ) : null}
 
-                      {/* Upload File Button */}
                       <label className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all">
                         <Upload className="w-3.5 h-3.5 text-slate-500" />
                         {uploadingId === r.id ? 'رفع...' : 'إرفاق'}

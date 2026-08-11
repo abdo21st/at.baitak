@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, FolderPlus, DollarSign, Clock, Building, Palette, Check } from 'lucide-react';
+import { X, FolderPlus, DollarSign, Clock, Building, Palette, Check, Stethoscope } from 'lucide-react';
 import { Project } from '@/lib/types';
 
 interface ProjectManagerModalProps {
@@ -15,8 +15,8 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
   const [name, setName] = useState('');
   const [clientName, setClientName] = useState('');
   const [hourlyRate, setHourlyRate] = useState('50');
-  const [budgetHours, setBudgetHours] = useState('100');
-  const [color, setColor] = useState('#0284c7');
+  const [budgetHours, setBudgetHours] = useState('160');
+  const [color, setColor] = useState('#059669');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -25,7 +25,7 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) {
-      setMsg('يرجى كتابة اسم المشروع');
+      setMsg('يرجى كتابة اسم الفرع أو الشفت');
       return;
     }
 
@@ -50,9 +50,9 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
         onProjectsUpdated();
         setName('');
         setClientName('');
-        setMsg('تمت إضافة المشروع بنجاح!');
+        setMsg('تمت إضافة فرع/شفت الصيدلية بنجاح!');
       } else {
-        setMsg(data.error || 'خطأ في إضافة المشروع');
+        setMsg(data.error || 'خطأ في الإضافة');
       }
     } catch {
       setMsg('خطأ في الاتصال بالخادم');
@@ -66,8 +66,8 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
       <div className="bg-white w-full max-w-2xl rounded-3xl p-6 border border-slate-200 shadow-2xl relative animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
           <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <FolderPlus className="w-5 h-5 text-sky-600" />
-            إدارة المشاريع، العملاء، وميزانيات الساعات
+            <Stethoscope className="w-5 h-5 text-emerald-600" />
+            إدارة فروع الصيدليات وشفتات المناوبات وأجر الساعة (د.ل)
           </h3>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700 rounded-lg">
             <X className="w-5 h-5" />
@@ -75,42 +75,42 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          {/* New Project Form */}
+          {/* New Pharmacy Branch Form */}
           <form onSubmit={handleAddProject} className="md:col-span-6 space-y-4 text-xs">
             <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-2">
-              إضافة مشروع جديد
+              إضافة فرع / شفت مناوبة جديد
             </h4>
 
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">اسم المشروع *</label>
+              <label className="block text-slate-700 font-semibold mb-1">اسم الفرع / الشفت *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: تطوير منصة التجارة..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                placeholder="مثال: صيدلية بيتك - فرع المبيعات..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">اسم العميل / الجهة</label>
+              <label className="block text-slate-700 font-semibold mb-1">وصف الموقغ / القسم</label>
               <input
                 type="text"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                placeholder="مثال: شركة الأفق الرقمي..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                placeholder="مثال: قسم المستحضرات والجمال..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">سعر الساعة ($ / د.ل)</label>
+                <label className="block text-slate-700 font-semibold mb-1">سعر الساعة (د.ل)</label>
                 <input
                   type="number"
                   value={hourlyRate}
                   onChange={(e) => setHourlyRate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
               <div>
@@ -119,7 +119,7 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
                   type="number"
                   value={budgetHours}
                   onChange={(e) => setBudgetHours(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
             </div>
@@ -127,7 +127,7 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
             <div>
               <label className="block text-slate-700 font-semibold mb-1">لون التمييز</label>
               <div className="flex gap-2">
-                {['#0284c7', '#10b981', '#8b5cf6', '#f59e0b', '#f43f5e', '#64748b'].map((c) => (
+                {['#059669', '#0284c7', '#8b5cf6', '#d97706', '#dc2626', '#475569'].map((c) => (
                   <button
                     key={c}
                     type="button"
@@ -146,17 +146,17 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
             >
-              {loading ? 'جاري الإضافة...' : 'إضافة المشروع للنظام'}
+              {loading ? 'جاري الإضافة...' : 'إضافة فرع الشفت بالنظام'}
             </button>
           </form>
 
-          {/* Existing Projects List */}
+          {/* Existing Pharmacy Branches List */}
           <div className="md:col-span-6 border-r border-slate-100 pr-0 md:pr-4 flex flex-col justify-between">
             <div>
               <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-2 mb-3">
-                المشاريع الحالية ({projects.length})
+                فروع وشفتات الصيدليات الحالية ({projects.length})
               </h4>
 
               <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
@@ -167,12 +167,12 @@ export default function ProjectManagerModal({ projects, isOpen, onClose, onProje
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
                         {p.name}
                       </span>
-                      <span className="text-sky-600 font-mono font-bold">{p.hourlyRate} $/ساعة</span>
+                      <span className="text-emerald-700 font-mono font-bold">{p.hourlyRate} د.ل/ساعة</span>
                     </div>
 
                     <div className="flex items-center justify-between text-slate-500 mt-1.5 text-[11px]">
-                      <span>العميل: {p.clientName || 'غير مخصص'}</span>
-                      <span>الميزانية: {p.budgetHours} ساعة</span>
+                      <span>القسم: {p.clientName || 'غير مخصص'}</span>
+                      <span className="font-mono">الميزانية: {p.budgetHours} ساعة</span>
                     </div>
                   </div>
                 ))}

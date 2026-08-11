@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import WorkTimerCard from '@/components/WorkTimerCard';
 import AttendanceLogTable from '@/components/AttendanceLogTable';
@@ -8,10 +8,10 @@ import LeaveRequestModal from '@/components/LeaveRequestModal';
 import EmployeeBadgeModal from '@/components/EmployeeBadgeModal';
 import { User, Project, AttendanceRecord } from '@/lib/types';
 import { initialUsers, initialProjects, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, Calendar, FileText, QrCode, Award, DollarSign } from 'lucide-react';
+import { Clock, Calendar, FileText, QrCode, Award, Coins } from 'lucide-react';
 
 export default function EmployeeDashboard() {
-  const [currentUser, setCurrentUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (Employee)
+  const [currentUser, setCurrentUser] = useState<User>(initialUsers[1]); // Default Ahmed Ali (Pharmacist)
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
@@ -68,22 +68,22 @@ export default function EmployeeDashboard() {
         {/* Top Summary Widgets */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">إجمالي الساعات الشهرية</span>
+              <span className="text-slate-400 text-xs font-semibold block">ساعات مناوبات الشهر</span>
               <span className="text-2xl font-black font-mono text-slate-900">{monthlyTotalHours} ساعة</span>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <DollarSign className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
+              <Coins className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">الأجر التراكمي المحسوب</span>
-              <span className="text-2xl font-black font-mono text-emerald-700">$ {monthlyEarnedCost}</span>
+              <span className="text-slate-400 text-xs font-semibold block">أجر المناوبات التراكمي</span>
+              <span className="text-2xl font-black font-mono text-emerald-700">{monthlyEarnedCost} د.ل</span>
             </div>
           </div>
 
@@ -92,17 +92,17 @@ export default function EmployeeDashboard() {
               <Award className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">الهدف الشهري المطلوبة</span>
+              <span className="text-slate-400 text-xs font-semibold block">الهدف الشهري من الساعات</span>
               <span className="text-2xl font-black font-mono text-slate-900">{currentUser.targetMonthlyHours} ساعة</span>
             </div>
           </div>
 
           <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
-              <span className="text-slate-400 text-xs font-semibold block">طلب إجازة / استئذان</span>
+              <span className="text-slate-400 text-xs font-semibold block">تبديل مناوبة / عذر</span>
               <button
                 onClick={() => setIsLeaveModalOpen(true)}
-                className="mt-2 text-xs font-bold text-sky-600 hover:text-sky-700 flex items-center gap-1 cursor-pointer"
+                className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
               >
                 <FileText className="w-4 h-4" />
                 تقديم طلب رسمي
@@ -123,7 +123,7 @@ export default function EmployeeDashboard() {
         {/* Attendance Log Table */}
         <AttendanceLogTable
           records={userRecords}
-          title="سجل الجلسات وساعات العمل الخاصة بك"
+          title="سجل مناوبات وساعات الدوام الصيدلاني الخاصة بك"
           showEmployeeName={false}
           onAttachmentUploaded={handleAttachmentUploaded}
         />
