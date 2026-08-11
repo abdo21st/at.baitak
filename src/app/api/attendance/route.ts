@@ -16,34 +16,47 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, records: recordsStore });
 }
 
-// 1. Check-in (تسجيل الحضور)
+// 1. Create or Record Attendance (حفظ أو تسجيل وقت الحضور والانصراف يدويًا أو تلقائيًا)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, userName, employeeCode, checkInTime, date } = body;
+    const { userId, userName, employeeCode, checkInTime, checkOutTime, date } = body;
 
     if (!userId || !checkInTime) {
       return NextResponse.json({ success: false, error: 'بيانات الحضور غير مكتملة' }, { status: 400 });
     }
 
     const todayDate = date || new Date().toISOString().split('T')[0];
+    const user = initialUsers.find((u) => u.id === userId);
+    const hourlyRate = user?.hourlyRate || 50;
 
-    // Check if employee is already checked in and not checked out
-    const active = recordsStore.find((r) => r.userId === userId && !r.checkOutTime && r.date === todayDate);
-    if (active) {
-      return NextResponse.json({ success: false, error: 'تم تسجيل الحضور بالفعل لم تنصرف بعد' }, { status: 400 });
+    let workHours = 0;
+    let earnedCost = 0;
+
+    // Calculate work hours & earned cost if checkOutTime is provided
+    if (checkOutTime) {
+      const [inH, inM] = checkInTime.split(':').map(Number);
+      const [outH, outM] = checkOutTime.split(':').map(Number);
+
+      let startMins = inH * 60 + inM;
+      let endMins = outH * 60 + outM;
+
+      if (endMins < startMins) endMins += 24 * 60; // Overnight shift
+
+      workHours = Number(((endMins - startMins) / 60).toFixed(2));
+      earnedCost = Number((workHours * hourlyRate).toFixed(2));
     }
 
     const newRecord: AttendanceRecord = {
       id: `att-${Date.now()}`,
       userId,
-      userName: userName || 'موظف',
-      employeeCode: employeeCode || '101',
+      userName: userName || user?.name || 'موظف',
+      employeeCode: employeeCode || user?.employeeCode || '101',
       date: todayDate,
       checkInTime,
-      checkOutTime: null,
-      workHours: 0,
-      earnedCost: 0,
+      checkOutTime: checkOutTime || null,
+      workHours,
+      earnedCost,
       isVerified: false,
       createdAt: `${todayDate} ${checkInTime}`
     };
@@ -51,11 +64,11 @@ export async function POST(req: NextRequest) {
     recordsStore.unshift(newRecord);
     return NextResponse.json({ success: true, record: newRecord });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || 'خطأ في تسجيل الحضور' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'خطأ في تسجيل الدوام' }, { status: 500 });
   }
 }
 
-// 2. Check-out (تسجيل الانصراف)
+// 2. Update Check-out Time (تسجيل وقت الانصراف)
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -69,16 +82,12 @@ export async function PUT(req: NextRequest) {
     const user = initialUsers.find((u) => u.id === record.userId);
     const hourlyRate = user?.hourlyRate || 50;
 
-    // Calculate hours worked
     const [inH, inM] = record.checkInTime.split(':').map(Number);
     const [outH, outM] = checkOutTime.split(':').map(Number);
 
     let startMins = inH * 60 + inM;
     let endMins = outH * 60 + outM;
-
-    if (endMins < startMins) {
-      endMins += 24 * 60; // Overnight shift
-    }
+    if (endMins < startMins) endMins += 24 * 60;
 
     const diffHours = Number(((endMins - startMins) / 60).toFixed(2));
     const earnedCost = Number((diffHours * hourlyRate).toFixed(2));
@@ -114,7 +123,6 @@ export async function PATCH(req: NextRequest) {
       if (checkInTime) record.checkInTime = checkInTime;
       if (checkOutTime !== undefined) record.checkOutTime = checkOutTime;
 
-      // Recalculate hours & cost
       if (record.checkInTime && record.checkOutTime) {
         const user = initialUsers.find((u) => u.id === record.userId);
         const hourlyRate = user?.hourlyRate || 50;
