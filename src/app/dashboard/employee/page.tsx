@@ -279,9 +279,9 @@ export default function EmployeeDashboard() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 font-mono">
+                  <div className="flex items-center gap-2 font-mono" dir="ltr">
                     <div className="flex-1">
-                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الساعة</label>
+                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
                       <select
                         value={checkInHour}
                         onChange={(e) => setCheckInHour(e.target.value)}
@@ -298,7 +298,7 @@ export default function EmployeeDashboard() {
                     <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
 
                     <div className="flex-1">
-                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الدقيقة</label>
+                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
                       <select
                         value={checkInMinute}
                         onChange={(e) => setCheckInMinute(e.target.value)}
@@ -353,9 +353,9 @@ export default function EmployeeDashboard() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 font-mono">
+                  <div className="flex items-center gap-2 font-mono" dir="ltr">
                     <div className="flex-1">
-                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الساعة</label>
+                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
                       <select
                         value={checkOutHour}
                         onChange={(e) => setCheckOutHour(e.target.value)}
@@ -372,7 +372,7 @@ export default function EmployeeDashboard() {
                     <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
 
                     <div className="flex-1">
-                      <label className="block text-[11px] text-slate-500 mb-1 text-center font-sans font-bold">الدقيقة</label>
+                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
                       <select
                         value={checkOutMinute}
                         onChange={(e) => setCheckOutMinute(e.target.value)}
