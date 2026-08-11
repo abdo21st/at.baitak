@@ -87,13 +87,29 @@ export default function EmployeeDashboard() {
     }
   };
 
-  // 2. Separate Check-out action (تسجيل وقت الانصراف فقط)
+  // 2. Separate Check-out action (يمنع الانصراف بزمن يسبق الحضور)
   const handleCheckOutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRecord) return;
     if (!checkOutTime) {
       setMsg({ text: 'يرجى إدخال وقت الانصراف', type: 'error' });
       return;
+    }
+
+    // Client-side validation for check-out time before check-in time
+    if (activeRecord.checkInTime) {
+      const [inH, inM] = activeRecord.checkInTime.split(':').map(Number);
+      const [outH, outM] = checkOutTime.split(':').map(Number);
+      const inMins = inH * 60 + inM;
+      const outMins = outH * 60 + outM;
+
+      if (outMins < inMins && !(inH >= 18 && outH < 12)) {
+        setMsg({
+          text: `خطأ: يمنع تسجيل وقت الانصراف (${checkOutTime}) قبل وقت الحضور (${activeRecord.checkInTime})!`,
+          type: 'error'
+        });
+        return;
+      }
     }
 
     setLoading(true);
@@ -186,7 +202,7 @@ export default function EmployeeDashboard() {
             </h2>
           </div>
 
-          {/* STEP 1: CHECK-IN FORM (تسجيل وقت الحضور باللون الأزرق) */}
+          {/* STEP 1: CHECK-IN FORM */}
           {!isCheckedIn ? (
             <form onSubmit={handleCheckInSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
@@ -252,7 +268,7 @@ export default function EmployeeDashboard() {
               </button>
             </form>
           ) : (
-            /* STEP 2: CHECK-OUT FORM (تسجيل وقت الانصراف باللون الأحمر) */
+            /* STEP 2: CHECK-OUT FORM */
             <form onSubmit={handleCheckOutSubmit} className="space-y-5">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-900">
                 <div className="flex items-center gap-2">
@@ -308,7 +324,7 @@ export default function EmployeeDashboard() {
               className={`p-3.5 rounded-2xl text-xs font-extrabold text-center max-w-md mx-auto ${
                 msg.type === 'success'
                   ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                  : 'bg-red-50 text-red-800 border border-red-200'
+                  : 'bg-red-50 text-red-800 border border-red-200 font-black'
               }`}
             >
               {msg.text}

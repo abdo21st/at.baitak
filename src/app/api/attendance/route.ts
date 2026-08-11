@@ -16,7 +16,22 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ success: true, records: recordsStore });
 }
 
-// 1. Create or Record Attendance (حفظ أو تسجيل وقت الحضور والانصراف يدويًا أو تلقائيًا)
+// Helper to validate that check-out is not earlier than check-in (unless overnight late evening -> early morning)
+function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
+  const [inH, inM] = checkInTime.split(':').map(Number);
+  const [outH, outM] = checkOutTime.split(':').map(Number);
+
+  const inMins = inH * 60 + inM;
+  const outMins = outH * 60 + outM;
+
+  if (outMins < inMins) {
+    // Valid only if check-in is late evening (>= 18:00) and check-out is early morning (< 12:00)
+    return inH >= 18 && outH < 12;
+  }
+  return true;
+}
+
+// 1. Create or Record Attendance
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -26,6 +41,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'بيانات الحضور غير مكتملة' }, { status: 400 });
     }
 
+    if (checkOutTime && !isValidTimeRange(checkInTime, checkOutTime)) {
+      return NextResponse.json({
+        success: false,
+        error: 'خطأ: يمنع تسجيل وقت الانصراف قبل وقت الحضور!'
+      }, { status: 400 });
+    }
+
     const todayDate = date || new Date().toISOString().split('T')[0];
     const user = initialUsers.find((u) => u.id === userId);
     const hourlyRate = user?.hourlyRate || 50;
@@ -33,7 +55,6 @@ export async function POST(req: NextRequest) {
     let workHours = 0;
     let earnedCost = 0;
 
-    // Calculate work hours & earned cost if checkOutTime is provided
     if (checkOutTime) {
       const [inH, inM] = checkInTime.split(':').map(Number);
       const [outH, outM] = checkOutTime.split(':').map(Number);
@@ -68,7 +89,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 2. Update Check-out Time (تسجيل وقت الانصراف)
+// 2. Update Check-out Time (تسجيل الانصراف مع منع الانصراف قبل وقت الحضور)
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
@@ -77,6 +98,13 @@ export async function PUT(req: NextRequest) {
     const record = recordsStore.find((r) => r.id === recordId);
     if (!record) {
       return NextResponse.json({ success: false, error: 'سجل الحضور غير موجود' }, { status: 404 });
+    }
+
+    if (!isValidTimeRange(record.checkInTime, checkOutTime)) {
+      return NextResponse.json({
+        success: false,
+        error: `خطأ: وقت الانصراف (${checkOutTime}) يسبق وقت الحضور (${record.checkInTime})!`
+      }, { status: 400 });
     }
 
     const user = initialUsers.find((u) => u.id === record.userId);
@@ -102,7 +130,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// 3. Admin Actions: Verify or Edit Check-in/out Times (توثيق الحضور وتعديل الساعات)
+// 3. Admin Actions: Verify or Edit Check-in/out Times
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
@@ -120,6 +148,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'EDIT_TIME') {
+      const newIn = checkInTime || record.checkInTime;
+      const newOut = checkOutTime !== undefined ? checkOutTime : record.checkOutTime;
+
+      if (newIn && newOut && !isValidTimeRange(newIn, newOut)) {
+        return NextResponse.json({
+          success: false,
+          error: 'خطأ: يمنع تعديل وقت الانصراف ليصبح قبل وقت الحضور!'
+        }, { status: 400 });
+      }
+
       if (checkInTime) record.checkInTime = checkInTime;
       if (checkOutTime !== undefined) record.checkOutTime = checkOutTime;
 
