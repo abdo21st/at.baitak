@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Department, JobRole } from '@/lib/types';
-import { Building2, Briefcase, Plus, Trash2, Edit3, X, Coins, Clock, Calculator } from 'lucide-react';
+import { Building2, Briefcase, Plus, Trash2, Edit3, X, Coins, Clock } from 'lucide-react';
 
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -193,32 +193,6 @@ export default function DepartmentManagement() {
 
   return (
     <div className="space-y-6 font-cairo" dir="rtl">
-      {/* Explanation Banner with Formula */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 shadow-md border border-slate-700 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-bold">
-            <Calculator className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-base font-black flex items-center gap-2">
-              قسم إدارة الأقسام ونظام قيم الوظائف الشهرية
-            </h2>
-            <p className="text-slate-300 text-xs font-semibold">
-              إنشاء الأقسام والوظائف وتحديد الراتب الشهري المحدد للوظيفة وساعات الشهر لتقسيم المستحقات تلقائياً
-            </p>
-          </div>
-        </div>
-
-        {/* Formula Card */}
-        <div className="bg-white/10 p-3 rounded-2xl border border-white/15 text-xs font-mono flex flex-wrap items-center justify-between gap-3">
-          <span className="font-sans font-bold text-amber-300">📐 معادلة المستحقات:</span>
-          <span className="bg-slate-900/60 px-3 py-1.5 rounded-xl border border-white/20 text-emerald-300 font-bold">
-            المبلغ المستحق = (ساعات حضور الموظف × قيمة الوظيفة الشهرية) ÷ ساعات الوظيفة (160 س)
-          </span>
-          <span className="text-[11px] text-slate-300 font-sans">مثال: (100 س × 500 د.ل) ÷ 160 س = 312.50 د.ل</span>
-        </div>
-      </div>
-
       {/* Main Header & Add Department Button */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div>
