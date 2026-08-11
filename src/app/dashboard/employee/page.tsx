@@ -250,6 +250,8 @@ export default function EmployeeDashboard() {
                       تاريخ اليوم
                     </button>
                   </div>
+                  {/* spacer label to match the height of the hour/minute sub-labels */}
+                  <div className="block text-[11px] text-transparent mb-1 font-sans font-bold select-none">التاريخ</div>
                   <select
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
