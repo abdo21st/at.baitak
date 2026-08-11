@@ -304,7 +304,7 @@ export default function AdminDashboard() {
 
           <button
             onClick={handleLogout}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+            className="h-10 px-3.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             خروج
@@ -317,7 +317,7 @@ export default function AdminDashboard() {
         <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 print:hidden">
           <button
             onClick={() => setActiveTab('ATTENDANCE')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'ATTENDANCE'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -329,7 +329,7 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab('CALENDAR')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'CALENDAR'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -341,7 +341,7 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab('EMPLOYEES')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'EMPLOYEES'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -353,7 +353,7 @@ export default function AdminDashboard() {
 
           <button
             onClick={() => setActiveTab('DEPARTMENTS')}
-            className={`flex-1 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === 'DEPARTMENTS'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -367,9 +367,9 @@ export default function AdminDashboard() {
         {/* TAB 1: ATTENDANCE LOG & VERIFICATION */}
         {activeTab === 'ATTENDANCE' && (
           <div className="space-y-6">
-            {/* Top Summary Widgets */}
+            {/* Top Summary Widgets with Equal Height h-24 */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+              <div className="bg-white h-24 p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <Clock className="w-6 h-6" />
                 </div>
@@ -379,7 +379,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+              <div className="bg-white h-24 p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
                   <Coins className="w-6 h-6" />
                 </div>
@@ -389,13 +389,13 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div className="bg-white h-24 p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
                   <span className="text-slate-400 text-xs font-bold block">تصفية حسب الموظف</span>
                   <select
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-500"
+                    className="mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 h-10 text-xs text-slate-900 font-bold focus:outline-none focus:border-emerald-500"
                   >
                     <option value="ALL">جميع الموظفين ({records.length})</option>
                     {users.filter(u => u.role !== 'ADMIN').map((u) => (
@@ -458,7 +458,7 @@ export default function AdminDashboard() {
                             ) : (
                               <button
                                 onClick={() => handleVerifyRecord(r.id)}
-                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 mx-auto shadow-sm cursor-pointer"
+                                className="px-3 h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 mx-auto shadow-sm cursor-pointer"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 توثيق الحضور
@@ -469,7 +469,7 @@ export default function AdminDashboard() {
                           <td className="py-3.5 px-4 text-center font-sans">
                             <button
                               onClick={() => openEditModal(r)}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 mx-auto cursor-pointer"
+                              className="px-3 h-8 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 mx-auto cursor-pointer"
                               title="تعديل وقت الحضور والانصراف"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-slate-600" />
@@ -507,7 +507,7 @@ export default function AdminDashboard() {
 
               <button
                 onClick={openAddUserModal}
-                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
+                className="px-4 h-11 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
               >
                 <UserPlus className="w-4 h-4" />
                 إضافة موظف جديد
@@ -577,7 +577,7 @@ export default function AdminDashboard() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => openEditUserModal(u)}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 h-8 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                             title="تعديل بيانات الموظف"
                           >
                             <Edit3 className="w-3.5 h-3.5 text-blue-600" />
@@ -587,7 +587,7 @@ export default function AdminDashboard() {
                           {u.role !== 'ADMIN' && (
                             <button
                               onClick={() => handleDeleteEmployee(u.id, u.name)}
-                              className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 h-8 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                               title="حذف الموظف"
                             >
                               <Trash2 className="w-3.5 h-3.5 text-rose-600" />
@@ -610,7 +610,7 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* Add Employee Modal */}
+      {/* Add Employee Modal with Equal Height Inputs h-11 */}
       {isAddUserOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -636,7 +636,7 @@ export default function AdminDashboard() {
                   value={empName}
                   onChange={(e) => setEmpName(e.target.value)}
                   placeholder="مثال: علي الطرابلسي"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -649,7 +649,7 @@ export default function AdminDashboard() {
                       setEmpDepartmentId(e.target.value);
                       setEmpJobRoleId('');
                     }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">اختر القسم (اختياري)</option>
                     {departments.map((d) => (
@@ -665,7 +665,7 @@ export default function AdminDashboard() {
                   <select
                     value={empJobRoleId}
                     onChange={(e) => handleJobRoleChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
@@ -691,7 +691,7 @@ export default function AdminDashboard() {
                     value={empCode}
                     onChange={(e) => setEmpCode(e.target.value)}
                     placeholder="104"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -708,7 +708,7 @@ export default function AdminDashboard() {
                     value={empPin}
                     onChange={(e) => setEmpPin(e.target.value)}
                     placeholder="1234"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -727,7 +727,7 @@ export default function AdminDashboard() {
                     value={empRate}
                     onChange={(e) => setEmpRate(e.target.value)}
                     placeholder="50"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -744,7 +744,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
                     placeholder="0"
                     disabled={!empJobRoleId}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -755,14 +755,14 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center"
                 >
                   {loading ? 'جاري الإضافة...' : 'إضافة الموظف الآن'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAddUserOpen(false)}
-                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs"
+                  className="w-full h-11 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs flex items-center justify-center"
                 >
                   إلغاء
                 </button>
@@ -772,7 +772,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Edit Employee Modal */}
+      {/* Edit Employee Modal with Equal Height Inputs h-11 */}
       {editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -794,7 +794,7 @@ export default function AdminDashboard() {
                   required
                   value={empName}
                   onChange={(e) => setEmpName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -807,7 +807,7 @@ export default function AdminDashboard() {
                       setEmpDepartmentId(e.target.value);
                       setEmpJobRoleId('');
                     }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">اختر القسم</option>
                     {departments.map((d) => (
@@ -823,7 +823,7 @@ export default function AdminDashboard() {
                   <select
                     value={empJobRoleId}
                     onChange={(e) => handleJobRoleChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
@@ -845,7 +845,7 @@ export default function AdminDashboard() {
                     dir="ltr"
                     value={empCode}
                     onChange={(e) => setEmpCode(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -858,7 +858,7 @@ export default function AdminDashboard() {
                     dir="ltr"
                     value={empPin}
                     onChange={(e) => setEmpPin(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -873,7 +873,7 @@ export default function AdminDashboard() {
                     dir="ltr"
                     value={empRate}
                     onChange={(e) => setEmpRate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
@@ -886,7 +886,7 @@ export default function AdminDashboard() {
                     value={empMonthlySalary}
                     onChange={(e) => setEmpMonthlySalary(e.target.value)}
                     disabled={!empJobRoleId}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
+                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -897,14 +897,14 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center"
                 >
                   {loading ? 'جاري الحفظ...' : 'حفظ البيانات الجديدة'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs"
+                  className="w-full h-11 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs flex items-center justify-center"
                 >
                   إلغاء
                 </button>
@@ -942,7 +942,7 @@ export default function AdminDashboard() {
                   value={editCheckIn}
                   onChange={(e) => setEditCheckIn(e.target.value)}
                   placeholder="08:00:00"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -953,7 +953,7 @@ export default function AdminDashboard() {
                   value={editCheckOut}
                   onChange={(e) => setEditCheckOut(e.target.value)}
                   placeholder="16:00:00"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -963,14 +963,14 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs"
+                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center"
                 >
                   {loading ? 'جاري الحفظ...' : 'حفظ الوقت الجديد'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingRecord(null)}
-                  className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs"
+                  className="w-full h-11 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs flex items-center justify-center"
                 >
                   إلغاء
                 </button>

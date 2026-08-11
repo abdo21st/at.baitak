@@ -95,7 +95,7 @@ export default function LoginPage() {
               value={employeeCode}
               onChange={(e) => setEmployeeCode(e.target.value)}
               placeholder="101"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
+              className="w-full h-12 bg-slate-50 border border-slate-200 rounded-xl px-4 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
             />
           </div>
 
@@ -112,7 +112,7 @@ export default function LoginPage() {
               value={pinCode}
               onChange={(e) => setPinCode(e.target.value)}
               placeholder="••••"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
+              className="w-full h-12 bg-slate-50 border border-slate-200 rounded-xl px-4 text-slate-900 font-bold font-mono text-center text-lg focus:outline-none focus:border-emerald-500 transition-all"
             />
           </div>
 
@@ -125,7 +125,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+            className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
           >
             {loading ? 'جاري التحقق...' : 'تسجيل الدخول للنظام'}
             <ArrowLeft className="w-4 h-4" />
