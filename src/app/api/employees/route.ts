@@ -1,15 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { initialUsers } from '@/lib/data-store';
 import { User } from '@/lib/types';
 
-let usersStore: User[] = [...initialUsers];
+let memoryUsers: User[] = [...initialUsers];
 
-// 1. Get all employees
-export async function GET() {
-  return NextResponse.json({ success: true, users: usersStore });
+// Helper to sync initial users into PostgreSQL if empty
+async function getOrSeedUsers(): Promise<User[]> {
+  try {
+    const dbUsers = await prisma.user.findMany({
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (dbUsers.length > 0) {
+      return dbUsers.map((u) => ({
+        id: u.id,
+        employeeCode: u.employeeCode,
+        pinCode: u.password || '1234',
+        name: u.name,
+        role: u.role as any,
+        hourlyRate: u.hourlyRate,
+        jobTitle: u.jobTitle
+      }));
+    }
+
+    // Seed database
+    for (const u of initialUsers) {
+      await prisma.user.create({
+        data: {
+          id: u.id,
+          employeeCode: u.employeeCode,
+          name: u.name,
+          email: `${u.employeeCode}@hodoork.ly`,
+          password: u.pinCode,
+          role: u.role as any,
+          hourlyRate: u.hourlyRate,
+          jobTitle: u.jobTitle || 'موظف'
+        }
+      });
+    }
+
+    return initialUsers;
+  } catch (err) {
+    console.error('PostgreSQL connection fallback:', err);
+    return memoryUsers;
+  }
 }
 
-// 2. Add a new employee
+// 1. GET Employees
+export async function GET() {
+  const users = await getOrSeedUsers();
+  return NextResponse.json({ success: true, users });
+}
+
+// 2. POST Add New Employee to PostgreSQL
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -19,61 +63,91 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'الاسم ورقم الموظف مطلوبان' }, { status: 400 });
     }
 
-    const existingCode = usersStore.find((u) => u.employeeCode === String(employeeCode).trim());
-    if (existingCode) {
-      return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل لموظف آخر' }, { status: 400 });
+    const codeStr = String(employeeCode).trim();
+    const pinStr = String(pinCode || '1234').trim();
+    const nameStr = String(name).trim();
+
+    try {
+      const existingUser = await prisma.user.findUnique({
+        where: { employeeCode: codeStr }
+      });
+
+      if (existingUser) {
+        return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, { status: 400 });
+      }
+
+      await prisma.user.create({
+        data: {
+          employeeCode: codeStr,
+          name: nameStr,
+          email: `${codeStr}-${Date.now()}@hodoork.ly`,
+          password: pinStr,
+          role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
+          hourlyRate: Number(hourlyRate) || 50,
+          jobTitle: jobTitle || 'صيدلي / موظف'
+        }
+      });
+    } catch (dbErr) {
+      // Memory fallback
+      const newUser: User = {
+        id: `usr-${Date.now()}`,
+        employeeCode: codeStr,
+        pinCode: pinStr,
+        name: nameStr,
+        role: role || 'EMPLOYEE',
+        hourlyRate: Number(hourlyRate) || 50,
+        jobTitle: jobTitle || 'موظف'
+      };
+      memoryUsers.push(newUser);
     }
 
-    const newUser: User = {
-      id: `usr-${Date.now()}`,
-      employeeCode: String(employeeCode).trim(),
-      pinCode: String(pinCode || '1234').trim(),
-      name: name.trim(),
-      role: role || 'EMPLOYEE',
-      hourlyRate: Number(hourlyRate) || 50,
-      jobTitle: jobTitle || 'صيدلي / موظف'
-    };
-
-    usersStore.push(newUser);
-    return NextResponse.json({ success: true, user: newUser, users: usersStore });
+    const allUsers = await getOrSeedUsers();
+    return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في إضافة الموظف' }, { status: 500 });
   }
 }
 
-// 3. Edit existing employee
+// 3. PUT Edit Employee in PostgreSQL
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle } = body;
 
-    const user = usersStore.find((u) => u.id === id);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'الموظف غير موجود' }, { status: 404 });
-    }
+    const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
+    const pinStr = pinCode ? String(pinCode).trim() : undefined;
+    const nameStr = name ? String(name).trim() : undefined;
 
-    // Check duplicate code if changed
-    if (employeeCode && String(employeeCode).trim() !== user.employeeCode) {
-      const existing = usersStore.find((u) => u.employeeCode === String(employeeCode).trim());
-      if (existing) {
-        return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل لموظف آخر' }, { status: 400 });
+    try {
+      await prisma.user.update({
+        where: { id },
+        data: {
+          ...(nameStr && { name: nameStr }),
+          ...(codeStr && { employeeCode: codeStr }),
+          ...(pinStr && { password: pinStr }),
+          ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
+          ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
+          ...(jobTitle && { jobTitle })
+        }
+      });
+    } catch (dbErr) {
+      const u = memoryUsers.find((x) => x.id === id);
+      if (u) {
+        if (nameStr) u.name = nameStr;
+        if (codeStr) u.employeeCode = codeStr;
+        if (pinStr) u.pinCode = pinStr;
+        if (hourlyRate !== undefined) u.hourlyRate = Number(hourlyRate);
       }
-      user.employeeCode = String(employeeCode).trim();
     }
 
-    if (name) user.name = name.trim();
-    if (pinCode) user.pinCode = String(pinCode).trim();
-    if (hourlyRate !== undefined) user.hourlyRate = Number(hourlyRate);
-    if (role) user.role = role;
-    if (jobTitle) user.jobTitle = jobTitle;
-
-    return NextResponse.json({ success: true, user, users: usersStore });
+    const allUsers = await getOrSeedUsers();
+    return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في تعديل بيانات الموظف' }, { status: 500 });
   }
 }
 
-// 4. Delete employee
+// 4. DELETE Employee from PostgreSQL
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -83,18 +157,21 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'معرف الموظف مطلوب' }, { status: 400 });
     }
 
-    const index = usersStore.findIndex((u) => u.id === id);
-    if (index === -1) {
-      return NextResponse.json({ success: false, error: 'الموظف غير موجود' }, { status: 404 });
+    try {
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (target?.role === 'ADMIN') {
+        return NextResponse.json({ success: false, error: 'يمنع حذف حساب المدير الرئيسي' }, { status: 400 });
+      }
+      await prisma.user.delete({ where: { id } });
+    } catch (dbErr) {
+      const idx = memoryUsers.findIndex((x) => x.id === id);
+      if (idx !== -1 && memoryUsers[idx].role !== 'ADMIN') {
+        memoryUsers.splice(idx, 1);
+      }
     }
 
-    // Prohibit deleting system admin
-    if (usersStore[index].role === 'ADMIN') {
-      return NextResponse.json({ success: false, error: 'يمنع حذف حساب المدير الرئيسي' }, { status: 400 });
-    }
-
-    usersStore.splice(index, 1);
-    return NextResponse.json({ success: true, users: usersStore });
+    const allUsers = await getOrSeedUsers();
+    return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في حذف الموظف' }, { status: 500 });
   }

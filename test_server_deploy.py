@@ -37,11 +37,12 @@ def main():
     print(stdout.read().decode('utf-8'))
 
     # Deploying or updating app directly on server
-    print("\n--- Deploying at.baitak.mtapp.ly on server ---")
+    print("\n--- Deploying at.baitak.mtapp.ly on server with PostgreSQL ---")
     deploy_cmds = [
         "mkdir -p /opt/at.baitak",
         "cd /opt/at.baitak && if [ -d .git ]; then git pull origin main; else git clone https://github.com/abdo21st/at.baitak.git .; fi",
-        "cd /opt/at.baitak && docker compose up -d --build"
+        "cd /opt/at.baitak && docker compose up -d --build",
+        "docker exec hodoork_app npx prisma db push --skip-generate"
     ]
 
     for cmd in deploy_cmds:
