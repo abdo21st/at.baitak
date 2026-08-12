@@ -1,0 +1,3 @@
+databases:
+  - name: "hodoork_db"
+    url: "postgresql://postgres:postgres_pass_2026@localhost:5432/hodoork_db?schema=public"

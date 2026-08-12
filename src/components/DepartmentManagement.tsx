@@ -23,6 +23,7 @@ export default function DepartmentManagement() {
   const [roleTitleInput, setRoleTitleInput] = useState('');
   const [monthlySalaryInput, setMonthlySalaryInput] = useState('500');
   const [targetHoursInput, setTargetHoursInput] = useState('160');
+  const [isHourlyInput, setIsHourlyInput] = useState(true);
 
   const fetchDepartments = async () => {
     try {
@@ -87,7 +88,8 @@ export default function DepartmentManagement() {
           departmentId: selectedDepId,
           roleTitle: roleTitleInput,
           monthlySalary: Number(monthlySalaryInput) || 500,
-          targetMonthlyHours: Number(targetHoursInput) || 160
+          targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 160) : 160,
+          isHourly: isHourlyInput
         })
       });
       const data = await res.json();
@@ -97,6 +99,7 @@ export default function DepartmentManagement() {
         setRoleTitleInput('');
         setMonthlySalaryInput('500');
         setTargetHoursInput('160');
+        setIsHourlyInput(true);
       } else {
         setMsg(data.error || 'خطأ في إضافة الوظيفة');
       }
@@ -123,7 +126,8 @@ export default function DepartmentManagement() {
           id: editingRole.id,
           title: roleTitleInput,
           monthlySalary: Number(monthlySalaryInput),
-          targetMonthlyHours: Number(targetHoursInput)
+          targetMonthlyHours: isHourlyInput ? Number(targetHoursInput) : 160,
+          isHourly: isHourlyInput
         })
       });
       const data = await res.json();
@@ -179,6 +183,7 @@ export default function DepartmentManagement() {
     setRoleTitleInput('');
     setMonthlySalaryInput('500');
     setTargetHoursInput('160');
+    setIsHourlyInput(true);
     setMsg(null);
     setIsAddRoleOpen(true);
   };
@@ -188,6 +193,7 @@ export default function DepartmentManagement() {
     setRoleTitleInput(r.title);
     setMonthlySalaryInput(String(r.monthlySalary));
     setTargetHoursInput(String(r.targetMonthlyHours));
+    setIsHourlyInput(r.isHourly !== false);
     setMsg(null);
   };
 
@@ -270,7 +276,10 @@ export default function DepartmentManagement() {
                   </div>
                 ) : (
                   dep.jobRoles.map((role) => {
-                    const sampleResult = Number(((100 * role.monthlySalary) / role.targetMonthlyHours).toFixed(2));
+                    const isHourly = role.isHourly !== false;
+                    const sampleResult = isHourly
+                      ? Number(((100 * role.monthlySalary) / (role.targetMonthlyHours || 160)).toFixed(2))
+                      : Number((role.monthlySalary / 30).toFixed(2));
 
                     return (
                       <div key={role.id} className="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-200 transition-all flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -278,6 +287,15 @@ export default function DepartmentManagement() {
                           <div className="flex items-center gap-2">
                             <Briefcase className="w-4 h-4 text-blue-600" />
                             <span className="font-extrabold text-slate-900 text-sm">{role.title}</span>
+                            {isHourly ? (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-lg text-[10px] font-bold">
+                                مرتبطة بساعات
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-lg text-[10px] font-bold">
+                                راتب شهري ثابت
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-3 font-mono text-[11px] text-slate-600">
@@ -285,14 +303,25 @@ export default function DepartmentManagement() {
                               <Coins className="w-3.5 h-3.5 text-emerald-600" />
                               الراتب الشهري: {role.monthlySalary} د.ل
                             </span>
-                            <span className="flex items-center gap-1 text-blue-700 font-bold">
-                              <Clock className="w-3.5 h-3.5 text-blue-600" />
-                              ساعات الشهر: {role.targetMonthlyHours} س
-                            </span>
+                            {isHourly ? (
+                              <span className="flex items-center gap-1 text-blue-700 font-bold">
+                                <Clock className="w-3.5 h-3.5 text-blue-600" />
+                                ساعات الشهر: {role.targetMonthlyHours} س
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-amber-700 font-bold">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                اليومية الثابتة: {Number((role.monthlySalary / 30).toFixed(2))} د.ل
+                              </span>
+                            )}
                           </div>
 
                           <div className="text-[10px] text-slate-500 font-mono">
-                            مثال دقيقة 100 س حضور ➔ <span className="font-bold text-slate-900">{sampleResult} د.ل</span>
+                            {isHourly ? (
+                              <>مثال دقيقة 100 س حضور ➔ <span className="font-bold text-slate-900">{sampleResult} د.ل</span></>
+                            ) : (
+                              <>حساب استحقاق يوم الحضور ➔ <span className="font-bold text-slate-900">{sampleResult} د.ل / يوم</span> (الراتب الكامل {role.monthlySalary} د.ل)</>
+                            )}
                           </div>
                         </div>
 
@@ -402,7 +431,35 @@ export default function DepartmentManagement() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">2. قيمة الوظيفة الشهرية (بالدينار الليبي د.ل) *</label>
+                <label className="block text-slate-700 font-bold mb-1">2. نوع احتساب أجر الوظيفة *</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsHourlyInput(true)}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      isHourlyInput
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    مرتبطة بساعات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsHourlyInput(false)}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      !isHourlyInput
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    راتب شهري ثابت
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">3. قيمة الوظيفة الشهرية (بالدينار الليبي د.ل) *</label>
                 <input
                   type="text"
                   required
@@ -415,19 +472,21 @@ export default function DepartmentManagement() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">3. ساعات الوظيفة المطلوبة بالشهر (ساعة) *</label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={targetHoursInput}
-                  onChange={(e) => setTargetHoursInput(e.target.value)}
-                  placeholder="160"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+              {isHourlyInput && (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">4. ساعات الوظيفة المطلوبة بالشهر (ساعة) *</label>
+                  <input
+                    type="text"
+                    required={isHourlyInput}
+                    lang="en-US"
+                    dir="ltr"
+                    value={targetHoursInput}
+                    onChange={(e) => setTargetHoursInput(e.target.value)}
+                    placeholder="160"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              )}
 
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}
 
@@ -479,7 +538,35 @@ export default function DepartmentManagement() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">2. قيمة الوظيفة الشهرية (د.ل) *</label>
+                <label className="block text-slate-700 font-bold mb-1">2. نوع احتساب أجر الوظيفة *</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsHourlyInput(true)}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      isHourlyInput
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    مرتبطة بساعات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsHourlyInput(false)}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                      !isHourlyInput
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    راتب شهري ثابت
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">3. قيمة الوظيفة الشهرية (د.ل) *</label>
                 <input
                   type="text"
                   required
@@ -491,18 +578,20 @@ export default function DepartmentManagement() {
                 />
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">3. ساعات الوظيفة بالشهر *</label>
-                <input
-                  type="text"
-                  required
-                  lang="en-US"
-                  dir="ltr"
-                  value={targetHoursInput}
-                  onChange={(e) => setTargetHoursInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              {isHourlyInput && (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">4. ساعات الوظيفة بالشهر *</label>
+                  <input
+                    type="text"
+                    required={isHourlyInput}
+                    lang="en-US"
+                    dir="ltr"
+                    value={targetHoursInput}
+                    onChange={(e) => setTargetHoursInput(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              )}
 
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}
 

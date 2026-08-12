@@ -670,7 +670,7 @@ export default function AdminDashboard() {
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.title} ({r.monthlySalary} د.ل)
+                        {r.title} ({r.monthlySalary} د.ل - {r.isHourly !== false ? `${r.targetMonthlyHours}س` : 'راتب شهري ثابت'})
                       </option>
                     ))}
                   </select>
@@ -829,7 +829,7 @@ export default function AdminDashboard() {
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
                     {availableJobRoles.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.title} ({r.monthlySalary} د.ل)
+                        {r.title} ({r.monthlySalary} د.ل - {r.isHourly !== false ? `${r.targetMonthlyHours}س` : 'راتب شهري ثابت'})
                       </option>
                     ))}
                   </select>

@@ -47,6 +47,7 @@ model JobRole {
   title              String
   monthlySalary      Float      @default(500.0) // الراتب الشهري المحدد للوظيفة
   targetMonthlyHours Float      @default(160.0) // ساعات الوظيفة المطلوبة في الشهر
+  isHourly           Boolean    @default(true)  // true: مرتبطة بساعات | false: راتب شهري ثابت
   departmentId       String
   department         Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   users              User[]

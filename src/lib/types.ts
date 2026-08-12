@@ -13,6 +13,7 @@ export interface JobRole {
   title: string;
   monthlySalary: number;      // الراتب الشهري المحدد للوظيفة (مثال: 500 د.ل)
   targetMonthlyHours: number; // ساعات الوظيفة المطلوبة في الشهر (مثال: 160 ساعة)
+  isHourly: boolean;          // true: مرتبطة بساعات | false: راتب شهري ثابت
   departmentId: string;
   departmentName?: string;
 }
@@ -31,6 +32,7 @@ export interface User {
   jobRoleTitle?: string;
   monthlySalary?: number;     // قيمة الوظيفة الشهرية (مثال: 500 د.ل)
   targetMonthlyHours?: number;// ساعات الوظيفة بالشهر (مثال: 160 ساعة)
+  isHourly?: boolean;         // نوع حساب أجر الوظيفة
 }
 
 export interface AttendanceRecord {

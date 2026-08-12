@@ -68,6 +68,7 @@ async function getOrSeedDepartments() {
         title: r.title,
         monthlySalary: r.monthlySalary,
         targetMonthlyHours: r.targetMonthlyHours,
+        isHourly: r.isHourly !== false,
         departmentId: r.departmentId,
         departmentName: d.name
       }))
@@ -88,7 +89,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, departmentName, departmentId, roleTitle, monthlySalary, targetMonthlyHours } = body;
+    const { action, departmentName, departmentId, roleTitle, monthlySalary, targetMonthlyHours, isHourly } = body;
 
     if (action === 'CREATE_DEPARTMENT') {
       if (!departmentName) {
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
           title: String(roleTitle).trim(),
           monthlySalary: Number(monthlySalary) || 500,
           targetMonthlyHours: Number(targetMonthlyHours) || 160,
+          isHourly: isHourly !== false,
           departmentId
         }
       });
@@ -124,7 +126,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, id, name, title, monthlySalary, targetMonthlyHours } = body;
+    const { action, id, name, title, monthlySalary, targetMonthlyHours, isHourly } = body;
 
     if (action === 'EDIT_DEPARTMENT') {
       await prisma.department.update({
@@ -137,7 +139,8 @@ export async function PUT(req: NextRequest) {
         data: {
           ...(title && { title: String(title).trim() }),
           ...(monthlySalary !== undefined && { monthlySalary: Number(monthlySalary) }),
-          ...(targetMonthlyHours !== undefined && { targetMonthlyHours: Number(targetMonthlyHours) })
+          ...(targetMonthlyHours !== undefined && { targetMonthlyHours: Number(targetMonthlyHours) }),
+          ...(isHourly !== undefined && { isHourly: Boolean(isHourly) })
         }
       });
     }
