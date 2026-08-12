@@ -3,7 +3,7 @@ export type UserRole = 'ADMIN' | 'EMPLOYEE';
 export interface Department {
   id: string;
   name: string;
-  code?: string;
+  code?: string | null;
   jobRoles?: JobRole[];
   userCount?: number;
 }
@@ -28,8 +28,13 @@ export interface User {
   jobTitle?: string;
   departmentId?: string;
   departmentName?: string;
+  departments?: Department[];
+  departmentNames?: string[];
   jobRoleId?: string;
   jobRoleTitle?: string;
+  jobRoles?: JobRole[];
+  jobRoleIds?: string[];
+  jobRoleTitles?: string[];
   monthlySalary?: number;     // قيمة الوظيفة الشهرية (مثال: 500 د.ل)
   targetMonthlyHours?: number;// ساعات الوظيفة بالشهر (مثال: 160 ساعة)
   isHourly?: boolean;         // نوع حساب أجر الوظيفة
@@ -40,6 +45,8 @@ export interface AttendanceRecord {
   userId: string;
   userName: string;
   employeeCode: string;
+  jobRoleId?: string;
+  jobRoleTitle?: string;
   date: string;                // YYYY-MM-DD
   checkInTime: string;         // HH:mm:ss (وقت الحضور)
   checkOutTime: string | null; // HH:mm:ss (وقت الانصراف)

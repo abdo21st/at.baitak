@@ -9,27 +9,40 @@ let memoryUsers: User[] = [...initialUsers];
 async function getOrSeedUsers(): Promise<User[]> {
   try {
     const dbUsers = await prisma.user.findMany({
-      include: { department: true, jobRole: true },
+      include: { departments: true, jobRoles: true },
       orderBy: { createdAt: 'asc' }
     });
 
     if (dbUsers.length > 0) {
-      return dbUsers.map((u) => ({
-        id: u.id,
-        employeeCode: u.employeeCode,
-        pinCode: u.password || '1234',
-        name: u.name,
-        role: u.role as any,
-        hourlyRate: u.hourlyRate || 0,
-        jobTitle: u.jobRoleId ? (u.jobRole?.title || u.jobTitle) : 'بدون وظيفة خاصة',
-        departmentId: u.departmentId || undefined,
-        departmentName: u.department?.name,
-        jobRoleId: u.jobRoleId || undefined,
-        jobRoleTitle: u.jobRole?.title,
-        monthlySalary: u.jobRoleId ? u.monthlySalary : 0,
-        targetMonthlyHours: u.targetMonthlyHours || 160,
-        isHourly: u.jobRole ? (u.jobRole.isHourly !== false) : true
-      }));
+      return dbUsers.map((u) => {
+        const assignedRoles = u.jobRoles || [];
+        const assignedDeps = u.departments || [];
+
+        const primaryRole = assignedRoles[0];
+        const hasRoles = assignedRoles.length > 0;
+        const jobRoleTitles = assignedRoles.map((r) => r.title);
+        const departmentNames = assignedDeps.map((d) => d.name);
+
+        return {
+          id: u.id,
+          employeeCode: u.employeeCode,
+          pinCode: u.password || '1234',
+          name: u.name,
+          role: u.role as any,
+          hourlyRate: u.hourlyRate || 0,
+          jobTitle: hasRoles ? jobRoleTitles.join(' + ') : 'بدون وظيفة خاصة',
+          departments: assignedDeps,
+          departmentNames: departmentNames.length > 0 ? departmentNames : ['غير محدد'],
+          jobRoles: assignedRoles,
+          jobRoleIds: assignedRoles.map((r) => r.id),
+          jobRoleTitles: jobRoleTitles,
+          jobRoleId: primaryRole?.id,
+          jobRoleTitle: primaryRole?.title,
+          monthlySalary: hasRoles ? assignedRoles.reduce((sum, r) => sum + r.monthlySalary, 0) : 0,
+          targetMonthlyHours: primaryRole?.targetMonthlyHours || 160,
+          isHourly: primaryRole ? primaryRole.isHourly !== false : true
+        };
+      });
     }
 
     // Seed database
@@ -67,7 +80,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, monthlySalary, targetMonthlyHours } = body;
+    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours } = body;
 
     if (!name || !employeeCode) {
       return NextResponse.json({ success: false, error: 'الاسم ورقم الموظف مطلوبان' }, { status: 400 });
@@ -77,22 +90,26 @@ export async function POST(req: NextRequest) {
     const pinStr = String(pinCode || '1234').trim();
     const nameStr = String(name).trim();
 
-    let finalMonthlySalary = Number(monthlySalary) || 500;
+    // Prepare arrays of department & jobRole IDs
+    const depIds: string[] = Array.isArray(departmentIds) ? departmentIds : (departmentId ? [departmentId] : []);
+    const roleIds: string[] = Array.isArray(jobRoleIds) ? jobRoleIds : (jobRoleId ? [jobRoleId] : []);
+
+    let finalMonthlySalary = 0;
     let finalTargetHours = Number(targetMonthlyHours) || 160;
     let finalJobTitle = jobTitle || 'موظف';
 
-    if (jobRoleId) {
+    if (roleIds.length > 0) {
       try {
-        const jr = await prisma.jobRole.findUnique({ where: { id: jobRoleId } });
-        if (jr) {
-          finalMonthlySalary = jr.monthlySalary;
-          finalTargetHours = jr.targetMonthlyHours;
-          finalJobTitle = jr.title;
+        const jrs = await prisma.jobRole.findMany({ where: { id: { in: roleIds } } });
+        if (jrs.length > 0) {
+          finalMonthlySalary = jrs.reduce((sum, r) => sum + r.monthlySalary, 0);
+          finalTargetHours = jrs[0].targetMonthlyHours;
+          finalJobTitle = jrs.map((r) => r.title).join(' + ');
         }
       } catch {}
-    } else if (hourlyRate) {
-      finalMonthlySalary = Number(hourlyRate) * 160;
     }
+
+    const finalHourlyRate = Number(hourlyRate) || 0;
 
     try {
       const existingUser = await prisma.user.findUnique({
@@ -112,25 +129,14 @@ export async function POST(req: NextRequest) {
           role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
           monthlySalary: finalMonthlySalary,
           targetMonthlyHours: finalTargetHours,
-          hourlyRate: finalMonthlySalary / finalTargetHours,
+          hourlyRate: finalHourlyRate,
           jobTitle: finalJobTitle,
-          departmentId: departmentId || null,
-          jobRoleId: jobRoleId || null
+          departments: { connect: depIds.map((id) => ({ id })) },
+          jobRoles: { connect: roleIds.map((id) => ({ id })) }
         }
       });
     } catch (dbErr) {
-      const newUser: User = {
-        id: `usr-${Date.now()}`,
-        employeeCode: codeStr,
-        pinCode: pinStr,
-        name: nameStr,
-        role: role || 'EMPLOYEE',
-        hourlyRate: finalMonthlySalary / finalTargetHours,
-        jobTitle: finalJobTitle,
-        monthlySalary: finalMonthlySalary,
-        targetMonthlyHours: finalTargetHours
-      };
-      memoryUsers.push(newUser);
+      console.error('Create user error:', dbErr);
     }
 
     const allUsers = await getOrSeedUsers();
@@ -144,28 +150,25 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, monthlySalary, targetMonthlyHours } = body;
+    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours } = body;
 
     const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
     const pinStr = pinCode ? String(pinCode).trim() : undefined;
     const nameStr = name ? String(name).trim() : undefined;
 
+    const depIds: string[] | undefined = Array.isArray(departmentIds) ? departmentIds : (departmentId ? [departmentId] : undefined);
+    const roleIds: string[] | undefined = Array.isArray(jobRoleIds) ? jobRoleIds : (jobRoleId ? [jobRoleId] : undefined);
+
     let finalMonthlySalary = monthlySalary !== undefined ? Number(monthlySalary) : undefined;
     let finalTargetHours = targetMonthlyHours !== undefined ? Number(targetMonthlyHours) : undefined;
     let finalJobTitle = jobTitle;
 
-    if (jobRoleId) {
+    if (roleIds !== undefined) {
       try {
-        const jr = await prisma.jobRole.findUnique({ where: { id: jobRoleId } });
-        if (jr) {
-          finalMonthlySalary = jr.monthlySalary;
-          finalTargetHours = jr.targetMonthlyHours;
-          finalJobTitle = jr.title;
-        }
+        const jrs = await prisma.jobRole.findMany({ where: { id: { in: roleIds } } });
+        finalMonthlySalary = jrs.reduce((sum, r) => sum + r.monthlySalary, 0);
+        finalJobTitle = jrs.map((r) => r.title).join(' + ') || 'بدون وظيفة خاصة';
       } catch {}
-    } else if (hourlyRate !== undefined) {
-      finalMonthlySalary = Number(hourlyRate) * 160;
-      finalTargetHours = 160;
     }
 
     try {
@@ -175,23 +178,17 @@ export async function PUT(req: NextRequest) {
           ...(nameStr && { name: nameStr }),
           ...(codeStr && { employeeCode: codeStr }),
           ...(pinStr && { password: pinStr }),
+          ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
           ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
           ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),
-          ...(finalMonthlySalary && finalTargetHours && { hourlyRate: finalMonthlySalary / finalTargetHours }),
           ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
-          ...(finalJobTitle && { jobTitle: finalJobTitle }),
-          ...(departmentId !== undefined && { departmentId: departmentId || null }),
-          ...(jobRoleId !== undefined && { jobRoleId: jobRoleId || null })
+          ...(finalJobTitle !== undefined && { jobTitle: finalJobTitle }),
+          ...(depIds !== undefined && { departments: { set: depIds.map((dId) => ({ id: dId })) } }),
+          ...(roleIds !== undefined && { jobRoles: { set: roleIds.map((rId) => ({ id: rId })) } })
         }
       });
     } catch (dbErr) {
-      const u = memoryUsers.find((x) => x.id === id);
-      if (u) {
-        if (nameStr) u.name = nameStr;
-        if (codeStr) u.employeeCode = codeStr;
-        if (pinStr) u.pinCode = pinStr;
-        if (finalMonthlySalary) u.monthlySalary = finalMonthlySalary;
-      }
+      console.error('Update user error:', dbErr);
     }
 
     const allUsers = await getOrSeedUsers();

@@ -51,7 +51,7 @@ function calculateDualEarnedCost(
 async function getOrSeedRecords(userIdFilter?: string | null): Promise<AttendanceRecord[]> {
   try {
     const dbRecords = await prisma.attendanceRecord.findMany({
-      include: { user: { include: { jobRole: true } } },
+      include: { user: { include: { jobRoles: true } } },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -60,7 +60,8 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         const directRate = r.user?.hourlyRate || 0;
         const jobSalary = r.user?.monthlySalary || 0;
         const targetHours = r.user?.targetMonthlyHours || 160;
-        const isHourly = r.user?.jobRole?.isHourly !== false;
+        const primaryRole = r.user?.jobRoles?.[0];
+        const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
         const dualCost = calculateDualEarnedCost(r.workHours, directRate, jobSalary, targetHours, isHourly);
 
         return {
@@ -145,13 +146,14 @@ export async function POST(req: NextRequest) {
     try {
       const u = await prisma.user.findUnique({
         where: { id: userId },
-        include: { jobRole: true }
+        include: { jobRoles: true }
       });
       if (u) {
         directHourlyRate = u.hourlyRate || 0;
         monthlySalary = u.monthlySalary || 0;
         targetMonthlyHours = u.targetMonthlyHours || 160;
-        isHourly = u.jobRole?.isHourly !== false;
+        const primaryRole = u.jobRoles?.[0];
+        isHourly = primaryRole ? primaryRole.isHourly !== false : true;
       }
     } catch {}
 
@@ -231,7 +233,7 @@ export async function PUT(req: NextRequest) {
     try {
       targetRec = await prisma.attendanceRecord.findUnique({
         where: { id: recordId },
-        include: { user: { include: { jobRole: true } } }
+        include: { user: { include: { jobRoles: true } } }
       });
     } catch {}
 
@@ -272,7 +274,8 @@ export async function PUT(req: NextRequest) {
     const directHourlyRate = targetRec.user?.hourlyRate || 0;
     const monthlySalary = targetRec.user?.monthlySalary || 0;
     const targetMonthlyHours = targetRec.user?.targetMonthlyHours || 160;
-    const isHourly = targetRec.user?.jobRole?.isHourly !== false;
+    const primaryRole = targetRec.user?.jobRoles?.[0];
+    const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
 
     const [inH, inM] = targetRec.checkInTime.split(':').map(Number);
     const [outH, outM] = checkOutTime.split(':').map(Number);
@@ -323,7 +326,7 @@ export async function PATCH(req: NextRequest) {
     try {
       const target = await prisma.attendanceRecord.findUnique({
         where: { id: recordId },
-        include: { user: { include: { jobRole: true } } }
+        include: { user: { include: { jobRoles: true } } }
       });
 
       if (target) {
@@ -347,7 +350,8 @@ export async function PATCH(req: NextRequest) {
           const directHourlyRate = target.user?.hourlyRate || 0;
           const monthlySalary = target.user?.monthlySalary || 0;
           const targetMonthlyHours = target.user?.targetMonthlyHours || 160;
-          const isHourly = target.user?.jobRole?.isHourly !== false;
+          const targetRole = target.user?.jobRoles?.[0];
+          const isHourly = targetRole ? targetRole.isHourly !== false : true;
 
           if (newIn && newOut) {
             const [inH, inM] = newIn.split(':').map(Number);

@@ -458,16 +458,22 @@ export default function EmployeeDashboard() {
                 <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100 flex items-start gap-3">
                   <Building2 className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-slate-500 font-bold mb-1">القسم</p>
-                    <p className="text-base font-black text-slate-900">{p.departmentName || 'غير محدد'}</p>
+                    <p className="text-xs text-slate-500 font-bold mb-1">الأقسام المسندة</p>
+                    <p className="text-base font-black text-slate-900">
+                      {p.departmentNames && p.departmentNames.length > 0
+                        ? p.departmentNames.join(' • ')
+                        : (p.departmentName || 'غير محدد')}
+                    </p>
                   </div>
                 </div>
                 <div className="bg-purple-50 rounded-2xl p-4 border border-purple-100 flex items-start gap-3">
                   <Briefcase className="w-5 h-5 text-purple-500 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs text-slate-500 font-bold mb-1">الوظيفة / الصفة</p>
+                    <p className="text-xs text-slate-500 font-bold mb-1">الوظائف / الصفات الخاصة المسندة</p>
                     <p className="text-base font-black text-slate-900">
-                      {p.jobRoleId ? (p.jobRoleTitle || p.jobTitle) : 'بدون وظيفة خاصة (ساعات فقط)'}
+                      {p.jobRoleTitles && p.jobRoleTitles.length > 0
+                        ? p.jobRoleTitles.join(' + ')
+                        : (p.jobRoleId ? (p.jobRoleTitle || p.jobTitle) : 'بدون وظيفة خاصة (ساعات فقط)')}
                     </p>
                   </div>
                 </div>
@@ -478,16 +484,16 @@ export default function EmployeeDashboard() {
                     <p className="text-base font-black text-teal-700 font-mono">{p.hourlyRate} د.ل / ساعة</p>
                   </div>
                 </div>
-                {p.jobRoleId && (p.monthlySalary || 0) > 0 && (
+                {((p.jobRoles && p.jobRoles.length > 0) || (p.jobRoleId && (p.monthlySalary || 0) > 0)) && (
                   <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3">
                     <Coins className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-xs text-slate-500 font-bold mb-1">راتب الوظيفة الشهري</p>
+                      <p className="text-xs text-slate-500 font-bold mb-1">راتب الوظيفة الشهري والمستحقات</p>
                       <p className="text-base font-black text-amber-700 font-mono">{p.monthlySalary} د.ل / شهر</p>
-                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                      <p className="text-[11px] text-amber-900 font-bold mt-0.5">
                         {p.isHourly !== false 
                           ? `مقابل ${p.targetMonthlyHours || 160} ساعة مستهدفة`
-                          : 'راتب شهري ثابت (غير مرتبط بالساعات)'}
+                          : `راتب شهري ثابت (مرتبط بأيام الحضور — اليومية: ${Number(((p.monthlySalary || 500) / 30).toFixed(2))} د.ل)`}
                       </p>
                     </div>
                   </div>

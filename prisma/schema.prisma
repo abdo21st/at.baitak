@@ -37,22 +37,23 @@ model Department {
   name      String    @unique
   code      String?
   jobRoles  JobRole[]
-  users     User[]
+  users     User[]    @relation("UserDepartments")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
 model JobRole {
-  id                 String     @id @default(uuid())
+  id                 String             @id @default(uuid())
   title              String
-  monthlySalary      Float      @default(500.0) // الراتب الشهري المحدد للوظيفة
-  targetMonthlyHours Float      @default(160.0) // ساعات الوظيفة المطلوبة في الشهر
-  isHourly           Boolean    @default(true)  // true: مرتبطة بساعات | false: راتب شهري ثابت
+  monthlySalary      Float              @default(500.0) // الراتب الشهري المحدد للوظيفة
+  targetMonthlyHours Float              @default(160.0) // ساعات الوظيفة المطلوبة في الشهر
+  isHourly           Boolean            @default(true)  // true: مرتبطة بساعات | false: راتب شهري ثابت
   departmentId       String
-  department         Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  users              User[]
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  department         Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  users              User[]             @relation("UserJobRoles")
+  attendances        AttendanceRecord[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@unique([departmentId, title])
 }
@@ -79,10 +80,8 @@ model User {
   avatar             String?
   phone              String?
   jobTitle           String
-  departmentId       String?
-  department         Department?        @relation(fields: [departmentId], references: [id])
-  jobRoleId          String?
-  jobRole            JobRole?           @relation(fields: [jobRoleId], references: [id])
+  departments        Department[]       @relation("UserDepartments")
+  jobRoles           JobRole[]          @relation("UserJobRoles")
   monthlySalary      Float              @default(500.0) // الراتب الشهري للوظيفة
   targetMonthlyHours Float              @default(160.0) // ساعات الوظيفة بالشهر
   hourlyRate         Float              @default(0.0)   // أجر الساعة المستنتج
@@ -96,6 +95,8 @@ model AttendanceRecord {
   id           String           @id @default(uuid())
   userId       String
   user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobRoleId    String?
+  jobRole      JobRole?         @relation(fields: [jobRoleId], references: [id])
   date         String           // YYYY-MM-DD
   checkInTime  String           // HH:mm:ss
   checkOutTime String?          // HH:mm:ss

@@ -37,6 +37,8 @@ export default function AdminDashboard() {
   const [empPin, setEmpPin] = useState('');
   const [empDepartmentId, setEmpDepartmentId] = useState('');
   const [empJobRoleId, setEmpJobRoleId] = useState('');
+  const [empDepartmentIds, setEmpDepartmentIds] = useState<string[]>([]);
+  const [empJobRoleIds, setEmpJobRoleIds] = useState<string[]>([]);
   const [empMonthlySalary, setEmpMonthlySalary] = useState('0');
   const [empTargetHours, setEmpTargetHours] = useState('160');
   const [empRate, setEmpRate] = useState('50');
@@ -179,10 +181,8 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
-          departmentId: empDepartmentId || null,
-          jobRoleId: empJobRoleId || null,
-          monthlySalary: empJobRoleId ? Number(empMonthlySalary) : 0,
-          targetMonthlyHours: Number(empTargetHours) || 160,
+          departmentIds: empDepartmentIds,
+          jobRoleIds: empJobRoleIds,
           hourlyRate: Number(empRate) || 0
         })
       });
@@ -194,8 +194,8 @@ export default function AdminDashboard() {
         setEmpName('');
         setEmpCode('');
         setEmpPin('');
-        setEmpDepartmentId('');
-        setEmpJobRoleId('');
+        setEmpDepartmentIds([]);
+        setEmpJobRoleIds([]);
       } else {
         setUserMsg(data.error || 'حدث خطأ في إضافة الموظف');
       }
@@ -222,10 +222,8 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
-          departmentId: empDepartmentId || null,
-          jobRoleId: empJobRoleId || null,
-          monthlySalary: empJobRoleId ? Number(empMonthlySalary) : 0,
-          targetMonthlyHours: Number(empTargetHours) || 160,
+          departmentIds: empDepartmentIds,
+          jobRoleIds: empJobRoleIds,
           hourlyRate: Number(empRate) || 0
         })
       });
@@ -268,10 +266,8 @@ export default function AdminDashboard() {
     setEmpName('');
     setEmpCode('');
     setEmpPin('1234');
-    setEmpDepartmentId('');
-    setEmpJobRoleId('');
-    setEmpMonthlySalary('0');
-    setEmpTargetHours('160');
+    setEmpDepartmentIds([]);
+    setEmpJobRoleIds([]);
     setEmpRate('50');
     setUserMsg(null);
     setIsAddUserOpen(true);
@@ -282,10 +278,8 @@ export default function AdminDashboard() {
     setEmpName(u.name);
     setEmpCode(u.employeeCode);
     setEmpPin(u.pinCode);
-    setEmpDepartmentId(u.departmentId || '');
-    setEmpJobRoleId(u.jobRoleId || '');
-    setEmpMonthlySalary(String(u.monthlySalary || 0));
-    setEmpTargetHours(String(u.targetMonthlyHours || 160));
+    setEmpDepartmentIds(u.departments ? u.departments.map((d) => d.id) : (u.departmentId ? [u.departmentId] : []));
+    setEmpJobRoleIds(u.jobRoles ? u.jobRoles.map((r) => r.id) : (u.jobRoleId ? [u.jobRoleId] : []));
     setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
   };
@@ -574,9 +568,15 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-sans font-bold">
-                        <div className="text-slate-900">{u.departmentName || 'عام'}</div>
+                        <div className="text-slate-900">
+                          {u.departmentNames && u.departmentNames.length > 0
+                            ? u.departmentNames.join(', ')
+                            : (u.departmentName || 'عام')}
+                        </div>
                         <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
-                          {u.jobTitle || 'موظف'}
+                          {u.jobRoleTitles && u.jobRoleTitles.length > 0
+                            ? u.jobRoleTitles.join(' + ')
+                            : (u.jobTitle || 'بدون وظيفة خاصة')}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700">{u.employeeCode}</td>
@@ -585,9 +585,9 @@ export default function AdminDashboard() {
                         {u.hourlyRate || 0} د.ل/س
                       </td>
                       <td className="py-3.5 px-4 text-center font-mono font-black">
-                        {u.jobRoleId && u.monthlySalary && u.monthlySalary > 0 ? (
+                        {(u.jobRoleIds?.length || (u.jobRoleId ? 1 : 0)) > 0 && u.monthlySalary && u.monthlySalary > 0 ? (
                           <span className="text-emerald-700">
-                            {u.monthlySalary} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ {u.targetMonthlyHours || 160}س</span>
+                            {u.monthlySalary} د.ل <span className="text-[10px] text-slate-400 font-normal font-sans">/ شهري</span>
                           </span>
                         ) : (
                           <span className="text-slate-400 font-sans font-medium text-[11px]">بدون وظيفة خاصة</span>
