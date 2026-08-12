@@ -409,6 +409,28 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || 'خطأ في معالجة طلب المدير' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'خطأ في العملية' }, { status: 500 });
+  }
+}
+
+// 5. DELETE Attendance Record in PostgreSQL
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'معرف سجل الحضور مطلوب' }, { status: 400 });
+    }
+
+    try {
+      await prisma.attendanceRecord.delete({ where: { id } });
+    } catch {
+      memoryRecords = memoryRecords.filter((r) => r.id !== id);
+    }
+
+    return NextResponse.json({ success: true, message: 'تم حذف سجل الحضور بنجاح' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message || 'خطأ في حذف سجل الحضور' }, { status: 500 });
   }
 }

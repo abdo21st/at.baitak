@@ -20,14 +20,15 @@ async function getOrSeedUsers(): Promise<User[]> {
         pinCode: u.password || '1234',
         name: u.name,
         role: u.role as any,
-        hourlyRate: u.hourlyRate || (u.monthlySalary / u.targetMonthlyHours),
-        jobTitle: u.jobTitle || u.jobRole?.title || 'موظف',
+        hourlyRate: u.hourlyRate || 0,
+        jobTitle: u.jobRoleId ? (u.jobRole?.title || u.jobTitle) : 'بدون وظيفة خاصة',
         departmentId: u.departmentId || undefined,
         departmentName: u.department?.name,
         jobRoleId: u.jobRoleId || undefined,
         jobRoleTitle: u.jobRole?.title,
-        monthlySalary: u.monthlySalary || 500,
-        targetMonthlyHours: u.targetMonthlyHours || 160
+        monthlySalary: u.jobRoleId ? u.monthlySalary : 0,
+        targetMonthlyHours: u.targetMonthlyHours || 160,
+        isHourly: u.jobRole ? (u.jobRole.isHourly !== false) : true
       }));
     }
 

@@ -466,7 +466,9 @@ export default function EmployeeDashboard() {
                   <Briefcase className="w-5 h-5 text-purple-500 mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs text-slate-500 font-bold mb-1">الوظيفة / الصفة</p>
-                    <p className="text-base font-black text-slate-900">{p.jobRoleTitle || p.jobTitle || 'موظف'}</p>
+                    <p className="text-base font-black text-slate-900">
+                      {p.jobRoleId ? (p.jobRoleTitle || p.jobTitle) : 'بدون وظيفة خاصة (ساعات فقط)'}
+                    </p>
                   </div>
                 </div>
                 <div className="bg-teal-50 rounded-2xl p-4 border border-teal-100 flex items-start gap-3">
@@ -476,13 +478,17 @@ export default function EmployeeDashboard() {
                     <p className="text-base font-black text-teal-700 font-mono">{p.hourlyRate} د.ل / ساعة</p>
                   </div>
                 </div>
-                {(p.monthlySalary || 0) > 0 && (
+                {p.jobRoleId && (p.monthlySalary || 0) > 0 && (
                   <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3">
                     <Coins className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-xs text-slate-500 font-bold mb-1">راتب الوظيفة الشهري</p>
                       <p className="text-base font-black text-amber-700 font-mono">{p.monthlySalary} د.ل / شهر</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">مقابل {p.targetMonthlyHours || 160} ساعة مستهدفة</p>
+                      <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                        {p.isHourly !== false 
+                          ? `مقابل ${p.targetMonthlyHours || 160} ساعة مستهدفة`
+                          : 'راتب شهري ثابت (غير مرتبط بالساعات)'}
+                      </p>
                     </div>
                   </div>
                 )}

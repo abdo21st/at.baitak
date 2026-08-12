@@ -91,6 +91,25 @@ export default function AdminDashboard() {
     }
   };
 
+  // Delete attendance record action (حذف سجل الحضور)
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!confirm('هل أنت تأكد من حذف سجل الحضور هذا بالكامل؟')) return;
+
+    try {
+      const res = await fetch(`/api/attendance?id=${recordId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRecords((prev) => prev.filter((r) => r.id !== recordId));
+      } else {
+        alert(data.error || 'خطأ في حذف السجل');
+      }
+    } catch {
+      alert('خطأ في الاتصال بالخادم');
+    }
+  };
+
   // Save edited check-in / check-out times
   const handleSaveTimeEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -429,12 +448,13 @@ export default function AdminDashboard() {
                       <th className="py-3.5 px-4 font-bold text-center">المبلغ المستحق</th>
                       <th className="py-3.5 px-4 font-bold text-center">توثيق الحضور</th>
                       <th className="py-3.5 px-4 font-bold text-center">تعديل الساعات</th>
+                      <th className="py-3.5 px-4 font-bold text-center">حذف السجل</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono">
                     {filteredRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-400 font-sans font-medium">
+                        <td colSpan={9} className="py-8 text-center text-slate-400 font-sans font-medium">
                           لا توجد سجلات حضور مسجلة.
                         </td>
                       </tr>
@@ -474,6 +494,17 @@ export default function AdminDashboard() {
                             >
                               <Edit3 className="w-3.5 h-3.5 text-slate-600" />
                               تعديل
+                            </button>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center font-sans">
+                            <button
+                              onClick={() => handleDeleteRecord(r.id)}
+                              className="px-2.5 h-8 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold flex items-center gap-1 mx-auto cursor-pointer"
+                              title="حذف سجل الحضور هذا بالكامل"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                              حذف
                             </button>
                           </td>
                         </tr>
