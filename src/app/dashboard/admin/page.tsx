@@ -44,28 +44,24 @@ export default function AdminDashboard() {
   const [empRate, setEmpRate] = useState('50');
   const [userMsg, setUserMsg] = useState<string | null>(null);
 
-  const fetchEmployeesAndDeps = () => {
-    fetch('/api/employees')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.users) {
-          setUsers(data.users);
-        }
-      })
-      .catch(() => {});
+  const fetchDashboardData = async () => {
+    try {
+      const [empRes, depRes, attRes] = await Promise.all([
+        fetch('/api/employees').then((r) => r.json()),
+        fetch('/api/departments').then((r) => r.json()),
+        fetch('/api/attendance').then((r) => r.json())
+      ]);
 
-    fetch('/api/departments')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.departments) {
-          setDepartments(data.departments);
-        }
-      })
-      .catch(() => {});
+      if (empRes.success && empRes.users) setUsers(empRes.users);
+      if (depRes.success && depRes.departments) setDepartments(depRes.departments);
+      if (attRes.success && attRes.records) setRecords(attRes.records);
+    } catch (e) {
+      console.error('Error fetching dashboard data:', e);
+    }
   };
 
   useEffect(() => {
-    fetchEmployeesAndDeps();
+    fetchDashboardData();
   }, []);
 
   const filteredRecords = selectedUserId === 'ALL'

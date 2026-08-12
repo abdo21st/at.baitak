@@ -51,6 +51,7 @@ function calculateDualEarnedCost(
 async function getOrSeedRecords(userIdFilter?: string | null): Promise<AttendanceRecord[]> {
   try {
     const dbRecords = await prisma.attendanceRecord.findMany({
+      where: userIdFilter ? { userId: userIdFilter } : undefined,
       include: { user: { include: { jobRoles: true } } },
       orderBy: { createdAt: 'desc' }
     });
@@ -79,9 +80,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         };
       });
 
-      return userIdFilter
-        ? mapped.filter((r) => r.userId === userIdFilter)
-        : mapped;
+      return mapped;
     }
 
     // Check if system is initialized (users exist)
