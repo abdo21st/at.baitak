@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { initialAttendanceRecords } from '@/lib/data-store';
 import { AttendanceRecord } from '@/lib/types';
 
-let memoryRecords: AttendanceRecord[] = [...initialAttendanceRecords];
+let memoryRecords: AttendanceRecord[] = [];
 
 // Helper to validate that check-out is not earlier than check-in
 function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
@@ -83,31 +83,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
       return mapped;
     }
 
-    // Check if system is initialized (users exist)
-    const userCount = await prisma.user.count();
-    if (userCount > 0) {
-      // Users exist, database is initialized -> return empty list if all records were deleted
-      return [];
-    }
-
-    // Seed database ONLY on fresh installation when no users exist
-    for (const r of initialAttendanceRecords) {
-      await prisma.attendanceRecord.create({
-        data: {
-          id: r.id,
-          userId: r.userId,
-          date: r.date,
-          checkInTime: r.checkInTime,
-          checkOutTime: r.checkOutTime,
-          workHours: r.workHours,
-          earnedCost: r.earnedCost
-        }
-      });
-    }
-
-    return userIdFilter
-      ? initialAttendanceRecords.filter((r) => r.userId === userIdFilter)
-      : initialAttendanceRecords;
+    return [];
   } catch (err) {
     console.error('PostgreSQL attendance fallback:', err);
     return userIdFilter

@@ -10,8 +10,8 @@ import DepartmentManagement from '@/components/DepartmentManagement';
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
+  const [users, setUsers] = useState<User[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
   // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS'
