@@ -37,9 +37,11 @@ def main():
 
     # 3. Test POST /api/employees (إضافة موظف اختبار)
     print("\n3️⃣ اختبار إضافة موظف جديد ببيانات كاملة (/api/employees - POST):")
+    import random
+    test_code = str(random.randint(9000, 9999))
     new_emp_payload = {
         "name": "موظف اختبار تجريبي",
-        "employeeCode": "999",
+        "employeeCode": test_code,
         "pinCode": "1234",
         "hourlyRate": 50,
         "monthlySalary": 500,
@@ -49,7 +51,7 @@ def main():
     }
     add_emp_res = make_request(f"{BASE_URL}/api/employees", method='POST', data=new_emp_payload)
     print(f"   نجاح إضافة الموظف: {add_emp_res.get('success')}")
-    created_user = next((u for u in add_emp_res.get('users', []) if u['employeeCode'] == '999'), None)
+    created_user = next((u for u in add_emp_res.get('users', []) if u['employeeCode'] == test_code), None)
     if created_user:
         print(f"   👤 الموظف ينشأ بنجاح: {created_user['name']} (كود: {created_user['employeeCode']}, أجر الساعة: {created_user['hourlyRate']} د.ل, الراتب الشهري: {created_user['monthlySalary']} د.ل)")
 

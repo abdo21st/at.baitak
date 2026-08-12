@@ -84,7 +84,14 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         : mapped;
     }
 
-    // Seed database if empty
+    // Check if system is initialized (users exist)
+    const userCount = await prisma.user.count();
+    if (userCount > 0) {
+      // Users exist, database is initialized -> return empty list if all records were deleted
+      return [];
+    }
+
+    // Seed database ONLY on fresh installation when no users exist
     for (const r of initialAttendanceRecords) {
       await prisma.attendanceRecord.create({
         data: {
@@ -429,9 +436,11 @@ export async function DELETE(req: NextRequest) {
 
     try {
       await prisma.attendanceRecord.delete({ where: { id } });
-    } catch {
-      memoryRecords = memoryRecords.filter((r) => r.id !== id);
+    } catch (dbErr) {
+      console.error('Delete attendance DB error:', dbErr);
     }
+
+    memoryRecords = memoryRecords.filter((r) => r.id !== id);
 
     return NextResponse.json({ success: true, message: 'تم حذف سجل الحضور بنجاح' });
   } catch (error: any) {
