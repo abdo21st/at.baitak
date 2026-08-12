@@ -3,8 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { initialUsers } from '@/lib/data-store';
 import { User } from '@/lib/types';
 
-let memoryUsers: User[] = [...initialUsers];
-
 // Helper to sync initial users into PostgreSQL if empty
 async function getOrSeedUsers(): Promise<User[]> {
   try {
@@ -65,8 +63,8 @@ async function getOrSeedUsers(): Promise<User[]> {
 
     return initialUsers;
   } catch (err) {
-    console.error('PostgreSQL connection fallback:', err);
-    return memoryUsers;
+    console.error('PostgreSQL connection error:', err);
+    return [];
   }
 }
 
@@ -208,18 +206,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'معرف الموظف مطلوب' }, { status: 400 });
     }
 
-    try {
-      const target = await prisma.user.findUnique({ where: { id } });
-      if (target?.role === 'ADMIN') {
-        return NextResponse.json({ success: false, error: 'يمنع حذف حساب المدير الرئيسي' }, { status: 400 });
-      }
-      await prisma.user.delete({ where: { id } });
-    } catch (dbErr) {
-      const idx = memoryUsers.findIndex((x) => x.id === id);
-      if (idx !== -1 && memoryUsers[idx].role !== 'ADMIN') {
-        memoryUsers.splice(idx, 1);
-      }
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (target?.role === 'ADMIN') {
+      return NextResponse.json({ success: false, error: 'يمنع حذف حساب المدير الرئيسي' }, { status: 400 });
     }
+    await prisma.user.delete({ where: { id } });
 
     const allUsers = await getOrSeedUsers();
     return NextResponse.json({ success: true, users: allUsers });
