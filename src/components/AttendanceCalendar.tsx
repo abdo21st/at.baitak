@@ -10,6 +10,27 @@ interface AttendanceCalendarProps {
   records: AttendanceRecord[];
 }
 
+const colorThemes = [
+  { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  { bg: 'from-purple-500 to-violet-600', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+  { bg: 'from-sky-500 to-cyan-600', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+  { bg: 'from-fuchsia-500 to-pink-600', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' },
+  { bg: 'from-teal-500 to-emerald-600', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' }
+];
+
+interface GroupedEmp {
+  userId: string;
+  userName: string;
+  employeeCode: string;
+  records: AttendanceRecord[];
+  totalHours: number;
+  totalEarned: number;
+  theme: typeof colorThemes[0];
+}
+
 export default function AttendanceCalendar({ users, records }: AttendanceCalendarProps) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
@@ -25,8 +46,30 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   // Days in selected Month
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  // Records for selected date
+  // Records for selected date & Grouping by employee
   const selectedDayRecords = records.filter((r) => r.date === selectedDateStr);
+
+  const groupedList: GroupedEmp[] = [];
+  const map: { [id: string]: GroupedEmp } = {};
+
+  selectedDayRecords.forEach((r) => {
+    if (!map[r.userId]) {
+      const themeIdx = Object.keys(map).length % colorThemes.length;
+      map[r.userId] = {
+        userId: r.userId,
+        userName: r.userName,
+        employeeCode: r.employeeCode,
+        records: [],
+        totalHours: 0,
+        totalEarned: 0,
+        theme: colorThemes[themeIdx]
+      };
+      groupedList.push(map[r.userId]);
+    }
+    map[r.userId].records.push(r);
+    map[r.userId].totalHours += r.workHours || 0;
+    map[r.userId].totalEarned += r.earnedCost || 0;
+  });
 
   // Monthly Records & Metrics
   const selectedMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
@@ -244,84 +287,115 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Unified 24-Hour Timeline Master Container */}
-            <div className="bg-slate-900/95 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-5 overflow-x-auto">
-              
-              {/* 24-Hour Top Ruler */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-1 border-b border-slate-800">
-                  <span className="w-48 text-right font-sans text-xs font-bold text-slate-300">الموظف / الدوام</span>
-                  <div className="flex-1 flex items-center justify-between px-2">
-                    {hours24.map((h) => (
-                      <span key={h} className="text-center w-6 text-slate-400 font-bold">
-                        {String(h).padStart(2, '0')}
-                      </span>
-                    ))}
+              {/* Unified 24-Hour Timeline Master Container */}
+              <div className="bg-slate-900/95 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-5 overflow-x-auto">
+                
+                {/* 24-Hour Top Ruler */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800">
+                    <span className="w-56 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">الموظف / الدوام</span>
+                    <div className="flex-1 grid grid-cols-24 text-center font-bold" dir="ltr">
+                      {hours24.map((h) => (
+                        <span key={h} className="text-slate-400 text-[11px]">
+                          {String(h).padStart(2, '0')}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Stacked Rows for Employees */}
-              <div className="space-y-3">
-                {selectedDayRecords.map((rec, idx) => {
-                  const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
-                  const colorThemes = [
-                    { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-                    { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-                    { bg: 'from-purple-500 to-violet-600', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-                    { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-                    { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
-                    { bg: 'from-sky-500 to-cyan-600', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-                    { bg: 'from-fuchsia-500 to-pink-600', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' },
-                    { bg: 'from-teal-500 to-emerald-600', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' }
-                  ];
-                  const theme = colorThemes[idx % colorThemes.length];
+                {/* 1. Master Combined Coverage Timeline Bar (شريط التغطية الموحد المتراكم لكافة الموظفين) */}
+                <div className="p-3 bg-slate-950/90 rounded-2xl border border-blue-500/40 shadow-inner flex flex-wrap sm:flex-nowrap items-center gap-4">
+                  <div className="w-full sm:w-56 shrink-0 space-y-0.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-blue-400 text-sm font-sans">شريط التغطية الموحد</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                        جميع الموظفين ({groupedList.length})
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-semibold">
+                      دمج متراكم لجميع شفتات اليوم في شريط واحد
+                    </div>
+                  </div>
 
-                  return (
-                    <div key={rec.id} className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 transition-all flex flex-wrap sm:flex-nowrap items-center gap-4">
-                      {/* Employee Mini Card (Right Side in RTL) */}
-                      <div className="w-full sm:w-60 shrink-0 space-y-1 text-xs">
+                  <div className="relative h-9 flex-1 bg-slate-900 rounded-xl border border-slate-700/80 overflow-hidden min-w-[300px]" dir="ltr">
+                    {/* Grid Background Lines */}
+                    <div className="absolute inset-0 grid grid-cols-24 opacity-25 pointer-events-none">
+                      {hours24.map((h) => (
+                        <div key={h} className="border-r border-slate-400 h-full"></div>
+                      ))}
+                    </div>
+
+                    {/* Master Shift Segments Overlaid */}
+                    {groupedList.flatMap((emp) =>
+                      emp.records.map((rec) => {
+                        const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
+                        return (
+                          <div
+                            key={`master-${rec.id}`}
+                            style={{ left: pos.left, width: pos.width }}
+                            className={`absolute top-1 bottom-1 bg-gradient-to-r ${emp.theme.bg} opacity-85 hover:opacity-100 border border-white/20 text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2 shadow-md transition-all whitespace-nowrap overflow-hidden z-10`}
+                            title={`${rec.userName}: ${formatTime12h(rec.checkInTime)} ➔ ${rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'} (${formatHoursText(rec.workHours)})`}
+                          >
+                            <span className="truncate">{rec.userName.split(' ')[0]} ({formatTime12h(rec.checkInTime)})</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Stacked Single Rows for Each Employee */}
+                <div className="space-y-3 pt-2">
+                  {groupedList.map((emp) => (
+                    <div key={emp.userId} className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 transition-all flex flex-wrap sm:flex-nowrap items-center gap-4">
+                      {/* Employee Mini Card */}
+                      <div className="w-full sm:w-56 shrink-0 space-y-1 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-white text-sm font-sans">{rec.userName}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${theme.badge}`}>
-                            كود: {rec.employeeCode}
+                          <span className="font-black text-white text-sm font-sans">{emp.userName}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${emp.theme.badge}`}>
+                            كود: {emp.employeeCode}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300">
-                          <span>حضور: <span className="text-emerald-400">{formatTime12h(rec.checkInTime)}</span></span>
-                          <span>انصراف: <span className="text-rose-400">{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'}</span></span>
-                        </div>
                         <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-slate-400">{formatHoursText(rec.workHours)}</span>
-                          <span className="text-emerald-400 font-mono">{rec.earnedCost} د.ل</span>
+                          <span className="text-slate-400">إجمالي اليوم: {formatHoursText(emp.totalHours)}</span>
+                          <span className="text-emerald-400 font-mono">{emp.totalEarned.toFixed(2)} د.ل</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          عدد الشفتات: {emp.records.length}
                         </div>
                       </div>
 
-                      {/* 24-Hour Timeline Track Bar */}
-                      <div className="relative h-8 flex-1 bg-slate-950/80 rounded-xl border border-slate-700/60 overflow-hidden min-w-[300px]">
-                        {/* Hour background ticks */}
-                        <div className="absolute inset-0 flex justify-between px-2 opacity-20 pointer-events-none">
+                      {/* Employee 24-Hour Timeline Track Bar */}
+                      <div className="relative h-8 flex-1 bg-slate-950/80 rounded-xl border border-slate-700/60 overflow-hidden min-w-[300px]" dir="ltr">
+                        {/* Grid Background Lines */}
+                        <div className="absolute inset-0 grid grid-cols-24 opacity-20 pointer-events-none">
                           {hours24.map((h) => (
-                            <div key={h} className="border-r border-slate-400 h-full w-6"></div>
+                            <div key={h} className="border-r border-slate-400 h-full"></div>
                           ))}
                         </div>
 
-                        {/* Shift Colored Line Bar */}
-                        <div
-                          style={{ left: pos.left, width: pos.width }}
-                          className={`absolute top-1 bottom-1 bg-gradient-to-r ${theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden`}
-                          title={`${rec.userName}: ${formatTime12h(rec.checkInTime)} ➔ ${rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'} (${formatHoursText(rec.workHours)})`}
-                        >
-                          <span>{formatTime12h(rec.checkInTime)}</span>
-                          <span className="opacity-90 font-sans">{rec.userName.split(' ')[0]} ({formatHoursText(rec.workHours)})</span>
-                          <span>{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'}</span>
-                        </div>
+                        {/* All Shift Segments for this specific employee */}
+                        {emp.records.map((rec) => {
+                          const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
+                          return (
+                            <div
+                              key={rec.id}
+                              style={{ left: pos.left, width: pos.width }}
+                              className={`absolute top-1 bottom-1 bg-gradient-to-r ${emp.theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden z-10`}
+                              title={`${rec.userName}: ${formatTime12h(rec.checkInTime)} ➔ ${rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'} (${formatHoursText(rec.workHours)})`}
+                            >
+                              <span>{formatTime12h(rec.checkInTime)}</span>
+                              <span className="opacity-90 font-sans truncate px-1">{formatHoursText(rec.workHours)}</span>
+                              <span>{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
 
             {/* Summaries Section (Daily, Weekly, Monthly Cards) */}
             <div className="space-y-4 pt-2">
