@@ -15,6 +15,29 @@ body {
   min-height: 100vh;
   direction: rtl;
   text-align: right;
+  font-variant-numeric: lining-nums tabular-nums !important;
+  -webkit-font-feature-settings: "lnum" 1, "tnum" 1 !important;
+  font-feature-settings: "lnum" 1, "tnum" 1 !important;
+}
+
+/* Force Western Numerals (0-9) on all inputs and text */
+*,
+*:before,
+*:after {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="number"],
+select,
+option {
+  font-variant-numeric: lining-nums tabular-nums !important;
+  -webkit-font-feature-settings: "lnum" 1, "tnum" 1 !important;
+  font-feature-settings: "lnum" 1, "tnum" 1 !important;
+  direction: ltr !important;
+  text-align: center;
 }
 
 /* Light Mode Modern Card Panel */

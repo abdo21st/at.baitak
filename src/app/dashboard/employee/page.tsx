@@ -883,9 +883,15 @@ export default function EmployeeDashboard() {
               {/* Check-in Date & Time */}
               <div className="space-y-2">
                 <label className="block text-slate-800 font-extrabold">تاريخ ووقت الحضور المعدل</label>
-                <select value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono text-xs font-black cursor-pointer">
-                  {recentDatesList.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <input
+                  type="date"
+                  lang="en-US"
+                  dir="ltr"
+                  required
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                />
                 <div className="grid grid-cols-3 gap-2 font-sans">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
@@ -912,9 +918,14 @@ export default function EmployeeDashboard() {
               {/* Check-out Date & Time */}
               <div className="space-y-2">
                 <label className="block text-slate-800 font-extrabold">تاريخ ووقت الانصراف المعدل</label>
-                <select value={editCheckOutDate} onChange={(e) => setEditCheckOutDate(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono text-xs font-black cursor-pointer">
-                  {recentDatesList.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <input
+                  type="date"
+                  lang="en-US"
+                  dir="ltr"
+                  value={editCheckOutDate}
+                  onChange={(e) => setEditCheckOutDate(e.target.value)}
+                  className="w-full h-11 bg-slate-50 border border-slate-300 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                />
                 <div className="grid grid-cols-3 gap-2 font-sans">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
