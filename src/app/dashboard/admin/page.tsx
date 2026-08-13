@@ -262,8 +262,11 @@ export default function AdminDashboard() {
     setEmpName('');
     setEmpCode('');
     setEmpPin('1234');
+    setEmpDepartmentId('');
     setEmpDepartmentIds([]);
+    setEmpJobRoleId('');
     setEmpJobRoleIds([]);
+    setEmpMonthlySalary('0');
     setEmpRate('50');
     setUserMsg(null);
     setIsAddUserOpen(true);
