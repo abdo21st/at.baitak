@@ -187,16 +187,16 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       </div>
 
-      {/* 2. Selected Day 24-Hour Timeline Chart & Report */}
+      {/* 2. Selected Day Unified 24-Hour Timeline Chart & Report */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-md space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
               <Clock className="w-5 h-5 text-blue-600" />
-              الخط الزمني 24 ساعة لساعات الحضور يوم (<span className="font-mono text-blue-700">{selectedDateStr}</span>)
+              الخط الزمني الموحد 24 ساعة لساعات الحضور يوم (<span className="font-mono text-blue-700">{selectedDateStr}</span>)
             </h3>
             <p className="text-slate-500 text-xs font-semibold">
-              توزيع شفتات وساعات عمل الموظفين خلال 24 ساعة
+              شريط زمن 24 ساعة موحد يظهر تغطية دوام الموظفين والتسلسل الزمني لليوم
             </p>
           </div>
 
@@ -215,59 +215,77 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           </div>
         ) : (
           <div className="space-y-6">
-            {/* 24-Hour Ruler Header */}
-            <div className="space-y-2">
-              <div className="relative h-6 bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-between px-2 font-mono text-[10px] font-bold text-slate-600">
-                {hours24.map((h) => (
-                  <span key={h} className="text-center w-6">
-                    {String(h).padStart(2, '0')}
-                  </span>
-                ))}
+            {/* Unified 24-Hour Timeline Master Container */}
+            <div className="bg-slate-900/95 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl space-y-5 overflow-x-auto">
+              
+              {/* 24-Hour Top Ruler */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-1 border-b border-slate-800">
+                  <span className="w-48 text-right font-sans text-xs font-bold text-slate-300">الموظف / الدوام</span>
+                  <div className="flex-1 flex items-center justify-between px-2">
+                    {hours24.map((h) => (
+                      <span key={h} className="text-center w-6 text-slate-400 font-bold">
+                        {String(h).padStart(2, '0')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Employee Timeline Rows */}
-              <div className="space-y-3 pt-2">
-                {selectedDayRecords.map((rec) => {
+              {/* Stacked Rows for Employees */}
+              <div className="space-y-3">
+                {selectedDayRecords.map((rec, idx) => {
                   const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
+                  const colorThemes = [
+                    { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+                    { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+                    { bg: 'from-purple-500 to-violet-600', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+                    { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+                    { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+                    { bg: 'from-sky-500 to-cyan-600', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+                    { bg: 'from-fuchsia-500 to-pink-600', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' },
+                    { bg: 'from-teal-500 to-emerald-600', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' }
+                  ];
+                  const theme = colorThemes[idx % colorThemes.length];
 
                   return (
-                    <div key={rec.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                      {/* Employee Info Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-900 text-sm">{rec.userName}</span>
-                          <span className="text-[10px] bg-slate-200 px-2 py-0.5 rounded-md font-mono text-slate-700">
+                    <div key={rec.id} className="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-2xl border border-slate-700/80 transition-all flex flex-wrap sm:flex-nowrap items-center gap-4">
+                      {/* Employee Mini Card (Right Side in RTL) */}
+                      <div className="w-full sm:w-60 shrink-0 space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-white text-sm font-sans">{rec.userName}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${theme.badge}`}>
                             كود: {rec.employeeCode}
                           </span>
                         </div>
-
-                        <div className="flex items-center gap-4 font-mono text-xs">
-                          <span className="text-blue-600 font-bold">حضور: {rec.checkInTime}</span>
-                          <span className="text-red-600 font-bold">انصراف: {rec.checkOutTime || 'مباشر'}</span>
-                          <span className="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg font-black">
-                            {formatHoursText(rec.workHours)}
-                          </span>
-                          <span className="bg-teal-50 text-teal-700 px-2.5 py-1 rounded-lg font-black border border-teal-200">
-                            {rec.earnedCost} د.ل
-                          </span>
+                        <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300">
+                          <span>حضور: <span className="text-emerald-400">{rec.checkInTime.substring(0,5)}</span></span>
+                          <span>انصراف: <span className="text-rose-400">{rec.checkOutTime ? rec.checkOutTime.substring(0,5) : 'مباشر'}</span></span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-bold">
+                          <span className="text-slate-400">{formatHoursText(rec.workHours)}</span>
+                          <span className="text-emerald-400 font-mono">{rec.earnedCost} د.ل</span>
                         </div>
                       </div>
 
-                      {/* 24-Hour Visual Bar Track */}
-                      <div className="relative h-7 bg-white rounded-xl border border-slate-200 overflow-hidden">
-                        {/* Hour ticks background */}
-                        <div className="absolute inset-0 flex justify-between px-2 opacity-15">
+                      {/* 24-Hour Timeline Track Bar */}
+                      <div className="relative h-8 flex-1 bg-slate-950/80 rounded-xl border border-slate-700/60 overflow-hidden min-w-[300px]">
+                        {/* Hour background ticks */}
+                        <div className="absolute inset-0 flex justify-between px-2 opacity-20 pointer-events-none">
                           {hours24.map((h) => (
                             <div key={h} className="border-r border-slate-400 h-full w-6"></div>
                           ))}
                         </div>
 
-                        {/* Shift Bar */}
+                        {/* Shift Colored Line Bar */}
                         <div
                           style={{ left: pos.left, width: pos.width }}
-                          className="absolute top-1 bottom-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-center shadow-md transition-all px-2 overflow-hidden whitespace-nowrap"
+                          className={`absolute top-1 bottom-1 bg-gradient-to-r ${theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden`}
+                          title={`${rec.userName}: ${rec.checkInTime} ➔ ${rec.checkOutTime || 'جاري'} (${formatHoursText(rec.workHours)})`}
                         >
-                          {rec.checkInTime.substring(0, 5)} ➔ {rec.checkOutTime ? rec.checkOutTime.substring(0, 5) : 'مباشر'}
+                          <span>{rec.checkInTime.substring(0, 5)}</span>
+                          <span className="opacity-90 font-sans">{rec.userName.split(' ')[0]} ({formatHoursText(rec.workHours)})</span>
+                          <span>{rec.checkOutTime ? rec.checkOutTime.substring(0, 5) : 'مباشر'}</span>
                         </div>
                       </div>
                     </div>
@@ -277,7 +295,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             </div>
 
             {/* Daily Total Summary Card */}
-            <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
+            <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs shadow-md border border-slate-800">
               <div className="flex items-center gap-2 font-sans font-bold text-sm">
                 <Coins className="w-5 h-5 text-emerald-400" />
                 ملخص ساعات وأجور اليوم ({selectedDateStr}):

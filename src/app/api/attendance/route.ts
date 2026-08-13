@@ -144,6 +144,51 @@ export async function POST(req: NextRequest) {
 
     const todayDate = date || new Date().toISOString().split('T')[0];
 
+    // 1. Prevent duplicate / overlapping check-ins for the same employee on the same date
+    try {
+      const existingUserRecords = await prisma.attendanceRecord.findMany({
+        where: { userId, date: todayDate }
+      });
+
+      const newInMins = (() => {
+        const [h, m] = checkInTime.split(':').map(Number);
+        return h * 60 + (m || 0);
+      })();
+
+      const newOutMins = checkOutTime ? (() => {
+        const [h, m] = checkOutTime.split(':').map(Number);
+        let out = h * 60 + (m || 0);
+        if (out < newInMins) out += 24 * 60;
+        return out;
+      })() : null;
+
+      for (const rec of existingUserRecords) {
+        const [exInH, exInM] = rec.checkInTime.split(':').map(Number);
+        const exInMins = exInH * 60 + (exInM || 0);
+        let exOutMins = 24 * 60; // if unclosed, assume till end of day
+        if (rec.checkOutTime) {
+          const [exOutH, exOutM] = rec.checkOutTime.split(':').map(Number);
+          exOutMins = exOutH * 60 + (exOutM || 0);
+          if (exOutMins < exInMins) exOutMins += 24 * 60;
+        }
+
+        // Check if newInMins falls within existing shift interval
+        if (newInMins >= exInMins && newInMins < exOutMins) {
+          return NextResponse.json({
+            success: false,
+            error: `خطأ: الموظف لديه بالفعل دوام محجوز في هذا الوقت (${rec.checkInTime} ➔ ${rec.checkOutTime || 'جاري'})، لا يمكن تكرار الحضور!`
+          }, { status: 400 });
+        }
+
+        if (newOutMins && newInMins < exOutMins && newOutMins > exInMins) {
+          return NextResponse.json({
+            success: false,
+            error: `خطأ: فترة الدوام الجديدة يتقاطع جزء منها مع دوام آخر بنفس اليوم (${rec.checkInTime} ➔ ${rec.checkOutTime || 'جاري'})!`
+          }, { status: 400 });
+        }
+      }
+    } catch {}
+
     let directHourlyRate = 0;
     let monthlySalary = 0;
     let targetMonthlyHours = 160;
