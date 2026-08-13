@@ -27,6 +27,34 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   // Records for selected date
   const selectedDayRecords = records.filter((r) => r.date === selectedDateStr);
 
+  // Monthly Records & Metrics
+  const selectedMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  const monthRecords = records.filter((r) => r.date && r.date.startsWith(selectedMonthPrefix));
+
+  const monthTotalHours = Number(monthRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
+  const monthTotalEarned = Number(monthRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
+  const monthActiveEmployees = new Set(monthRecords.map((r) => r.userId)).size;
+  const monthWorkingDays = new Set(monthRecords.map((r) => r.date)).size;
+
+  // Weekly Records & Metrics (Saturday to Friday)
+  const selDate = new Date(selectedDateStr);
+  const dayOfWeek = selDate.getDay(); // 0 is Sun, 6 is Sat
+  const diffToSat = (dayOfWeek + 1) % 7;
+  const weekStart = new Date(selDate);
+  weekStart.setDate(selDate.getDate() - diffToSat);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  const weekRecords = records.filter((r) => r.date && r.date >= weekStartStr && r.date <= weekEndStr);
+
+  const weekTotalHours = Number(weekRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
+  const weekTotalEarned = Number(weekRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
+  const weekActiveEmployees = new Set(weekRecords.map((r) => r.userId)).size;
+  const weekWorkingDays = new Set(weekRecords.map((r) => r.date)).size;
+
   // Month navigation
   const prevMonth = () => {
     if (currentMonth === 0) {
@@ -294,29 +322,94 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
             </div>
 
-            {/* Daily Total Summary Card */}
-            <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs shadow-md border border-slate-800">
-              <div className="flex items-center gap-2 font-sans font-bold text-sm">
-                <Coins className="w-5 h-5 text-emerald-400" />
-                ملخص ساعات وأجور اليوم ({selectedDateStr}):
+            {/* Summaries Section (Daily, Weekly, Monthly Cards) */}
+            <div className="space-y-4 pt-2">
+              {/* 1. Daily Total Summary Card */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs shadow-md border border-slate-800">
+                <div className="flex items-center gap-2 font-sans font-bold text-sm">
+                  <Coins className="w-5 h-5 text-emerald-400" />
+                  ملخص ساعات وأجور اليوم ({selectedDateStr}):
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">الموظفين الحاضرين</span>
+                    <span className="text-base font-black text-emerald-400">{selectedDayRecords.length} موظف</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">إجمالي ساعات اليوم</span>
+                    <span className="text-base font-black text-white font-sans">
+                      {formatHoursText(selectedDayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0))}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">إجمالي المستحقات</span>
+                    <span className="text-base font-black text-emerald-400">
+                      {selectedDayRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)} د.ل
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div>
-                  <span className="text-slate-400 font-sans text-[11px] block">الموظفين الحاضرين</span>
-                  <span className="text-base font-black text-emerald-400">{selectedDayRecords.length} موظف</span>
+              {/* 2. Weekly Total Summary Card */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs shadow-md border border-slate-800">
+                <div className="flex items-center gap-2 font-sans font-bold text-sm">
+                  <Clock className="w-5 h-5 text-blue-400" />
+                  ملخص ساعات وأجور الأسبوع ({weekStartStr} ➔ {weekEndStr}):
                 </div>
-                <div>
-                  <span className="text-slate-400 font-sans text-[11px] block">إجمالي ساعات اليوم</span>
-                  <span className="text-base font-black text-white font-sans">
-                    {formatHoursText(selectedDayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0))}
-                  </span>
+
+                <div className="flex items-center gap-6">
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">الموظفين النشطين</span>
+                    <span className="text-base font-black text-blue-400">{weekActiveEmployees} موظف</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">أيام العمل المسجلة</span>
+                    <span className="text-base font-black text-blue-300 font-sans">{weekWorkingDays} أيام</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">إجمالي ساعات الأسبوع</span>
+                    <span className="text-base font-black text-white font-sans">
+                      {formatHoursText(weekTotalHours)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">مستحقات الأسبوع</span>
+                    <span className="text-base font-black text-emerald-400">
+                      {weekTotalEarned.toFixed(2)} د.ل
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 font-sans text-[11px] block">إجمالي المستحقات</span>
-                  <span className="text-base font-black text-emerald-400">
-                    {selectedDayRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)} د.ل
-                  </span>
+              </div>
+
+              {/* 3. Monthly Total Summary Card */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-wrap items-center justify-between gap-4 font-mono text-xs shadow-md border border-slate-800">
+                <div className="flex items-center gap-2 font-sans font-bold text-sm">
+                  <CalendarIcon className="w-5 h-5 text-purple-400" />
+                  ملخص ساعات وأجور الشهر ({monthNames[currentMonth]} {currentYear}):
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">الموظفين المشاركين</span>
+                    <span className="text-base font-black text-purple-400">{monthActiveEmployees} موظف</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">أيام العمل المسجلة</span>
+                    <span className="text-base font-black text-purple-300 font-sans">{monthWorkingDays} يوم</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">إجمالي ساعات الشهر</span>
+                    <span className="text-base font-black text-white font-sans">
+                      {formatHoursText(monthTotalHours)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans text-[11px] block">مستحقات الشهر الكامل</span>
+                    <span className="text-base font-black text-emerald-400">
+                      {monthTotalEarned.toFixed(2)} د.ل
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
