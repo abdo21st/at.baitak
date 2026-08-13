@@ -43,6 +43,7 @@ export default function EmployeeDashboard() {
   const [selectedDate,   setSelectedDate]   = useState<string>(getCurrentDateFormatted());
   const [checkInHour,    setCheckInHour]    = useState<string>('08');
   const [checkInMinute,  setCheckInMinute]  = useState<string>('00');
+  const [checkOutDate,   setCheckOutDate]   = useState<string>(getCurrentDateFormatted());
   const [checkOutHour,   setCheckOutHour]   = useState<string>('16');
   const [checkOutMinute, setCheckOutMinute] = useState<string>('00');
   const [loading, setLoading] = useState(false);
@@ -260,15 +261,18 @@ export default function EmployeeDashboard() {
     e.preventDefault();
     if (!activeRecord) return;
     const formattedCheckOut = `${checkOutHour}:${checkOutMinute}:00`;
-    if (activeRecord.checkInTime) {
-      const [inH, inM] = activeRecord.checkInTime.split(':').map(Number);
-      const inMins  = inH * 60 + inM;
-      const outMins = Number(checkOutHour) * 60 + Number(checkOutMinute);
-      if (outMins < inMins && !(inH >= 18 && Number(checkOutHour) < 12)) {
-        setMsg({ text: `خطأ: وقت الانصراف (${checkOutHour}:${checkOutMinute}) قبل وقت الحضور (${activeRecord.checkInTime})!`, type: 'error' });
-        return;
-      }
+    
+    const inTimestamp = new Date(`${activeRecord.date}T${activeRecord.checkInTime.length === 5 ? activeRecord.checkInTime + ':00' : activeRecord.checkInTime}`).getTime();
+    const outTimestamp = new Date(`${checkOutDate}T${formattedCheckOut}`).getTime();
+
+    if (outTimestamp < inTimestamp) {
+      setMsg({
+        text: `خطأ: تاريخ ووقت الانصراف (${checkOutDate} ${checkOutHour}:${checkOutMinute}) يسبق تاريخ ووقت الحضور (${activeRecord.date} ${activeRecord.checkInTime})!`,
+        type: 'error'
+      });
+      return;
     }
+
     setLoading(true); setMsg(null);
     try {
       const res  = await fetch('/api/attendance', {
@@ -276,6 +280,7 @@ export default function EmployeeDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recordId: activeRecord.id,
+          checkOutDate: checkOutDate,
           checkOutTime: formattedCheckOut,
           checkOutLat: userLat,
           checkOutLng: userLng
@@ -523,30 +528,44 @@ export default function EmployeeDashboard() {
                   <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-blue-600" /><span>تم تسجيل الحضور لهذا اليوم ({activeRecord.date}):</span></div>
                   <span className="font-mono text-sm font-black text-blue-700 bg-white px-3 py-1 rounded-xl border border-blue-200">{activeRecord.checkInTime}</span>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف</label>
-                    <button type="button" onClick={() => { const p = getCurrentTimeFormatted().split(':'); setCheckOutHour(p[0]||'16'); setCheckOutMinute(p[1]||'00'); }} className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />الوقت الحالي
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 font-mono" dir="ltr">
-                    <div className="flex-1">
-                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
-                      <select value={checkOutHour} onChange={(e) => setCheckOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
-                        {hoursList.map((h) => <option key={h} value={h}>{h}</option>)}
-                      </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs font-bold">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-slate-800 font-black text-sm">اختيار تاريخ الانصراف</label>
+                      <button type="button" onClick={() => setCheckOutDate(getCurrentDateFormatted())} className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1">
+                        <Zap className="w-3.5 h-3.5" />تاريخ اليوم
+                      </button>
                     </div>
-                    <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
-                    <div className="flex-1">
-                      <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
-                      <select value={checkOutMinute} onChange={(e) => setCheckOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
-                        {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
-                      </select>
+                    <div className="block text-[11px] text-transparent mb-1 select-none">.</div>
+                    <select value={checkOutDate} onChange={(e) => setCheckOutDate(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                      {recentDatesList.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف</label>
+                      <button type="button" onClick={() => { const p = getCurrentTimeFormatted().split(':'); setCheckOutHour(p[0]||'16'); setCheckOutMinute(p[1]||'00'); }} className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />الوقت الحالي
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 font-mono" dir="ltr">
+                      <div className="flex-1">
+                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
+                        <select value={checkOutHour} onChange={(e) => setCheckOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                          {hoursList.map((h) => <option key={h} value={h}>{h}</option>)}
+                        </select>
+                      </div>
+                      <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
+                      <div className="flex-1">
+                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
+                        <select value={checkOutMinute} onChange={(e) => setCheckOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                          {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-base rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all">
+                <button type="submit" disabled={loading} className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-base rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-4">
                   <Square className="w-5 h-5 fill-white" />{loading ? 'جاري التسجيل...' : 'تسجيل وقت الانصراف'}
                 </button>
               </form>
