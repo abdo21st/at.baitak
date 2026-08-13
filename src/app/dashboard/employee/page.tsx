@@ -8,7 +8,7 @@ import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
   Play, Square, Zap, User as UserIcon, Lock,
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
-  MapPin, Navigation, Bell, ShieldAlert
+  MapPin, Navigation, Bell, ShieldAlert, Edit3, X
 } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
@@ -54,6 +54,17 @@ export default function EmployeeDashboard() {
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg]         = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Employee Edit Time Modal State
+  const [editingRecordForEmp, setEditingRecordForEmp] = useState<AttendanceRecord | null>(null);
+  const [editInHour, setEditInHour] = useState('08');
+  const [editInMinute, setEditInMinute] = useState('00');
+  const [editInPeriod, setEditInPeriod] = useState<'AM' | 'PM'>('AM');
+  const [editOutHour, setEditOutHour] = useState('04');
+  const [editOutMinute, setEditOutMinute] = useState('00');
+  const [editOutPeriod, setEditOutPeriod] = useState<'AM' | 'PM'>('PM');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
 
   // Previous months
   const [allRecords,     setAllRecords]     = useState<AttendanceRecord[]>([]);
@@ -304,6 +315,61 @@ export default function EmployeeDashboard() {
     setLoading(false);
   };
 
+  const openEmpEditModal = (rec: AttendanceRecord) => {
+    if (rec.isVerified) return;
+    setEditingRecordForEmp(rec);
+    setEditMsg(null);
+    const inState = convert24to12(rec.checkInTime);
+    setEditInHour(inState.hour);
+    setEditInMinute(inState.minute);
+    setEditInPeriod(inState.period);
+
+    if (rec.checkOutTime) {
+      const outState = convert24to12(rec.checkOutTime);
+      setEditOutHour(outState.hour);
+      setEditOutMinute(outState.minute);
+      setEditOutPeriod(outState.period);
+    } else {
+      setEditOutHour('04');
+      setEditOutMinute('00');
+      setEditOutPeriod('PM');
+    }
+  };
+
+  const handleEmpSaveTimeEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecordForEmp) return;
+    const newCheckIn = convert12to24(editInHour, editInMinute, editInPeriod);
+    const newCheckOut = convert12to24(editOutHour, editOutMinute, editOutPeriod);
+
+    setEditLoading(true); setEditMsg(null);
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'EDIT_TIME',
+          isEmployeeRequest: true,
+          recordId: editingRecordForEmp.id,
+          checkInTime: newCheckIn,
+          checkOutTime: newCheckOut
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.record) {
+        setRecords((prev) => prev.map((r) => r.id === data.record.id ? data.record : r));
+        setAllRecords((prev) => prev.map((r) => r.id === data.record.id ? data.record : r));
+        setEditingRecordForEmp(null);
+      } else {
+        setEditMsg(data.error || 'خطأ في تعديل الساعات');
+      }
+    } catch {
+      setEditMsg('خطأ في الاتصال بالخادم');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -362,11 +428,12 @@ export default function EmployeeDashboard() {
               <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
               <SortHeader title="قيمة الساعات" sortKey="earnedCost" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
               <SortHeader title="توثيق المدير" sortKey="isVerified" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+              <th className="py-3.5 px-4 font-bold text-center">تعديل الساعات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-mono">
             {sortedRows.length === 0
-              ? <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
+              ? <tr><td colSpan={7} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
               : sortedRows.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
@@ -379,6 +446,22 @@ export default function EmployeeDashboard() {
                       ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold"><CheckCircle2 className="w-3.5 h-3.5" />موثّق</span>
                       : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold"><AlertCircle className="w-3.5 h-3.5" />بانتظار التوثيق</span>
                     }
+                  </td>
+                  <td className="py-3.5 px-4 text-center font-sans">
+                    {r.isVerified ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-bold">
+                        <Lock className="w-3 h-3 text-slate-400" />
+                        مغلق (تم التوثيق)
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => openEmpEditModal(r)}
+                        className="px-3 h-8 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-extrabold flex items-center gap-1 mx-auto cursor-pointer shadow-sm transition-all"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        تعديل الساعات
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -770,6 +853,101 @@ export default function EmployeeDashboard() {
         )}
 
       </main>
+
+      {/* Employee Time Editing Modal */}
+      {editingRecordForEmp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-cairo">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-blue-600" />
+                تعديل وقت حضور وانصراف السجل
+              </h3>
+              <button onClick={() => setEditingRecordForEmp(null)} className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200 font-semibold">
+              <div>التاريخ: <span className="font-bold font-mono text-slate-900">{editingRecordForEmp.date}</span></div>
+              <div className="text-slate-500 text-[11px]">متاح التعديل طالما أن السجل بانتظار توثيق المدير.</div>
+            </div>
+
+            <form onSubmit={handleEmpSaveTimeEdit} className="space-y-4 text-xs font-bold">
+              {/* Check-in time pickers */}
+              <div>
+                <label className="block text-slate-800 font-extrabold mb-1">وقت الحضور المعدل</label>
+                <div className="grid grid-cols-3 gap-2 font-sans">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
+                    <select value={editInHour} onChange={(e) => setEditInHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الدقيقة</label>
+                    <select value={editInMinute} onChange={(e) => setEditInMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الفترة</label>
+                    <select value={editInPeriod} onChange={(e) => setEditInPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-black text-sm">
+                      <option value="AM">صباحاً (AM)</option>
+                      <option value="PM">مساءً (PM)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Check-out time pickers */}
+              <div>
+                <label className="block text-slate-800 font-extrabold mb-1">وقت الانصراف المعدل</label>
+                <div className="grid grid-cols-3 gap-2 font-sans">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
+                    <select value={editOutHour} onChange={(e) => setEditOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الدقيقة</label>
+                    <select value={editOutMinute} onChange={(e) => setEditOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الفترة</label>
+                    <select value={editOutPeriod} onChange={(e) => setEditOutPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-black text-sm">
+                      <option value="AM">صباحاً (AM)</option>
+                      <option value="PM">مساءً (PM)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {editMsg && <p className="text-rose-600 font-extrabold text-center bg-rose-50 p-2 rounded-lg border border-rose-200">{editMsg}</p>}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center"
+                >
+                  {editLoading ? 'جاري الحفظ...' : 'حفظ الوقت الجديد'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingRecordForEmp(null)}
+                  className="w-full h-11 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-xs flex items-center justify-center cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

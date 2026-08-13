@@ -463,7 +463,14 @@ export async function PATCH(req: NextRequest) {
           return NextResponse.json({ success: true, message: 'تم توثيق الحضور بنجاح', record: verifiedMapped });
         }
 
-        if (action === 'EDIT_TIME') {
+        if (action === 'EDIT_TIME' || action === 'EMPLOYEE_EDIT') {
+          if (target.isVerified && body.isEmployeeRequest) {
+            return NextResponse.json({
+              success: false,
+              error: 'خطأ: تم توثيق هذا السجل من قبل المدير مسبقاً، ولا يمكن تعديله!'
+            }, { status: 400 });
+          }
+
           const newIn = checkInTime || target.checkInTime;
           const newOut = checkOutTime !== undefined ? checkOutTime : target.checkOutTime;
 
