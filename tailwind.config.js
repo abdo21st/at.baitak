@@ -32,6 +32,9 @@ module.exports = {
       },
       fontFamily: {
         cairo: ['var(--font-cairo)', 'sans-serif'],
+      },
+      gridTemplateColumns: {
+        '24': 'repeat(24, minmax(0, 1fr))',
       }
     },
   },

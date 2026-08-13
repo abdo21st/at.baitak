@@ -294,7 +294,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 <div className="space-y-1">
                   <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800">
                     <span className="w-56 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">الموظف / الدوام</span>
-                    <div className="flex-1 grid grid-cols-24 text-center font-bold" dir="ltr">
+                    <div className="flex-1 grid text-center font-bold" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }} dir="ltr">
                       {hours24.map((h) => (
                         <span key={h} className="text-slate-400 text-[11px]">
                           {String(h).padStart(2, '0')}
@@ -320,7 +320,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
 
                   <div className="relative h-9 flex-1 bg-slate-900 rounded-xl border border-slate-700/80 overflow-hidden min-w-[300px]" dir="ltr">
                     {/* Grid Background Lines */}
-                    <div className="absolute inset-0 grid grid-cols-24 opacity-25 pointer-events-none">
+                    <div className="absolute inset-0 grid opacity-25 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                       {hours24.map((h) => (
                         <div key={h} className="border-r border-slate-400 h-full"></div>
                       ))}
@@ -369,7 +369,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                       {/* Employee 24-Hour Timeline Track Bar */}
                       <div className="relative h-8 flex-1 bg-slate-950/80 rounded-xl border border-slate-700/60 overflow-hidden min-w-[300px]" dir="ltr">
                         {/* Grid Background Lines */}
-                        <div className="absolute inset-0 grid grid-cols-24 opacity-20 pointer-events-none">
+                        <div className="absolute inset-0 grid opacity-20 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                           {hours24.map((h) => (
                             <div key={h} className="border-r border-slate-400 h-full"></div>
                           ))}
