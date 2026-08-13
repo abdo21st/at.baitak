@@ -274,8 +274,13 @@ export default function AdminDashboard() {
     setEmpName(u.name);
     setEmpCode(u.employeeCode);
     setEmpPin(u.pinCode);
-    setEmpDepartmentIds(u.departments ? u.departments.map((d) => d.id) : (u.departmentId ? [u.departmentId] : []));
-    setEmpJobRoleIds(u.jobRoles ? u.jobRoles.map((r) => r.id) : (u.jobRoleId ? [u.jobRoleId] : []));
+    const depIds = u.departments ? u.departments.map((d) => d.id) : (u.departmentId ? [u.departmentId] : []);
+    const roleIds = u.jobRoles ? u.jobRoles.map((r) => r.id) : (u.jobRoleId ? [u.jobRoleId] : []);
+    setEmpDepartmentIds(depIds);
+    setEmpJobRoleIds(roleIds);
+    // Sync single-select state for dropdowns
+    setEmpDepartmentId(depIds[0] || '');
+    setEmpJobRoleId(roleIds[0] || '');
     setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
   };
@@ -673,8 +678,11 @@ export default function AdminDashboard() {
                   <select
                     value={empDepartmentId}
                     onChange={(e) => {
-                      setEmpDepartmentId(e.target.value);
+                      const val = e.target.value;
+                      setEmpDepartmentId(val);
+                      setEmpDepartmentIds(val ? [val] : []);
                       setEmpJobRoleId('');
+                      setEmpJobRoleIds([]);
                     }}
                     className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
@@ -691,7 +699,11 @@ export default function AdminDashboard() {
                   <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
                   <select
                     value={empJobRoleId}
-                    onChange={(e) => handleJobRoleChange(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleJobRoleChange(val);
+                      setEmpJobRoleIds(val ? [val] : []);
+                    }}
                     className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
@@ -832,8 +844,11 @@ export default function AdminDashboard() {
                   <select
                     value={empDepartmentId}
                     onChange={(e) => {
-                      setEmpDepartmentId(e.target.value);
+                      const val = e.target.value;
+                      setEmpDepartmentId(val);
+                      setEmpDepartmentIds(val ? [val] : []);
                       setEmpJobRoleId('');
+                      setEmpJobRoleIds([]);
                     }}
                     className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
@@ -850,7 +865,11 @@ export default function AdminDashboard() {
                   <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
                   <select
                     value={empJobRoleId}
-                    onChange={(e) => handleJobRoleChange(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleJobRoleChange(val);
+                      setEmpJobRoleIds(val ? [val] : []);
+                    }}
                     className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
                   >
                     <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
