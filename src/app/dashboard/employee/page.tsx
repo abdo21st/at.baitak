@@ -13,6 +13,7 @@ import {
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
+import { registerServiceWorker, requestNotificationPermission, startGeofenceWatcher } from '@/lib/pwa-notifications';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -87,23 +88,37 @@ export default function EmployeeDashboard() {
   const [pinMsg,      setPinMsg]      = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [pinLoading,  setPinLoading]  = useState(false);
 
-  // Fetch Company Settings (GPS configuration)
+  // Register PWA Service Worker & Fetch Company Settings (GPS configuration)
   useEffect(() => {
+    registerServiceWorker();
+
     fetch('/api/settings')
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.settings) {
           setGpsConfig(data.settings);
+          if (data.settings.gpsEnabled && data.settings.gpsLatitude && data.settings.gpsLongitude) {
+            const hasActiveRecord = records.some((r) => !r.checkOutTime);
+            startGeofenceWatcher(
+              {
+                enabled: true,
+                latitude: data.settings.gpsLatitude,
+                longitude: data.settings.gpsLongitude,
+                radiusMeters: data.settings.gpsRadiusMeters || 200,
+              },
+              hasActiveRecord
+            );
+          }
         }
       })
       .catch(() => {});
-  }, []);
+  }, [records]);
 
   // Request Notification permission
   const requestNotificationAccess = async () => {
+    const perm = await requestNotificationPermission();
     if ('Notification' in window) {
-      const perm = await Notification.requestPermission();
-      setNotifPermission(perm);
+      setNotifPermission(Notification.permission);
     }
   };
 
