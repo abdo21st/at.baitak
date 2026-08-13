@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { User, AttendanceRecord } from '@/lib/types';
 import { Calendar as CalendarIcon, Clock, Printer, ChevronRight, ChevronLeft, UserCheck, Coins } from 'lucide-react';
+import { formatTime12h } from '@/lib/utils';
 
 interface AttendanceCalendarProps {
   users: User[];
@@ -287,8 +288,8 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300">
-                          <span>حضور: <span className="text-emerald-400">{rec.checkInTime.substring(0,5)}</span></span>
-                          <span>انصراف: <span className="text-rose-400">{rec.checkOutTime ? rec.checkOutTime.substring(0,5) : 'مباشر'}</span></span>
+                          <span>حضور: <span className="text-emerald-400">{formatTime12h(rec.checkInTime)}</span></span>
+                          <span>انصراف: <span className="text-rose-400">{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'}</span></span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-bold">
                           <span className="text-slate-400">{formatHoursText(rec.workHours)}</span>
@@ -309,11 +310,11 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                         <div
                           style={{ left: pos.left, width: pos.width }}
                           className={`absolute top-1 bottom-1 bg-gradient-to-r ${theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden`}
-                          title={`${rec.userName}: ${rec.checkInTime} ➔ ${rec.checkOutTime || 'جاري'} (${formatHoursText(rec.workHours)})`}
+                          title={`${rec.userName}: ${formatTime12h(rec.checkInTime)} ➔ ${rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'} (${formatHoursText(rec.workHours)})`}
                         >
-                          <span>{rec.checkInTime.substring(0, 5)}</span>
+                          <span>{formatTime12h(rec.checkInTime)}</span>
                           <span className="opacity-90 font-sans">{rec.userName.split(' ')[0]} ({formatHoursText(rec.workHours)})</span>
-                          <span>{rec.checkOutTime ? rec.checkOutTime.substring(0, 5) : 'مباشر'}</span>
+                          <span>{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر'}</span>
                         </div>
                       </div>
                     </div>

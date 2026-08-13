@@ -9,6 +9,7 @@ import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
+import { formatTime12h } from '@/lib/utils';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -562,8 +563,8 @@ export default function AdminDashboard() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-emerald-600 font-bold">{r.checkInTime || '--:--'}</td>
-                          <td className="py-3.5 px-4 text-rose-600 font-bold">{r.checkOutTime || '--:--'}</td>
+                          <td className="py-3.5 px-4 text-emerald-600 font-bold">{formatTime12h(r.checkInTime)}</td>
+                          <td className="py-3.5 px-4 text-rose-600 font-bold">{formatTime12h(r.checkOutTime)}</td>
                           <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
                           <td className="py-3.5 px-4 text-center font-black text-emerald-700">{r.earnedCost} د.ل</td>
                           <td className="py-3.5 px-4 text-center font-sans">

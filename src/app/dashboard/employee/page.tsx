@@ -10,7 +10,7 @@ import {
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
   MapPin, Navigation, Bell, ShieldAlert
 } from 'lucide-react';
-import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters } from '@/lib/utils';
+import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 
@@ -39,15 +39,19 @@ export default function EmployeeDashboard() {
     d.setDate(d.getDate() - i);
     return d.toISOString().split('T')[0];
   });
-  const hoursList   = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const hours12List = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
   const minutesList = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
   const [selectedDate,   setSelectedDate]   = useState<string>(getCurrentDateFormatted());
   const [checkInHour,    setCheckInHour]    = useState<string>('08');
   const [checkInMinute,  setCheckInMinute]  = useState<string>('00');
+  const [checkInPeriod,  setCheckInPeriod]  = useState<'AM' | 'PM'>('AM');
+
   const [checkOutDate,   setCheckOutDate]   = useState<string>(getCurrentDateFormatted());
-  const [checkOutHour,   setCheckOutHour]   = useState<string>('16');
+  const [checkOutHour,   setCheckOutHour]   = useState<string>('04');
   const [checkOutMinute, setCheckOutMinute] = useState<string>('00');
+  const [checkOutPeriod, setCheckOutPeriod] = useState<'AM' | 'PM'>('PM');
+
   const [loading, setLoading] = useState(false);
   const [msg, setMsg]         = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
@@ -237,6 +241,7 @@ export default function EmployeeDashboard() {
   const handleCheckInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    const formattedCheckIn = convert12to24(checkInHour, checkInMinute, checkInPeriod);
     setLoading(true); setMsg(null);
     try {
       const res  = await fetch('/api/attendance', {
@@ -244,14 +249,14 @@ export default function EmployeeDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id, userName: user.name, employeeCode: user.employeeCode,
-          date: selectedDate, checkInTime: `${checkInHour}:${checkInMinute}:00`,
+          date: selectedDate, checkInTime: formattedCheckIn,
           checkInLat: userLat, checkInLng: userLng
         })
       });
       const data = await res.json();
       if (data.success) {
         setRecords((p) => [data.record, ...p]);
-        let textMsg = `تم تسجيل وقت الحضور (${checkInHour}:${checkInMinute}) بنجاح!`;
+        let textMsg = `تم تسجيل وقت الحضور (${formatTime12h(formattedCheckIn)}) بنجاح!`;
         if (data.warning) textMsg = `${textMsg} — ${data.warning}`;
         setMsg({ text: textMsg, type: data.isOutsideGps ? 'error' : 'success' });
       } else setMsg({ text: data.error || 'خطأ في تسجيل الحضور', type: 'error' });
@@ -262,14 +267,14 @@ export default function EmployeeDashboard() {
   const handleCheckOutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeRecord) return;
-    const formattedCheckOut = `${checkOutHour}:${checkOutMinute}:00`;
+    const formattedCheckOut = convert12to24(checkOutHour, checkOutMinute, checkOutPeriod);
     
     const inTimestamp = new Date(`${activeRecord.date}T${activeRecord.checkInTime.length === 5 ? activeRecord.checkInTime + ':00' : activeRecord.checkInTime}`).getTime();
     const outTimestamp = new Date(`${checkOutDate}T${formattedCheckOut}`).getTime();
 
     if (outTimestamp < inTimestamp) {
       setMsg({
-        text: `خطأ: تاريخ ووقت الانصراف (${checkOutDate} ${checkOutHour}:${checkOutMinute}) يسبق تاريخ ووقت الحضور (${activeRecord.date} ${activeRecord.checkInTime})!`,
+        text: `خطأ: تاريخ ووقت الانصراف (${checkOutDate} ${formatTime12h(formattedCheckOut)}) يسبق تاريخ ووقت الحضور (${activeRecord.date} ${formatTime12h(activeRecord.checkInTime)})!`,
         type: 'error'
       });
       return;
@@ -365,8 +370,8 @@ export default function EmployeeDashboard() {
               : sortedRows.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
-                  <td className="py-3.5 px-4 text-blue-600 font-bold">{r.checkInTime  || '--:--'}</td>
-                  <td className="py-3.5 px-4 text-red-600  font-bold">{r.checkOutTime || '--:--'}</td>
+                  <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
+                  <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
                   <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
                   <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
                   <td className="py-3.5 px-4 text-center font-sans">
@@ -509,22 +514,28 @@ export default function EmployeeDashboard() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-slate-800 font-black text-sm">اختيار وقت الحضور</label>
-                      <button type="button" onClick={() => { const p = getCurrentTimeFormatted().split(':'); setCheckInHour(p[0]||'08'); setCheckInMinute(p[1]||'00'); }} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-blue-200 flex items-center gap-1">
+                      <button type="button" onClick={() => { const { hour, minute, period } = convert24to12(getCurrentTimeFormatted()); setCheckInHour(hour); setCheckInMinute(minute); setCheckInPeriod(period); }} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-blue-200 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />الوقت الحالي
                       </button>
                     </div>
-                    <div className="flex items-center gap-2 font-mono" dir="ltr">
-                      <div className="flex-1">
-                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
-                        <select value={checkInHour} onChange={(e) => setCheckInHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
-                          {hoursList.map((h) => <option key={h} value={h}>{h}</option>)}
+                    <div className="grid grid-cols-3 gap-2 font-sans">
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الساعة</label>
+                        <select value={checkInHour} onChange={(e) => setCheckInHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black font-mono focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
+                          {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
                         </select>
                       </div>
-                      <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
-                      <div className="flex-1">
-                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
-                        <select value={checkInMinute} onChange={(e) => setCheckInMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الدقيقة</label>
+                        <select value={checkInMinute} onChange={(e) => setCheckInMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black font-mono focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
                           {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الفترة</label>
+                        <select value={checkInPeriod} onChange={(e) => setCheckInPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
+                          <option value="AM">صباحاً (AM)</option>
+                          <option value="PM">مساءً (PM)</option>
                         </select>
                       </div>
                     </div>
@@ -538,7 +549,7 @@ export default function EmployeeDashboard() {
               <form onSubmit={handleCheckOutSubmit} className="space-y-5">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-900">
                   <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-blue-600" /><span>تم تسجيل الحضور لهذا اليوم ({activeRecord.date}):</span></div>
-                  <span className="font-mono text-sm font-black text-blue-700 bg-white px-3 py-1 rounded-xl border border-blue-200">{activeRecord.checkInTime}</span>
+                  <span className="font-mono text-sm font-black text-blue-700 bg-white px-3 py-1 rounded-xl border border-blue-200">{formatTime12h(activeRecord.checkInTime)}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs font-bold">
                   <div>
@@ -556,22 +567,28 @@ export default function EmployeeDashboard() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-slate-800 font-black text-sm">اختيار وقت الانصراف</label>
-                      <button type="button" onClick={() => { const p = getCurrentTimeFormatted().split(':'); setCheckOutHour(p[0]||'16'); setCheckOutMinute(p[1]||'00'); }} className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1">
+                      <button type="button" onClick={() => { const { hour, minute, period } = convert24to12(getCurrentTimeFormatted()); setCheckOutHour(hour); setCheckOutMinute(minute); setCheckOutPeriod(period); }} className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-black rounded-lg transition-all cursor-pointer shadow-sm border border-red-200 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />الوقت الحالي
                       </button>
                     </div>
-                    <div className="flex items-center gap-2 font-mono" dir="ltr">
-                      <div className="flex-1">
-                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Hour / الساعة</label>
-                        <select value={checkOutHour} onChange={(e) => setCheckOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
-                          {hoursList.map((h) => <option key={h} value={h}>{h}</option>)}
+                    <div className="grid grid-cols-3 gap-2 font-sans">
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الساعة</label>
+                        <select value={checkOutHour} onChange={(e) => setCheckOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black font-mono focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                          {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
                         </select>
                       </div>
-                      <span className="text-xl font-black text-slate-400 self-end pb-3">:</span>
-                      <div className="flex-1">
-                        <label className="block text-sm text-slate-700 mb-1 text-center font-sans font-extrabold">Min / الدقيقة</label>
-                        <select value={checkOutMinute} onChange={(e) => setCheckOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-base font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الدقيقة</label>
+                        <select value={checkOutMinute} onChange={(e) => setCheckOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black font-mono focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
                           {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-700 mb-1 text-center font-extrabold">الفترة</label>
+                        <select value={checkOutPeriod} onChange={(e) => setCheckOutPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 text-center text-sm font-black focus:outline-none focus:border-red-500 cursor-pointer shadow-sm">
+                          <option value="AM">صباحاً (AM)</option>
+                          <option value="PM">مساءً (PM)</option>
                         </select>
                       </div>
                     </div>
