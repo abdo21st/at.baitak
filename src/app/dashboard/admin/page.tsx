@@ -9,7 +9,7 @@ import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
-import { formatTime12h } from '@/lib/utils';
+import { formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -28,10 +28,19 @@ export default function AdminDashboard() {
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
 
-  // Time Edit Modal State
+  // Time & Date Edit Modal State
+  const hours12List = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+  const minutesList = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
-  const [editCheckIn, setEditCheckIn] = useState('');
-  const [editCheckOut, setEditCheckOut] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editCheckOutDate, setEditCheckOutDate] = useState('');
+  const [editInHour, setEditInHour] = useState('08');
+  const [editInMinute, setEditInMinute] = useState('00');
+  const [editInPeriod, setEditInPeriod] = useState<'AM' | 'PM'>('AM');
+  const [editOutHour, setEditOutHour] = useState('04');
+  const [editOutMinute, setEditOutMinute] = useState('00');
+  const [editOutPeriod, setEditOutPeriod] = useState<'AM' | 'PM'>('PM');
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -142,10 +151,35 @@ export default function AdminDashboard() {
     }
   };
 
-  // Save edited check-in / check-out times
+  const openEditModal = (rec: AttendanceRecord) => {
+    setEditingRecord(rec);
+    setMsg(null);
+    setEditDate(rec.date);
+    setEditCheckOutDate(rec.date);
+    const inState = convert24to12(rec.checkInTime);
+    setEditInHour(inState.hour);
+    setEditInMinute(inState.minute);
+    setEditInPeriod(inState.period);
+
+    if (rec.checkOutTime) {
+      const outState = convert24to12(rec.checkOutTime);
+      setEditOutHour(outState.hour);
+      setEditOutMinute(outState.minute);
+      setEditOutPeriod(outState.period);
+    } else {
+      setEditOutHour('04');
+      setEditOutMinute('00');
+      setEditOutPeriod('PM');
+    }
+  };
+
+  // Save edited check-in / check-out dates and times
   const handleSaveTimeEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRecord) return;
+
+    const newIn = convert12to24(editInHour, editInMinute, editInPeriod);
+    const newOut = convert12to24(editOutHour, editOutMinute, editOutPeriod);
 
     setLoading(true);
     setMsg(null);
@@ -157,8 +191,10 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           action: 'EDIT_TIME',
           recordId: editingRecord.id,
-          checkInTime: editCheckIn,
-          checkOutTime: editCheckOut
+          date: editDate,
+          checkInTime: newIn,
+          checkOutDate: editCheckOutDate,
+          checkOutTime: newOut
         })
       });
 
@@ -368,13 +404,6 @@ export default function AdminDashboard() {
     setEmpJobRoleId(roleIds[0] || '');
     setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
-  };
-
-  const openEditModal = (rec: AttendanceRecord) => {
-    setEditingRecord(rec);
-    setEditCheckIn(rec.checkInTime || '');
-    setEditCheckOut(rec.checkOutTime || '');
-    setMsg(null);
   };
 
   const handleLogout = () => {
@@ -1202,28 +1231,70 @@ export default function AdminDashboard() {
               <div>التاريخ: <span className="font-bold font-mono">{editingRecord.date}</span></div>
             </div>
 
-            <form onSubmit={handleSaveTimeEdit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">وقت الحضور (HH:mm:ss)</label>
+            <form onSubmit={handleSaveTimeEdit} className="space-y-4 text-xs font-bold">
+              {/* Check-in Date & Time */}
+              <div className="space-y-2">
+                <label className="block text-slate-800 font-extrabold">تاريخ ووقت الحضور المعدل</label>
                 <input
-                  type="text"
+                  type="date"
                   required
-                  value={editCheckIn}
-                  onChange={(e) => setEditCheckIn(e.target.value)}
-                  placeholder="08:00:00"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
                   className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                 />
+                <div className="grid grid-cols-3 gap-2 font-sans">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
+                    <select value={editInHour} onChange={(e) => setEditInHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الدقيقة</label>
+                    <select value={editInMinute} onChange={(e) => setEditInMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الفترة</label>
+                    <select value={editInPeriod} onChange={(e) => setEditInPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-black text-sm">
+                      <option value="AM">صباحاً (AM)</option>
+                      <option value="PM">مساءً (PM)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">وقت الانصراف (HH:mm:ss)</label>
+              {/* Check-out Date & Time */}
+              <div className="space-y-2">
+                <label className="block text-slate-800 font-extrabold">تاريخ ووقت الانصراف المعدل</label>
                 <input
-                  type="text"
-                  value={editCheckOut}
-                  onChange={(e) => setEditCheckOut(e.target.value)}
-                  placeholder="16:00:00"
+                  type="date"
+                  value={editCheckOutDate}
+                  onChange={(e) => setEditCheckOutDate(e.target.value)}
                   className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                 />
+                <div className="grid grid-cols-3 gap-2 font-sans">
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
+                    <select value={editOutHour} onChange={(e) => setEditOutHour(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {hours12List.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الدقيقة</label>
+                    <select value={editOutMinute} onChange={(e) => setEditOutMinute(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono font-black text-sm">
+                      {minutesList.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-600 mb-1 text-center">الفترة</label>
+                    <select value={editOutPeriod} onChange={(e) => setEditOutPeriod(e.target.value as 'AM' | 'PM')} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-black text-sm">
+                      <option value="AM">صباحاً (AM)</option>
+                      <option value="PM">مساءً (PM)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}

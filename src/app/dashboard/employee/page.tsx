@@ -57,6 +57,8 @@ export default function EmployeeDashboard() {
 
   // Employee Edit Time Modal State
   const [editingRecordForEmp, setEditingRecordForEmp] = useState<AttendanceRecord | null>(null);
+  const [editDate, setEditDate] = useState<string>(getCurrentDateFormatted());
+  const [editCheckOutDate, setEditCheckOutDate] = useState<string>(getCurrentDateFormatted());
   const [editInHour, setEditInHour] = useState('08');
   const [editInMinute, setEditInMinute] = useState('00');
   const [editInPeriod, setEditInPeriod] = useState<'AM' | 'PM'>('AM');
@@ -319,6 +321,8 @@ export default function EmployeeDashboard() {
     if (rec.isVerified) return;
     setEditingRecordForEmp(rec);
     setEditMsg(null);
+    setEditDate(rec.date);
+    setEditCheckOutDate(rec.date);
     const inState = convert24to12(rec.checkInTime);
     setEditInHour(inState.hour);
     setEditInMinute(inState.minute);
@@ -351,7 +355,9 @@ export default function EmployeeDashboard() {
           action: 'EDIT_TIME',
           isEmployeeRequest: true,
           recordId: editingRecordForEmp.id,
+          date: editDate,
           checkInTime: newCheckIn,
+          checkOutDate: editCheckOutDate,
           checkOutTime: newCheckOut
         })
       });
@@ -361,7 +367,7 @@ export default function EmployeeDashboard() {
         setAllRecords((prev) => prev.map((r) => r.id === data.record.id ? data.record : r));
         setEditingRecordForEmp(null);
       } else {
-        setEditMsg(data.error || 'خطأ في تعديل الساعات');
+        setEditMsg(data.error || 'خطأ في تعديل الساعات والتاريخ');
       }
     } catch {
       setEditMsg('خطأ في الاتصال بالخادم');
@@ -874,9 +880,12 @@ export default function EmployeeDashboard() {
             </div>
 
             <form onSubmit={handleEmpSaveTimeEdit} className="space-y-4 text-xs font-bold">
-              {/* Check-in time pickers */}
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">وقت الحضور المعدل</label>
+              {/* Check-in Date & Time */}
+              <div className="space-y-2">
+                <label className="block text-slate-800 font-extrabold">تاريخ ووقت الحضور المعدل</label>
+                <select value={editDate} onChange={(e) => setEditDate(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono text-xs font-black cursor-pointer">
+                  {recentDatesList.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
                 <div className="grid grid-cols-3 gap-2 font-sans">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>
@@ -900,9 +909,12 @@ export default function EmployeeDashboard() {
                 </div>
               </div>
 
-              {/* Check-out time pickers */}
-              <div>
-                <label className="block text-slate-800 font-extrabold mb-1">وقت الانصراف المعدل</label>
+              {/* Check-out Date & Time */}
+              <div className="space-y-2">
+                <label className="block text-slate-800 font-extrabold">تاريخ ووقت الانصراف المعدل</label>
+                <select value={editCheckOutDate} onChange={(e) => setEditCheckOutDate(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-mono text-xs font-black cursor-pointer">
+                  {recentDatesList.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
                 <div className="grid grid-cols-3 gap-2 font-sans">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-1 text-center">الساعة</label>

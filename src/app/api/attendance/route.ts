@@ -431,7 +431,7 @@ export async function PUT(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, recordId, checkInTime, checkOutTime } = body;
+    const { action, recordId, date, checkInTime, checkOutTime, checkOutDate } = body;
 
     try {
       const target = await prisma.attendanceRecord.findUnique({
@@ -471,15 +471,10 @@ export async function PATCH(req: NextRequest) {
             }, { status: 400 });
           }
 
+          const newDate = date || target.date;
+          const outDate = checkOutDate || newDate;
           const newIn = checkInTime || target.checkInTime;
           const newOut = checkOutTime !== undefined ? checkOutTime : target.checkOutTime;
-
-          if (newIn && newOut && !isValidTimeRange(newIn, newOut)) {
-            return NextResponse.json({
-              success: false,
-              error: 'خطأ: يمنع تعديل وقت الانصراف ليصبح قبل وقت الحضور!'
-            }, { status: 400 });
-          }
 
           let workHours = target.workHours;
           let earnedCost = target.earnedCost;
@@ -490,20 +485,32 @@ export async function PATCH(req: NextRequest) {
           const isHourly = targetRole ? targetRole.isHourly !== false : true;
 
           if (newIn && newOut) {
-            const [inH, inM] = newIn.split(':').map(Number);
-            const [outH, outM] = newOut.split(':').map(Number);
-            let startMins = inH * 60 + (inM || 0);
-            let endMins = outH * 60 + (outM || 0);
-            if (endMins < startMins) endMins += 24 * 60;
+            const inStr = `${newDate}T${newIn.length === 5 ? newIn + ':00' : newIn}`;
+            const outStr = `${outDate}T${newOut.length === 5 ? newOut + ':00' : newOut}`;
+            const inTime = new Date(inStr).getTime();
+            const outTime = new Date(outStr).getTime();
+            let diffMins = (outTime - inTime) / 60000;
+            if (diffMins < 0 && !checkOutDate) {
+              const [inH] = newIn.split(':').map(Number);
+              const [outH] = newOut.split(':').map(Number);
+              if (inH >= 18 && outH < 12) diffMins += 24 * 60;
+            }
 
-            const totalMins = endMins - startMins;
-            workHours = Number((totalMins / 60).toFixed(2));
+            if (diffMins < 0) {
+              return NextResponse.json({
+                success: false,
+                error: 'خطأ: يمنع تعديل وقت وتاريخ الانصراف ليصبح قبل وقت وتاريخ الحضور!'
+              }, { status: 400 });
+            }
+
+            workHours = Number((diffMins / 60).toFixed(2));
             earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly);
           }
 
           const updated = await prisma.attendanceRecord.update({
             where: { id: recordId },
             data: {
+              date: newDate,
               checkInTime: newIn,
               checkOutTime: newOut,
               workHours,
