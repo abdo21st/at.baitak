@@ -7,6 +7,8 @@ import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
 import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, Briefcase, MapPin, Settings, ShieldAlert, Navigation } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
+import { useSortableData } from '@/hooks/useSortableData';
+import SortHeader from '@/components/SortHeader';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -84,6 +86,16 @@ export default function AdminDashboard() {
   const filteredRecords = selectedUserId === 'ALL'
     ? records
     : records.filter((r) => r.userId === selectedUserId);
+
+  const { items: sortedFilteredRecords, requestSort: requestRecordSort, sortConfig: recordSortConfig } = useSortableData(filteredRecords, {
+    key: 'date',
+    direction: 'desc'
+  });
+
+  const { items: sortedUsers, requestSort: requestUserSort, sortConfig: userSortConfig } = useSortableData(users, {
+    key: 'name',
+    direction: 'asc'
+  });
 
   const totalMonthlyHours = Number(records.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
   const totalMonthlyEarned = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
@@ -519,26 +531,26 @@ export default function AdminDashboard() {
                 <table className="w-full text-right text-xs">
                   <thead>
                     <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                      <th className="py-3.5 px-4 font-bold">التاريخ</th>
-                      <th className="py-3.5 px-4 font-bold">الموظف</th>
-                      <th className="py-3.5 px-4 font-bold">وقت الحضور</th>
-                      <th className="py-3.5 px-4 font-bold">وقت الانصراف</th>
-                      <th className="py-3.5 px-4 font-bold text-center">ساعات اليوم</th>
-                      <th className="py-3.5 px-4 font-bold text-center">المبلغ المستحق</th>
-                      <th className="py-3.5 px-4 font-bold text-center">توثيق الحضور</th>
+                      <SortHeader title="التاريخ" sortKey="date" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} />
+                      <SortHeader title="الموظف" sortKey="userName" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} />
+                      <SortHeader title="وقت الحضور" sortKey="checkInTime" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} />
+                      <SortHeader title="وقت الانصراف" sortKey="checkOutTime" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} />
+                      <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} align="center" />
+                      <SortHeader title="المبلغ المستحق" sortKey="earnedCost" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} align="center" />
+                      <SortHeader title="توثيق الحضور" sortKey="isVerified" sortConfig={recordSortConfig} onRequestSort={requestRecordSort} align="center" />
                       <th className="py-3.5 px-4 font-bold text-center">تعديل الساعات</th>
                       <th className="py-3.5 px-4 font-bold text-center">حذف السجل</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono">
-                    {filteredRecords.length === 0 ? (
+                    {sortedFilteredRecords.length === 0 ? (
                       <tr>
                         <td colSpan={9} className="py-8 text-center text-slate-400 font-sans font-medium">
                           لا توجد سجلات حضور مسجلة.
                         </td>
                       </tr>
                     ) : (
-                      filteredRecords.map((r) => (
+                      sortedFilteredRecords.map((r) => (
                         <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
                           <td className="py-3.5 px-4 font-sans font-extrabold text-slate-900">
@@ -635,18 +647,18 @@ export default function AdminDashboard() {
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                    <th className="py-3.5 px-4 font-bold">اسم الموظف</th>
-                    <th className="py-3.5 px-4 font-bold">القسم والوظيفة</th>
-                    <th className="py-3.5 px-4 font-bold text-center">رقم الموظف (ID)</th>
-                    <th className="py-3.5 px-4 font-bold text-center">الرقم السري (PIN)</th>
-                    <th className="py-3.5 px-4 font-bold text-center">أجر الساعة المباشر</th>
-                    <th className="py-3.5 px-4 font-bold text-center">راتب الوظيفة الخاص</th>
-                    <th className="py-3.5 px-4 font-bold text-center">نوع الحساب</th>
+                    <SortHeader title="اسم الموظف" sortKey="name" sortConfig={userSortConfig} onRequestSort={requestUserSort} />
+                    <SortHeader title="القسم والوظيفة" sortKey="departmentName" sortConfig={userSortConfig} onRequestSort={requestUserSort} />
+                    <SortHeader title="رقم الموظف (ID)" sortKey="employeeCode" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
+                    <SortHeader title="الرقم السري (PIN)" sortKey="pinCode" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
+                    <SortHeader title="أجر الساعة المباشر" sortKey="hourlyRate" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
+                    <SortHeader title="راتب الوظيفة الخاص" sortKey="monthlySalary" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
+                    <SortHeader title="نوع الحساب" sortKey="role" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
                     <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {users.map((u) => (
+                  {sortedUsers.map((u) => (
                     <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4 font-extrabold text-slate-900 font-sans">
                         <div className="flex items-center gap-2">

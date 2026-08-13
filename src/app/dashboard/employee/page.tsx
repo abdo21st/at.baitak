@@ -11,6 +11,8 @@ import {
   MapPin, Navigation, Bell, ShieldAlert
 } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters } from '@/lib/utils';
+import { useSortableData } from '@/hooks/useSortableData';
+import SortHeader from '@/components/SortHeader';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -338,39 +340,49 @@ export default function EmployeeDashboard() {
     { id: 'password',  label: 'تغيير كلمة السر',  icon: <KeyRound className="w-4 h-4" /> },
   ];
 
-  const AttendanceTable = ({ rows }: { rows: AttendanceRecord[] }) => (
-    <div className="overflow-x-auto">
-      <table className="w-full text-right text-xs">
-        <thead>
-          <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-            {['التاريخ','وقت الحضور','وقت الانصراف','ساعات اليوم','قيمة الساعات','توثيق المدير'].map((h) => (
-              <th key={h} className="py-3.5 px-4 font-bold">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 font-mono">
-          {rows.length === 0
-            ? <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
-            : rows.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
-                <td className="py-3.5 px-4 text-blue-600 font-bold">{r.checkInTime  || '--:--'}</td>
-                <td className="py-3.5 px-4 text-red-600  font-bold">{r.checkOutTime || '--:--'}</td>
-                <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
-                <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
-                <td className="py-3.5 px-4 text-center font-sans">
-                  {r.isVerified
-                    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold"><CheckCircle2 className="w-3.5 h-3.5" />موثّق</span>
-                    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold"><AlertCircle className="w-3.5 h-3.5" />بانتظار التوثيق</span>
-                  }
-                </td>
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
-    </div>
-  );
+  const AttendanceTable = ({ rows }: { rows: AttendanceRecord[] }) => {
+    const { items: sortedRows, requestSort, sortConfig } = useSortableData(rows, {
+      key: 'date',
+      direction: 'desc'
+    });
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-right text-xs">
+          <thead>
+            <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <SortHeader title="التاريخ" sortKey="date" sortConfig={sortConfig} onRequestSort={requestSort} />
+              <SortHeader title="وقت الحضور" sortKey="checkInTime" sortConfig={sortConfig} onRequestSort={requestSort} />
+              <SortHeader title="وقت الانصراف" sortKey="checkOutTime" sortConfig={sortConfig} onRequestSort={requestSort} />
+              <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+              <SortHeader title="قيمة الساعات" sortKey="earnedCost" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+              <SortHeader title="توثيق المدير" sortKey="isVerified" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-mono">
+            {sortedRows.length === 0
+              ? <tr><td colSpan={6} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
+              : sortedRows.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
+                  <td className="py-3.5 px-4 text-blue-600 font-bold">{r.checkInTime  || '--:--'}</td>
+                  <td className="py-3.5 px-4 text-red-600  font-bold">{r.checkOutTime || '--:--'}</td>
+                  <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
+                  <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
+                  <td className="py-3.5 px-4 text-center font-sans">
+                    {r.isVerified
+                      ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold"><CheckCircle2 className="w-3.5 h-3.5" />موثّق</span>
+                      : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold"><AlertCircle className="w-3.5 h-3.5" />بانتظار التوثيق</span>
+                    }
+                  </td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   // عرض شاشة التحميل حتى يُحمَّل المستخدم وسجلاته
   if (pageLoading || !user) {
