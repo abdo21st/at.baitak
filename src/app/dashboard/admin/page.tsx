@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, AttendanceRecord, Department, JobRole } from '@/lib/types';
+import { User, AttendanceRecord, Department, JobRole, CompanySettings } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, Briefcase } from 'lucide-react';
+import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, Briefcase, MapPin, Settings, ShieldAlert, Navigation } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 
@@ -14,8 +14,16 @@ export default function AdminDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS'
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS'>('ATTENDANCE');
+  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS' vs 'SETTINGS'
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'SETTINGS'>('ATTENDANCE');
+
+  // GPS Settings State
+  const [gpsEnabled, setGpsEnabled] = useState(false);
+  const [gpsLatitude, setGpsLatitude] = useState('32.8872');
+  const [gpsLongitude, setGpsLongitude] = useState('13.1913');
+  const [gpsRadiusMeters, setGpsRadiusMeters] = useState('200');
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   // Time Edit Modal State
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
@@ -46,15 +54,24 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [empRes, depRes, attRes] = await Promise.all([
+      const [empRes, depRes, attRes, setRes] = await Promise.all([
         fetch('/api/employees').then((r) => r.json()),
         fetch('/api/departments').then((r) => r.json()),
-        fetch('/api/attendance').then((r) => r.json())
+        fetch('/api/attendance').then((r) => r.json()),
+        fetch('/api/settings').then((r) => r.json())
       ]);
 
       if (empRes.success && empRes.users) setUsers(empRes.users);
       if (depRes.success && depRes.departments) setDepartments(depRes.departments);
       if (attRes.success && attRes.records) setRecords(attRes.records);
+
+      if (setRes.success && setRes.settings) {
+        const s: CompanySettings = setRes.settings;
+        setGpsEnabled(Boolean(s.gpsEnabled));
+        if (s.gpsLatitude) setGpsLatitude(String(s.gpsLatitude));
+        if (s.gpsLongitude) setGpsLongitude(String(s.gpsLongitude));
+        if (s.gpsRadiusMeters) setGpsRadiusMeters(String(s.gpsRadiusMeters));
+      }
     } catch (e) {
       console.error('Error fetching dashboard data:', e);
     }
@@ -276,6 +293,54 @@ export default function AdminDashboard() {
     setIsAddUserOpen(true);
   };
 
+  // Save GPS settings action
+  const handleSaveGpsSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsLoading(true);
+    setSettingsMsg(null);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gpsEnabled,
+          gpsLatitude: Number(gpsLatitude) || 32.8872,
+          gpsLongitude: Number(gpsLongitude) || 13.1913,
+          gpsRadiusMeters: Number(gpsRadiusMeters) || 200
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingsMsg('تم حفظ إعدادات الموقع الجغرافي (GPS) بنجاح!');
+      } else {
+        setSettingsMsg(data.error || 'خطأ في حفظ الإعدادات');
+      }
+    } catch {
+      setSettingsMsg('خطأ في الاتصال بالخادم');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  // Get current browser location for admin
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGpsLatitude(pos.coords.latitude.toFixed(6));
+          setGpsLongitude(pos.coords.longitude.toFixed(6));
+          setSettingsMsg('تم جلب إحداثيات موقعك الحالي بنجاح!');
+        },
+        () => {
+          alert('تعذر جلب موقعك الحالي. يُرجى منح إذن تحديد الموقع للمتصفح.');
+        }
+      );
+    } else {
+      alert('تحديد الموقع الجغرافي غير مدعوم في متصفحك.');
+    }
+  };
+
   const openEditUserModal = (u: User) => {
     setEditingUser(u);
     setEmpName(u.name);
@@ -383,6 +448,18 @@ export default function AdminDashboard() {
             <Building2 className="w-4 h-4 text-indigo-400" />
             إدارة الأقسام والوظائف
           </button>
+
+          <button
+            onClick={() => setActiveTab('SETTINGS')}
+            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'SETTINGS'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <MapPin className="w-4 h-4 text-purple-400" />
+            إعدادات GPS والموقع
+          </button>
         </div>
 
         {/* TAB 1: ATTENDANCE LOG & VERIFICATION */}
@@ -465,7 +542,13 @@ export default function AdminDashboard() {
                         <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
                           <td className="py-3.5 px-4 font-sans font-extrabold text-slate-900">
-                            {r.userName} <span className="text-[10px] text-slate-400 font-mono font-normal">({r.employeeCode})</span>
+                            <div>{r.userName} <span className="text-[10px] text-slate-400 font-mono font-normal">({r.employeeCode})</span></div>
+                            {r.isOutsideGps && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold mt-0.5 font-sans">
+                                <ShieldAlert className="w-3 h-3 text-amber-700" />
+                                خارج نطاق GPS
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4 text-emerald-600 font-bold">{r.checkInTime || '--:--'}</td>
                           <td className="py-3.5 px-4 text-rose-600 font-bold">{r.checkOutTime || '--:--'}</td>
@@ -646,6 +729,124 @@ export default function AdminDashboard() {
         {/* TAB 4: DEPARTMENT & JOB ROLE MANAGEMENT */}
         {activeTab === 'DEPARTMENTS' && (
           <DepartmentManagement onDepartmentsChange={(deps) => setDepartments(deps)} />
+        )}
+
+        {/* TAB 5: GPS GEOFENCING & SYSTEM SETTINGS */}
+        {activeTab === 'SETTINGS' && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-purple-600" />
+                  إعدادات التحديد الجغرافي (GPS Geofencing)
+                </h2>
+                <p className="text-slate-500 text-xs font-semibold mt-1">
+                  حدد موقع مقر الشركة وإحداثياته على الخريطة ونصف قطر النطاق الجغرافي المسموح به للموظفين.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveGpsSettings} className="space-y-6 max-w-2xl text-xs font-bold">
+              {/* Toggle GPS Enabled */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900">تفعيل نظام التحديد الجغرافي (GPS)</h4>
+                  <p className="text-slate-500 text-[11px] font-semibold mt-0.5">
+                    عند التفعيل، سيتم حساب مسافة الموظف عن النطاق وتنبيهه وتوثيق ما إذا كان الحضور من داخل أو خارج مقر العمل.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={gpsEnabled}
+                    onChange={(e) => setGpsEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {/* GPS Location & Coordinates */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-slate-800 font-extrabold text-sm">إحداثيات موقع مقر العمل (Latitude & Longitude)</label>
+                  <button
+                    type="button"
+                    onClick={handleGetCurrentLocation}
+                    className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border border-purple-200"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    استخدام موقعي الحالي
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono">
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-sans">خط العرض (Latitude)</label>
+                    <input
+                      type="text"
+                      required
+                      value={gpsLatitude}
+                      onChange={(e) => setGpsLatitude(e.target.value)}
+                      placeholder="32.8872"
+                      className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-purple-500 text-left"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-sans">خط الطول (Longitude)</label>
+                    <input
+                      type="text"
+                      required
+                      value={gpsLongitude}
+                      onChange={(e) => setGpsLongitude(e.target.value)}
+                      placeholder="13.1913"
+                      className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-purple-500 text-left"
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Radius in Meters */}
+              <div>
+                <label className="block text-slate-800 font-extrabold text-sm mb-1">
+                  نصف قطر النطاق المسموح به (بالأمتار)
+                </label>
+                <p className="text-slate-500 text-[11px] font-semibold mb-2">
+                  المسافة القصوى التي يُعتبر الموظف فيها متواجداً داخل مقر العمل (مثال: 200 متر).
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    required
+                    min="10"
+                    max="5000"
+                    value={gpsRadiusMeters}
+                    onChange={(e) => setGpsRadiusMeters(e.target.value)}
+                    className="w-40 h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center text-base focus:outline-none focus:border-purple-500"
+                    dir="ltr"
+                  />
+                  <span className="text-slate-600 font-bold">متر (م)</span>
+                </div>
+              </div>
+
+              {settingsMsg && (
+                <div className="p-3.5 rounded-2xl text-xs font-black text-center bg-purple-50 text-purple-900 border border-purple-200">
+                  {settingsMsg}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={settingsLoading}
+                className="w-full sm:w-auto px-8 h-12 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {settingsLoading ? 'جاري الحفظ...' : 'حفظ إعدادات الموقع الجغرافي'}
+              </button>
+            </form>
+          </div>
         )}
       </main>
 

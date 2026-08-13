@@ -54,5 +54,24 @@ export interface AttendanceRecord {
   earnedCost: number;          // قيمة الساعات لليوم بالدينار الليبي ((ساعات الدوام * الراتب الشهري) / 160)
   isVerified: boolean;         // توثيق الاعتماد من المدير (true / false)
   verifiedAt?: string;         // تاريخ ووقت التوثيق
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  isOutsideGps?: boolean;      // هل تم التسجيل خارج نطاق GPS
   createdAt: string;
 }
+
+export interface CompanySettings {
+  id: string;
+  companyName: string;
+  logoUrl?: string | null;
+  n8nWebhookUrl: string;
+  defaultTargetMonthlyHours: number;
+  autoCloseHours: number;
+  gpsEnabled: boolean;
+  gpsLatitude?: number | null;
+  gpsLongitude?: number | null;
+  gpsRadiusMeters: number;
+}
+

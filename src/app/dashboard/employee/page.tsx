@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, AttendanceRecord } from '@/lib/types';
+import { User, AttendanceRecord, CompanySettings } from '@/lib/types';
 
 import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
   Play, Square, Zap, User as UserIcon, Lock,
-  Building2, Briefcase, KeyRound, Eye, EyeOff, History
+  Building2, Briefcase, KeyRound, Eye, EyeOff, History,
+  MapPin, Navigation, Bell, ShieldAlert
 } from 'lucide-react';
-import { getCurrentTimeFormatted, getCurrentDateFormatted } from '@/lib/utils';
+import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters } from '@/lib/utils';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -19,6 +20,16 @@ export default function EmployeeDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('attendance');
   const [pageLoading, setPageLoading] = useState(true);
+
+  // GPS & Geofencing State
+  const [gpsConfig, setGpsConfig] = useState<CompanySettings | null>(null);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const [gpsDistance, setGpsDistance] = useState<number | null>(null);
+  const [isInsideZone, setIsInsideZone] = useState<boolean | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+  const prevZoneRef = useRef<boolean | null>(null);
 
   // Date / Time selectors
   const recentDatesList = Array.from({ length: 30 }, (_, i) => {
@@ -55,6 +66,87 @@ export default function EmployeeDashboard() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [pinMsg,      setPinMsg]      = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [pinLoading,  setPinLoading]  = useState(false);
+
+  // Fetch Company Settings (GPS configuration)
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          setGpsConfig(data.settings);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Request Notification permission
+  const requestNotificationAccess = async () => {
+    if ('Notification' in window) {
+      const perm = await Notification.requestPermission();
+      setNotifPermission(perm);
+    }
+  };
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  // Track Geolocation Position
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsError('تحديد الموقع الجغرافي (GPS) غير مدعوم في هذا المتصفح');
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserLat(lat);
+        setUserLng(lng);
+        setGpsError(null);
+
+        if (gpsConfig?.gpsEnabled && gpsConfig.gpsLatitude && gpsConfig.gpsLongitude) {
+          const dist = calculateGpsDistanceMeters(lat, lng, gpsConfig.gpsLatitude, gpsConfig.gpsLongitude);
+          setGpsDistance(dist);
+          const inside = dist <= (gpsConfig.gpsRadiusMeters || 200);
+          setIsInsideZone(inside);
+
+          // Trigger Push Notification when entering or exiting zone
+          if (prevZoneRef.current !== null && prevZoneRef.current !== inside) {
+            if (inside) {
+              if (Notification.permission === 'granted') {
+                new Notification('📍 أهلاً بك في موقع العمل!', {
+                  body: `لقد دخلت نطاق العمل المحدد (${dist} متر من المقر). يمكنك تسجيل الدوام الآن.`,
+                  icon: '/favicon.ico'
+                });
+              }
+            } else {
+              if (Notification.permission === 'granted') {
+                new Notification('⚠️ غادرت موقع العمل!', {
+                  body: `لقد خرجت من نطاق العمل المحدد (${dist} متر من المقر). لا تنسَ تسجيل الانصراف.`,
+                  icon: '/favicon.ico'
+                });
+              }
+            }
+          }
+          prevZoneRef.current = inside;
+        }
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsError('تم رفض إذن تحديد الموقع الجغرافي. يُرجى التفعيل من إعدادات المتصفح.');
+        } else {
+          setGpsError('عذراً، متعذر تحديد الموقع الجغرافي حالياً.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [gpsConfig]);
 
   useEffect(() => {
     const stored = localStorage.getItem('currentUser');
@@ -103,7 +195,7 @@ export default function EmployeeDashboard() {
   const historyEarned  = Number(historyRecords.reduce((a, r) => a + (r.earnedCost || 0), 0).toFixed(2));
 
   const loadHistory = async () => {
-    if (allRecords.length > 0) return;
+    if (!user || allRecords.length > 0) return;
     setHistoryLoading(true);
     try {
       const res  = await fetch(`/api/attendance?userId=${user.id}`);
@@ -120,7 +212,7 @@ export default function EmployeeDashboard() {
   };
 
   const loadProfile = async () => {
-    if (profileData) return;
+    if (!user || profileData) return;
     setProfileLoading(true);
     try {
       const res  = await fetch('/api/employees');
@@ -141,6 +233,7 @@ export default function EmployeeDashboard() {
 
   const handleCheckInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setLoading(true); setMsg(null);
     try {
       const res  = await fetch('/api/attendance', {
@@ -148,13 +241,16 @@ export default function EmployeeDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id, userName: user.name, employeeCode: user.employeeCode,
-          date: selectedDate, checkInTime: `${checkInHour}:${checkInMinute}:00`
+          date: selectedDate, checkInTime: `${checkInHour}:${checkInMinute}:00`,
+          checkInLat: userLat, checkInLng: userLng
         })
       });
       const data = await res.json();
       if (data.success) {
         setRecords((p) => [data.record, ...p]);
-        setMsg({ text: `تم تسجيل وقت الحضور (${checkInHour}:${checkInMinute}) بنجاح!`, type: 'success' });
+        let textMsg = `تم تسجيل وقت الحضور (${checkInHour}:${checkInMinute}) بنجاح!`;
+        if (data.warning) textMsg = `${textMsg} — ${data.warning}`;
+        setMsg({ text: textMsg, type: data.isOutsideGps ? 'error' : 'success' });
       } else setMsg({ text: data.error || 'خطأ في تسجيل الحضور', type: 'error' });
     } catch { setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' }); }
     setLoading(false);
@@ -178,12 +274,19 @@ export default function EmployeeDashboard() {
       const res  = await fetch('/api/attendance', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: activeRecord.id, checkOutTime: formattedCheckOut })
+        body: JSON.stringify({
+          recordId: activeRecord.id,
+          checkOutTime: formattedCheckOut,
+          checkOutLat: userLat,
+          checkOutLng: userLng
+        })
       });
       const data = await res.json();
       if (data.success) {
         setRecords((p) => p.map((r) => r.id === data.record.id ? data.record : r));
-        setMsg({ text: `تم تسجيل الانصراف — ${formatHoursText(data.record.workHours)} — ${data.record.earnedCost} د.ل`, type: 'success' });
+        let textMsg = `تم تسجيل الانصراف — ${formatHoursText(data.record.workHours)} — ${data.record.earnedCost} د.ل`;
+        if (data.warning) textMsg = `${textMsg} — ${data.warning}`;
+        setMsg({ text: textMsg, type: data.isOutsideGps ? 'error' : 'success' });
       } else setMsg({ text: data.error || 'خطأ في تسجيل الانصراف', type: 'error' });
     } catch { setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' }); }
     setLoading(false);
@@ -191,6 +294,7 @@ export default function EmployeeDashboard() {
 
   const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setPinMsg(null);
     if (currentPin !== user.pinCode) { setPinMsg({ text: 'كلمة السر الحالية غير صحيحة', type: 'error' }); return; }
     if (newPin.length < 4)            { setPinMsg({ text: 'كلمة السر الجديدة يجب أن تكون 4 أرقام على الأقل', type: 'error' }); return; }
@@ -204,7 +308,7 @@ export default function EmployeeDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        const updatedUser = { ...user, pinCode: newPin };
+        const updatedUser: User = { ...user, pinCode: newPin };
         setUser(updatedUser);
         localStorage.setItem('currentUser', JSON.stringify(updatedUser));
         setPinMsg({ text: 'تم تغيير كلمة السر بنجاح!', type: 'success' });
@@ -263,8 +367,6 @@ export default function EmployeeDashboard() {
     </div>
   );
 
-  const p = profileData || user;
-
   // عرض شاشة التحميل حتى يُحمَّل المستخدم وسجلاته
   if (pageLoading || !user) {
     return (
@@ -273,6 +375,8 @@ export default function EmployeeDashboard() {
       </div>
     );
   }
+
+  const p = profileData || user;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">
@@ -314,6 +418,56 @@ export default function EmployeeDashboard() {
 
         {/* TAB: الدوام الحالي */}
         {activeTab === 'attendance' && (<>
+          {/* GPS Status & Geofencing Card */}
+          {gpsConfig?.gpsEnabled && (
+            <div className={`p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row items-center justify-between gap-4 font-cairo ${
+              isInsideZone === true
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                : isInsideZone === false
+                ? 'bg-amber-50 border-amber-200 text-amber-950'
+                : 'bg-slate-50 border-slate-200 text-slate-800'
+            }`}>
+              <div className="flex items-center gap-3 text-xs">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+                  isInsideZone === true
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : isInsideZone === false
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {isInsideZone === true ? <MapPin className="w-5 h-5" /> : isInsideZone === false ? <ShieldAlert className="w-5 h-5" /> : <Navigation className="w-5 h-5 animate-pulse" />}
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm flex items-center gap-1.5">
+                    تحديد الموقع الجغرافي (GPS)
+                    {isInsideZone === true && <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 text-[10px] font-black">داخل النطاق 🟢</span>}
+                    {isInsideZone === false && <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black">خارج النطاق ⚠️</span>}
+                  </h4>
+                  <p className="text-[11px] font-semibold text-slate-600">
+                    {gpsError ? (
+                      <span className="text-rose-600 font-bold">{gpsError}</span>
+                    ) : gpsDistance !== null ? (
+                      `تبعد حالياً ${gpsDistance} متر عن مقر العمل (المسافة المسموحة: ${gpsConfig.gpsRadiusMeters || 200} متر)`
+                    ) : (
+                      'جاري جلب إحداثيات الموقع الجغرافي...'
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {notifPermission !== 'granted' && typeof window !== 'undefined' && 'Notification' in window && (
+                <button
+                  type="button"
+                  onClick={requestNotificationAccess}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <Bell className="w-4 h-4" />
+                  تفعيل تنبيهات الدخول والخروج
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-md space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">

@@ -104,6 +104,11 @@ model AttendanceRecord {
   earnedCost   Float            @default(0.0) // Calculated (workHours * monthlySalary) / targetMonthlyHours
   isVerified   Boolean          @default(false) // توثيق الاعتماد من المدير
   verifiedAt   DateTime?        // تاريخ ووقت التوثيق
+  checkInLat   Float?
+  checkInLng   Float?
+  checkOutLat  Float?
+  checkOutLng  Float?
+  isOutsideGps Boolean          @default(false) // تم التسجيل خارج نطاق GPS
   projectId    String?
   project      Project?         @relation(fields: [projectId], references: [id])
   projectName  String?
@@ -142,5 +147,9 @@ model CompanySettings {
   n8nWebhookUrl             String   @default("https://n8n.ordermt.ly/webhook/attendance-alert")
   defaultTargetMonthlyHours Float    @default(160.0)
   autoCloseHours            Float    @default(12.0)
+  gpsEnabled                Boolean  @default(false)
+  gpsLatitude               Float?   @default(32.8872)
+  gpsLongitude              Float?   @default(13.1913)
+  gpsRadiusMeters           Int      @default(200)
   updatedAt                 DateTime @updatedAt
 }

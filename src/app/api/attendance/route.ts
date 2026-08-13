@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { initialAttendanceRecords } from '@/lib/data-store';
 import { AttendanceRecord } from '@/lib/types';
+import { calculateGpsDistanceMeters } from '@/lib/utils';
 
 let memoryRecords: AttendanceRecord[] = [];
 
@@ -77,6 +77,11 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
           earnedCost: r.earnedCost > 0 ? r.earnedCost : dualCost,
           isVerified: r.isVerified ?? false,
           verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : undefined,
+          checkInLat: r.checkInLat,
+          checkInLng: r.checkInLng,
+          checkOutLat: r.checkOutLat,
+          checkOutLng: r.checkOutLng,
+          isOutsideGps: r.isOutsideGps ?? false,
           createdAt: r.createdAt.toISOString()
         };
       });
@@ -106,7 +111,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, userName, employeeCode, checkInTime, checkOutTime, date } = body;
+    const { userId, userName, employeeCode, checkInTime, checkOutTime, date, checkInLat, checkInLng, lat, lng } = body;
 
     if (!userId || !checkInTime) {
       return NextResponse.json({ success: false, error: 'بيانات الحضور غير مكتملة' }, { status: 400 });
@@ -117,6 +122,24 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'خطأ: يمنع تسجيل وقت الانصراف قبل وقت الحضور!'
       }, { status: 400 });
+    }
+
+    const finalLat = checkInLat ?? lat ?? null;
+    const finalLng = checkInLng ?? lng ?? null;
+
+    let isOutsideGps = false;
+    let gpsDistanceMeters: number | undefined;
+
+    if (finalLat !== null && finalLng !== null) {
+      try {
+        const settings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
+        if (settings && settings.gpsEnabled && settings.gpsLatitude && settings.gpsLongitude) {
+          gpsDistanceMeters = calculateGpsDistanceMeters(finalLat, finalLng, settings.gpsLatitude, settings.gpsLongitude);
+          if (gpsDistanceMeters > (settings.gpsRadiusMeters || 200)) {
+            isOutsideGps = true;
+          }
+        }
+      } catch {}
     }
 
     const todayDate = date || new Date().toISOString().split('T')[0];
@@ -165,7 +188,11 @@ export async function POST(req: NextRequest) {
           checkInTime,
           checkOutTime: checkOutTime || null,
           workHours,
-          earnedCost
+          earnedCost,
+          checkInLat: finalLat,
+          checkInLng: finalLng,
+          isOutsideGps,
+          method: finalLat ? 'GPS' : 'QUICK'
         },
         include: { user: true }
       });
@@ -181,6 +208,9 @@ export async function POST(req: NextRequest) {
         workHours: created.workHours,
         earnedCost: created.earnedCost,
         isVerified: false,
+        checkInLat: created.checkInLat,
+        checkInLng: created.checkInLng,
+        isOutsideGps: created.isOutsideGps,
         createdAt: created.createdAt.toISOString()
       };
     } catch (dbErr) {
@@ -195,12 +225,21 @@ export async function POST(req: NextRequest) {
         workHours,
         earnedCost,
         isVerified: false,
+        checkInLat: finalLat,
+        checkInLng: finalLng,
+        isOutsideGps,
         createdAt: `${todayDate} ${checkInTime}`
       };
       memoryRecords.unshift(newRecord);
     }
 
-    return NextResponse.json({ success: true, record: newRecord });
+    return NextResponse.json({
+      success: true,
+      record: newRecord,
+      isOutsideGps,
+      gpsDistanceMeters,
+      warning: isOutsideGps ? `تنبيه: تم تسجيل الحضور وخير موقعك يبعد ${gpsDistanceMeters} متر عن مقر العمل!` : undefined
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في تسجيل الدوام' }, { status: 500 });
   }
@@ -210,7 +249,10 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { recordId, checkOutTime } = body;
+    const { recordId, checkOutTime, checkOutDate, checkOutLat, checkOutLng, lat, lng } = body;
+
+    const finalLat = checkOutLat ?? lat ?? null;
+    const finalLng = checkOutLng ?? lng ?? null;
 
     let targetRec: any = null;
     try {
@@ -220,38 +262,68 @@ export async function PUT(req: NextRequest) {
       });
     } catch {}
 
+    const computeWorkHours = (inDateStr: string, inTimeStr: string, outDateStr: string, outTimeStr: string) => {
+      const inStr = `${inDateStr}T${inTimeStr.length === 5 ? inTimeStr + ':00' : inTimeStr}`;
+      const outStr = `${outDateStr}T${outTimeStr.length === 5 ? outTimeStr + ':00' : outTimeStr}`;
+      const inTime = new Date(inStr).getTime();
+      const outTime = new Date(outStr).getTime();
+      let diffMins = (outTime - inTime) / 60000;
+      if (diffMins < 0 && !checkOutDate) {
+        const [inH] = inTimeStr.split(':').map(Number);
+        const [outH] = outTimeStr.split(':').map(Number);
+        if (inH >= 18 && outH < 12) {
+          diffMins += 24 * 60;
+        }
+      }
+      return diffMins;
+    };
+
     if (!targetRec) {
       const memRec = memoryRecords.find((r) => r.id === recordId);
       if (!memRec) {
         return NextResponse.json({ success: false, error: 'سجل الحضور غير موجود' }, { status: 404 });
       }
 
-      if (!isValidTimeRange(memRec.checkInTime, checkOutTime)) {
+      const outDate = checkOutDate || memRec.date;
+      const totalMins = computeWorkHours(memRec.date, memRec.checkInTime, outDate, checkOutTime);
+      if (totalMins < 0) {
         return NextResponse.json({
           success: false,
-          error: `خطأ: وقت الانصراف (${checkOutTime}) يسبق وقت الحضور (${memRec.checkInTime})!`
+          error: `خطأ: تاريخ ووقت الانصراف يسبق وقت الحضور (${memRec.checkInTime})!`
         }, { status: 400 });
       }
 
-      const [inH, inM] = memRec.checkInTime.split(':').map(Number);
-      const [outH, outM] = checkOutTime.split(':').map(Number);
-      let startMins = inH * 60 + (inM || 0);
-      let endMins = outH * 60 + (outM || 0);
-      if (endMins < startMins) endMins += 24 * 60;
-
-      const totalMins = endMins - startMins;
       memRec.workHours = Number((totalMins / 60).toFixed(2));
       memRec.earnedCost = calculateDualEarnedCost(memRec.workHours, 50, 500, 160, true);
       memRec.checkOutTime = checkOutTime;
+      memRec.checkOutLat = finalLat;
+      memRec.checkOutLng = finalLng;
 
       return NextResponse.json({ success: true, record: memRec });
     }
 
-    if (!isValidTimeRange(targetRec.checkInTime, checkOutTime)) {
+    const outDate = checkOutDate || targetRec.date;
+    const totalMins = computeWorkHours(targetRec.date, targetRec.checkInTime, outDate, checkOutTime);
+    if (totalMins < 0) {
       return NextResponse.json({
         success: false,
-        error: `خطأ: وقت الانصراف (${checkOutTime}) يسبق وقت الحضور (${targetRec.checkInTime})!`
+        error: `خطأ: تاريخ ووقت الانصراف يسبق وقت الحضور (${targetRec.checkInTime})!`
       }, { status: 400 });
+    }
+
+    let isOutsideGps = targetRec.isOutsideGps || false;
+    let gpsDistanceMeters: number | undefined;
+
+    if (finalLat !== null && finalLng !== null) {
+      try {
+        const settings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
+        if (settings && settings.gpsEnabled && settings.gpsLatitude && settings.gpsLongitude) {
+          gpsDistanceMeters = calculateGpsDistanceMeters(finalLat, finalLng, settings.gpsLatitude, settings.gpsLongitude);
+          if (gpsDistanceMeters > (settings.gpsRadiusMeters || 200)) {
+            isOutsideGps = true;
+          }
+        }
+      } catch {}
     }
 
     const directHourlyRate = targetRec.user?.hourlyRate || 0;
@@ -260,13 +332,6 @@ export async function PUT(req: NextRequest) {
     const primaryRole = targetRec.user?.jobRoles?.[0];
     const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
 
-    const [inH, inM] = targetRec.checkInTime.split(':').map(Number);
-    const [outH, outM] = checkOutTime.split(':').map(Number);
-    let startMins = inH * 60 + (inM || 0);
-    let endMins = outH * 60 + (outM || 0);
-    if (endMins < startMins) endMins += 24 * 60;
-
-    const totalMins = endMins - startMins;
     const workHours = Number((totalMins / 60).toFixed(2));
     const earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly);
 
@@ -275,7 +340,10 @@ export async function PUT(req: NextRequest) {
       data: {
         checkOutTime,
         workHours,
-        earnedCost
+        earnedCost,
+        checkOutLat: finalLat,
+        checkOutLng: finalLng,
+        isOutsideGps
       },
       include: { user: true }
     });
@@ -292,8 +360,21 @@ export async function PUT(req: NextRequest) {
       earnedCost: updated.earnedCost,
       isVerified: updated.isVerified ?? false,
       verifiedAt: updated.verifiedAt?.toISOString(),
+      checkInLat: updated.checkInLat,
+      checkInLng: updated.checkInLng,
+      checkOutLat: updated.checkOutLat,
+      checkOutLng: updated.checkOutLng,
+      isOutsideGps: updated.isOutsideGps ?? false,
       createdAt: updated.createdAt.toISOString()
     };
+
+    return NextResponse.json({
+      success: true,
+      record: mapped,
+      isOutsideGps,
+      gpsDistanceMeters,
+      warning: isOutsideGps ? `تنبيه: تم تسجيل الانصراف ولكن موقعك يبعد ${gpsDistanceMeters} متر عن مقر العمل!` : undefined
+    });
 
     return NextResponse.json({ success: true, record: mapped });
   } catch (error: any) {
