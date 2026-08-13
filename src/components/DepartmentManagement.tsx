@@ -4,7 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { Department, JobRole } from '@/lib/types';
 import { Building2, Briefcase, Plus, Trash2, Edit3, X, Coins, Clock } from 'lucide-react';
 
-export default function DepartmentManagement() {
+interface Props {
+  onDepartmentsChange?: (departments: Department[]) => void;
+}
+
+export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -31,6 +35,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
       }
     } catch (err) {
       console.error(err);
@@ -60,6 +65,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
         setIsAddDepOpen(false);
         setDepNameInput('');
       } else {
@@ -95,6 +101,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
         setIsAddRoleOpen(false);
         setRoleTitleInput('');
         setMonthlySalaryInput('500');
@@ -133,6 +140,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
         setEditingRole(null);
       } else {
         setMsg(data.error || 'خطأ في تعديل الوظيفة');
@@ -155,6 +163,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
       }
     } catch {
       alert('خطأ في الاتصال بالخادم');
@@ -172,6 +181,7 @@ export default function DepartmentManagement() {
       const data = await res.json();
       if (data.success) {
         setDepartments(data.departments);
+        onDepartmentsChange?.(data.departments);
       }
     } catch {
       alert('خطأ في الاتصال بالخادم');

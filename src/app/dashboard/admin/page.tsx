@@ -82,7 +82,11 @@ export default function AdminDashboard() {
 
       const data = await res.json();
       if (data.success) {
-        setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, isVerified: true } : r)));
+        if (data.record) {
+          setRecords((prev) => prev.map((r) => (r.id === recordId ? data.record : r)));
+        } else {
+          setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, isVerified: true } : r)));
+        }
       }
     } catch (err) {
       console.error(err);
@@ -641,7 +645,7 @@ export default function AdminDashboard() {
 
         {/* TAB 4: DEPARTMENT & JOB ROLE MANAGEMENT */}
         {activeTab === 'DEPARTMENTS' && (
-          <DepartmentManagement />
+          <DepartmentManagement onDepartmentsChange={(deps) => setDepartments(deps)} />
         )}
       </main>
 

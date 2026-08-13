@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord } from '@/lib/types';
-import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
+
 import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
   Play, Square, Zap, User as UserIcon, Lock,
@@ -15,9 +15,10 @@ type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
 export default function EmployeeDashboard() {
   const router = useRouter();
-  const [user, setUser] = useState<User>(initialUsers[1]);
-  const [records, setRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
+  const [user, setUser] = useState<User | null>(null);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('attendance');
+  const [pageLoading, setPageLoading] = useState(true);
 
   // Date / Time selectors
   const recentDatesList = Array.from({ length: 30 }, (_, i) => {
@@ -57,10 +58,24 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     const stored = localStorage.getItem('currentUser');
-    if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
+    if (!stored) { router.push('/login'); return; }
+    try {
+      const parsedUser: User = JSON.parse(stored);
+      setUser(parsedUser);
+      // جلب سجلات الحضور الفعلية من API
+      fetch(`/api/attendance?userId=${parsedUser.id}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.records) setRecords(data.records);
+        })
+        .catch(() => {})
+        .finally(() => setPageLoading(false));
+    } catch {
+      router.push('/login');
+    }
   }, []);
 
-  const userRecords  = records.filter((r) => r.userId === user.id);
+  const userRecords  = user ? records.filter((r) => r.userId === user.id) : [];
   const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;
   const isCheckedIn  = !!activeRecord;
 
@@ -249,6 +264,15 @@ export default function EmployeeDashboard() {
   );
 
   const p = profileData || user;
+
+  // عرض شاشة التحميل حتى يُحمَّل المستخدم وسجلاته
+  if (pageLoading || !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center" dir="rtl">
+        <div className="text-slate-400 font-cairo font-bold text-sm">جاري تحميل بيانات الموظف...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">

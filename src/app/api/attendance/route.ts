@@ -75,7 +75,8 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
           checkOutTime: r.checkOutTime || null,
           workHours: r.workHours,
           earnedCost: r.earnedCost > 0 ? r.earnedCost : dualCost,
-          isVerified: false,
+          isVerified: r.isVerified ?? false,
+          verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : undefined,
           createdAt: r.createdAt.toISOString()
         };
       });
@@ -289,7 +290,8 @@ export async function PUT(req: NextRequest) {
       checkOutTime: updated.checkOutTime,
       workHours: updated.workHours,
       earnedCost: updated.earnedCost,
-      isVerified: false,
+      isVerified: updated.isVerified ?? false,
+      verifiedAt: updated.verifiedAt?.toISOString(),
       createdAt: updated.createdAt.toISOString()
     };
 
@@ -313,7 +315,26 @@ export async function PATCH(req: NextRequest) {
 
       if (target) {
         if (action === 'VERIFY') {
-          return NextResponse.json({ success: true, message: 'تم توثيق الحضور بنجاح' });
+          const verified = await prisma.attendanceRecord.update({
+            where: { id: recordId },
+            data: { isVerified: true, verifiedAt: new Date() },
+            include: { user: true }
+          });
+          const verifiedMapped = {
+            id: verified.id,
+            userId: verified.userId,
+            userName: verified.user?.name || 'موظف',
+            employeeCode: verified.user?.employeeCode || '101',
+            date: verified.date,
+            checkInTime: verified.checkInTime,
+            checkOutTime: verified.checkOutTime,
+            workHours: verified.workHours,
+            earnedCost: verified.earnedCost,
+            isVerified: true,
+            verifiedAt: verified.verifiedAt?.toISOString(),
+            createdAt: verified.createdAt.toISOString()
+          };
+          return NextResponse.json({ success: true, message: 'تم توثيق الحضور بنجاح', record: verifiedMapped });
         }
 
         if (action === 'EDIT_TIME') {
@@ -368,7 +389,8 @@ export async function PATCH(req: NextRequest) {
             checkOutTime: updated.checkOutTime,
             workHours: updated.workHours,
             earnedCost: updated.earnedCost,
-            isVerified: true,
+            isVerified: updated.isVerified ?? false,
+            verifiedAt: updated.verifiedAt?.toISOString(),
             createdAt: updated.createdAt.toISOString()
           };
 
