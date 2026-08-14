@@ -5,7 +5,8 @@ import { User, AttendanceRecord } from '@/lib/types';
 import { 
   Calendar as CalendarIcon, Clock, Printer, ChevronRight, ChevronLeft, 
   UserCheck, Coins, MapPin, ShieldAlert, Sparkles, Phone, MessageSquare, 
-  Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter, Moon
+  Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter, Moon,
+  Download, UserX, UserMinus, FileSpreadsheet, Layers, ShieldCheck
 } from 'lucide-react';
 import { formatTime12h } from '@/lib/utils';
 
@@ -69,6 +70,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
   const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'GPS_ALERT' | 'OVERNIGHT'>('ALL');
+  const [selectedUserId, setSelectedUserId] = useState<string>('ALL');
   const [selectedSegmentForDetail, setSelectedSegmentForDetail] = useState<ShiftSegment | null>(null);
 
   // Month Navigation State (Year & Month: 0-indexed)
@@ -107,7 +109,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
       const inMinutes = inH * 60 + (inM || 0);
 
       const matchedUser = users.find(u => u.id === r.userId);
-      const userRate = matchedUser?.hourlyRate || 50;
+      const userRate = matchedUser?.hourlyRate || 0;
       const effectiveRate = r.workHours && r.workHours > 0 ? (r.earnedCost / r.workHours) : userRate;
 
       // Check if this record is an overnight shift
@@ -205,13 +207,14 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     });
 
     return segments;
-  }, [records]);
+  }, [records, users]);
 
   // Selected Day Segments
   const selectedDaySegments = allSegments.filter((s) => s.date === selectedDateStr);
 
-  // Apply Filter
+  // Apply Employee Filter & Status Filter
   const filteredDaySegments = selectedDaySegments.filter((s) => {
+    if (selectedUserId !== 'ALL' && s.userId !== selectedUserId) return false;
     if (activeFilter === 'ACTIVE') return !s.originalCheckOut;
     if (activeFilter === 'GPS_ALERT') return s.isOutsideGps;
     if (activeFilter === 'OVERNIGHT') return s.isOvernight;
@@ -241,6 +244,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     map[s.userId].totalHours += s.segmentHours || 0;
     map[s.userId].totalEarned += s.segmentEarned || 0;
   });
+
+  // Calculate Absent Employees for Selected Day
+  const nonAdminUsers = useMemo(() => users.filter(u => u.role !== 'ADMIN'), [users]);
+  const presentUserIds = useMemo(() => new Set(selectedDaySegments.map(s => s.userId)), [selectedDaySegments]);
+  const absentEmployees = useMemo(() => {
+    return nonAdminUsers.filter(u => !presentUserIds.has(u.id));
+  }, [nonAdminUsers, presentUserIds]);
 
   // Calculate Pharmacy Hourly Coverage (0 to 23 hours) for Selected Day
   const hourlyCoverage = hours24.map((hour) => {
@@ -272,9 +282,17 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     };
   });
 
+  // Coverage statistics
+  const goodCoverageHours = hourlyCoverage.filter(h => h.count >= 2).length;
+  const singleCoverageHours = hourlyCoverage.filter(h => h.count === 1).length;
+  const gapCoverageHours = hourlyCoverage.filter(h => h.count === 0).length;
+
   // Monthly Metrics based on Day-accurate segments
   const selectedMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-  const monthSegments = allSegments.filter((s) => s.date && s.date.startsWith(selectedMonthPrefix));
+  const monthSegments = allSegments.filter((s) => {
+    if (selectedUserId !== 'ALL' && s.userId !== selectedUserId) return false;
+    return s.date && s.date.startsWith(selectedMonthPrefix);
+  });
 
   const monthTotalHours = Number(monthSegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0).toFixed(2));
   const monthTotalEarned = Number(monthSegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2));
@@ -293,7 +311,10 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   const weekStartStr = weekStart.toISOString().split('T')[0];
   const weekEndStr = weekEnd.toISOString().split('T')[0];
 
-  const weekSegments = allSegments.filter((s) => s.date && s.date >= weekStartStr && s.date <= weekEndStr);
+  const weekSegments = allSegments.filter((s) => {
+    if (selectedUserId !== 'ALL' && s.userId !== selectedUserId) return false;
+    return s.date && s.date >= weekStartStr && s.date <= weekEndStr;
+  });
   const weekTotalHours = Number(weekSegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0).toFixed(2));
   const weekTotalEarned = Number(weekSegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2));
   const weekActiveEmployees = new Set(weekSegments.map((s) => s.userId)).size;
@@ -375,12 +396,55 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     }
   };
 
+  // Export to CSV Function
+  const handleExportCsv = () => {
+    const targetSegs = viewMode === 'MONTH' ? monthSegments : (viewMode === 'WEEK' ? weekSegments : filteredDaySegments);
+    if (targetSegs.length === 0) {
+      alert('لا توجد سجلات لتصديرها في هذا العرض.');
+      return;
+    }
+
+    const headers = [
+      'اسم الموظف',
+      'رقم الموظف',
+      'التاريخ',
+      'وقت البداية',
+      'وقت النهاية',
+      'ساعات العمل (ساعة)',
+      'المستحق المالي (د.ل)',
+      'نوع الشفت',
+      'حالة الـ GPS'
+    ];
+
+    const rows = targetSegs.map((s) => [
+      `"${s.userName}"`,
+      `"${s.employeeCode}"`,
+      `"${s.date}"`,
+      `"${s.startTime}"`,
+      `"${s.endTime || 'مباشر'}"`,
+      `"${s.segmentHours}"`,
+      `"${s.segmentEarned}"`,
+      `"${s.isOvernight ? 'وردية ليلية متداخلة' : 'شفت اعتيادي'}"`,
+      `"${s.isOutsideGps ? 'خارج نطاق GPS' : 'داخل الصيدلية'}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `hodoork-timesheet-${viewMode.toLowerCase()}-${selectedDateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const liveLinePercent = (currentTimeMinutes / 1440) * 100;
   const isSelectedDateToday = selectedDateStr === todayStr;
 
   return (
     <div className="space-y-6 font-cairo" dir="rtl">
-      {/* Top Controls Bar: View Modes & Filters */}
+      {/* Top Controls Bar: View Modes & Employee Isolation */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-black shadow-md">
@@ -391,58 +455,77 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               لوحة المراقبة الزمنية والتقويم الذكي
               <span className="text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-md font-bold border border-indigo-200 flex items-center gap-1">
                 <Moon className="w-3 h-3 text-indigo-600" />
-                دعم الشفتات المتداخلة في يومين
+                دعم الشفتات المتداخلة
               </span>
             </h2>
             <p className="text-slate-500 text-xs font-semibold">
-              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، وتوزيع ساعات الورديات الليلية على اليومين بدقة
+              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، ورصد المتغيبين
             </p>
           </div>
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-black">
-          <button
-            onClick={() => setViewMode('DAY')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'DAY'
-                ? 'bg-white text-blue-700 shadow-sm font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            الخط الزمني اليومي (24س)
-          </button>
-          <button
-            onClick={() => setViewMode('WEEK')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'WEEK'
-                ? 'bg-white text-blue-700 shadow-sm font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ArrowRightLeft className="w-4 h-4" />
-            مخطط الأسبوع
-          </button>
-          <button
-            onClick={() => setViewMode('MONTH')}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'MONTH'
-                ? 'bg-white text-blue-700 shadow-sm font-black'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CalendarIcon className="w-4 h-4" />
-            التقويم الشهري
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Employee Isolation Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl px-3 h-11">
+            <Users className="w-4 h-4 text-blue-600" />
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">👥 كافة الموظفين ({nonAdminUsers.length})</option>
+              {nonAdminUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  👤 {u.name} ({u.employeeCode})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-black">
+            <button
+              onClick={() => setViewMode('DAY')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'DAY'
+                  ? 'bg-white text-blue-700 shadow-sm font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              الخط الزمني (24س)
+            </button>
+            <button
+              onClick={() => setViewMode('WEEK')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'WEEK'
+                  ? 'bg-white text-blue-700 shadow-sm font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              مخطط الأسبوع
+            </button>
+            <button
+              onClick={() => setViewMode('MONTH')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'MONTH'
+                  ? 'bg-white text-blue-700 shadow-sm font-black'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4" />
+              التقويم الشهري
+            </button>
+          </div>
         </div>
       </div>
 
       {/* VIEW 1: DAY TIMELINE (الخط الزمني اليومي المفصل 24 ساعة) */}
       {viewMode === 'DAY' && (
         <div className="space-y-6">
-          {/* Timeline Date Selector & Filters */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          {/* Timeline Date Selector & Filters & Actions */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <input
@@ -484,7 +567,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   }`}
                 >
                   <Moon className="w-3.5 h-3.5" />
-                  ورديات ليلية متداخلة ({selectedDaySegments.filter(s => s.isOvernight).length})
+                  ورديات ليلية ({selectedDaySegments.filter(s => s.isOvernight).length})
                 </button>
                 <button
                   onClick={() => setActiveFilter('ACTIVE')}
@@ -495,7 +578,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  شفتات جارية الآن ({selectedDaySegments.filter(s => !s.originalCheckOut).length})
+                  شفتات جارية ({selectedDaySegments.filter(s => !s.originalCheckOut).length})
                 </button>
                 <button
                   onClick={() => setActiveFilter('GPS_ALERT')}
@@ -510,13 +593,24 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </button>
               </div>
 
-              <button
-                onClick={() => window.print()}
-                className="px-4 h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-2 cursor-pointer transition-all print:hidden"
-              >
-                <Printer className="w-4 h-4 text-emerald-400" />
-                طباعة التقرير
-              </button>
+              {/* Action Buttons: CSV Export & Print */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportCsv}
+                  className="px-3.5 h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+                  title="تصدير بيانات الساعات إلى ملف Excel / CSV"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  تصدير Excel
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-3.5 h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all print:hidden"
+                >
+                  <Printer className="w-4 h-4 text-emerald-400" />
+                  طباعة
+                </button>
+              </div>
             </div>
 
             {/* 24-Hour Timeline Master Board */}
@@ -536,21 +630,34 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </div>
               </div>
 
-              {/* 2. Pharmacy Shift Coverage Heatmap Bar (شريط كشف التغطية والفراغات) */}
-              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-indigo-500/30 shadow-inner flex flex-wrap sm:flex-nowrap items-center gap-4">
-                <div className="w-full sm:w-64 shrink-0 space-y-1 text-xs">
+              {/* 2. Pharmacy Shift Coverage Heatmap Bar & Stats */}
+              <div className="p-4 bg-slate-900/90 rounded-2xl border border-indigo-500/30 shadow-inner space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-indigo-300 text-sm">تغطية الصيدلية بالساعة</span>
+                    <span className="font-black text-indigo-300 text-sm">مؤشر تغطية الصيدلية بالساعة</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
-                      مباشر
+                      تحليل زمني
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-semibold">
-                    🟢 كادر متكامل | 🟡 صيدلي واحد | 🔴 ثغرة دوام (فارغ)
-                  </p>
+
+                  {/* Coverage Breakdown Numbers */}
+                  <div className="flex items-center gap-4 text-[11px] font-bold font-mono">
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      تغطية ممتازة (2+): {goodCoverageHours} ساعة
+                    </span>
+                    <span className="flex items-center gap-1.5 text-amber-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                      صيدلي واحد: {singleCoverageHours} ساعة
+                    </span>
+                    <span className="flex items-center gap-1.5 text-rose-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                      ثغرة / فارغة: {gapCoverageHours} ساعة
+                    </span>
+                  </div>
                 </div>
 
-                <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 p-1.5 overflow-hidden min-w-[320px]" dir="ltr">
+                <div className="relative bg-slate-950 rounded-xl border border-slate-800 p-1.5 overflow-hidden min-w-[320px]" dir="ltr">
                   <div className="grid gap-1 h-7" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                     {hourlyCoverage.map((slot) => {
                       const isZero = slot.count === 0;
@@ -581,7 +688,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               <div className="p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800 flex flex-wrap sm:flex-nowrap items-start gap-4">
                 <div className="w-full sm:w-64 shrink-0 space-y-0.5 text-xs">
                   <span className="font-black text-blue-400 text-sm">الشريط الموحد المدمج</span>
-                  <p className="text-[10px] text-slate-400">تراكب كافة الشفتات (بما فيها الورديات الليلية) في خط زمني واحد</p>
+                  <p className="text-[10px] text-slate-400">تراكب كافة الشفتات في مسار زمني واحد</p>
                 </div>
 
                 <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 p-2 overflow-hidden min-w-[320px]" dir="ltr">
@@ -709,6 +816,57 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
             </div>
 
+            {/* Absent Employees Card (المتغيبون عن العمل اليوم) */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserMinus className="w-4 h-4 text-rose-600" />
+                  <span className="text-xs font-black text-slate-900">
+                    المتغيبون عن العمل في هذا اليوم ({selectedDateStr}):
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800">
+                    {absentEmployees.length} موظف
+                  </span>
+                </div>
+                {absentEmployees.length === 0 && (
+                  <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    جميع الكادر مسجل حضور اليوم بنسبة 100%
+                  </span>
+                )}
+              </div>
+
+              {absentEmployees.length > 0 && (
+                <div className="flex flex-wrap gap-2.5 pt-1">
+                  {absentEmployees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-2.5 shadow-sm text-xs"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[10px]">
+                        {emp.name.substring(0, 1)}
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 block leading-tight">{emp.name}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">كود: {emp.employeeCode}</span>
+                      </div>
+                      {emp.phone && (
+                        <a
+                          href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${emp.name}، نلاحظ عدم تسجيل حضورك اليوم (${selectedDateStr}) في الصيدلية، يرجى تأكيد حضورك وتسجيل شفتك.`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                          title="مراسلة الموظف عبر واتساب"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Daily Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
@@ -756,6 +914,14 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 توزيع ساعات دوام كل يوم بدقة حتى للشفتات الليلية المتداخلة
               </p>
             </div>
+
+            <button
+              onClick={handleExportCsv}
+              className="px-4 h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              تصدير الأسبوع لـ Excel
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -774,54 +940,56 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {users.filter(u => u.role !== 'ADMIN').map((emp) => {
-                  const empWeekSegs = weekSegments.filter(s => s.userId === emp.id);
-                  const totalWeekHours = empWeekSegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
-                  const totalWeekEarned = empWeekSegs.reduce((acc, s) => acc + (s.segmentEarned || 0), 0);
+                {nonAdminUsers
+                  .filter(u => selectedUserId === 'ALL' || u.id === selectedUserId)
+                  .map((emp) => {
+                    const empWeekSegs = weekSegments.filter(s => s.userId === emp.id);
+                    const totalWeekHours = empWeekSegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
+                    const totalWeekEarned = empWeekSegs.reduce((acc, s) => acc + (s.segmentEarned || 0), 0);
 
-                  return (
-                    <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                        <div>{emp.name}</div>
-                        <span className="text-[10px] text-slate-400 font-mono">({emp.employeeCode})</span>
-                      </td>
-                      {weekDays.map((d) => {
-                        const daySegs = empWeekSegs.filter(s => s.date === d.dateStr);
-                        const dayHours = daySegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
-                        const hasOvernight = daySegs.some(s => s.isOvernight);
+                    return (
+                      <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          <div>{emp.name}</div>
+                          <span className="text-[10px] text-slate-400 font-mono">({emp.employeeCode})</span>
+                        </td>
+                        {weekDays.map((d) => {
+                          const daySegs = empWeekSegs.filter(s => s.date === d.dateStr);
+                          const dayHours = daySegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
+                          const hasOvernight = daySegs.some(s => s.isOvernight);
 
-                        return (
-                          <td key={d.dateStr} className="py-3.5 px-3 text-center">
-                            {dayHours > 0 ? (
-                              <button
-                                onClick={() => {
-                                  setSelectedDateStr(d.dateStr);
-                                  setViewMode('DAY');
-                                }}
-                                className={`px-2 py-1 rounded-lg font-mono font-bold text-[11px] border cursor-pointer inline-flex items-center gap-1 ${
-                                  hasOvernight
-                                    ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
-                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
-                                }`}
-                              >
-                                {hasOvernight && <Moon className="w-2.5 h-2.5 text-indigo-600" />}
-                                {dayHours.toFixed(1)} س
-                              </button>
-                            ) : (
-                              <span className="text-slate-300 font-mono">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700 bg-blue-50/40">
-                        {totalWeekHours.toFixed(1)} ساعة
-                      </td>
-                      <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700 bg-emerald-50/40">
-                        {totalWeekEarned.toFixed(2)} د.ل
-                      </td>
-                    </tr>
-                  );
-                })}
+                          return (
+                            <td key={d.dateStr} className="py-3.5 px-3 text-center">
+                              {dayHours > 0 ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedDateStr(d.dateStr);
+                                    setViewMode('DAY');
+                                  }}
+                                  className={`px-2 py-1 rounded-lg font-mono font-bold text-[11px] border cursor-pointer inline-flex items-center gap-1 ${
+                                    hasOvernight
+                                      ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
+                                      : 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
+                                  }`}
+                                >
+                                  {hasOvernight && <Moon className="w-2.5 h-2.5 text-indigo-600" />}
+                                  {dayHours.toFixed(1)} س
+                                </button>
+                              ) : (
+                                <span className="text-slate-300 font-mono">-</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                        <td className="py-3.5 px-4 text-center font-mono font-black text-blue-700 bg-blue-50/40">
+                          {totalWeekHours.toFixed(1)} ساعة
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700 bg-emerald-50/40">
+                          {totalWeekEarned.toFixed(2)} د.ل
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -846,24 +1014,34 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
             </div>
 
-            <div className="flex items-center gap-2 font-mono text-xs">
+            <div className="flex items-center gap-2">
               <button
-                onClick={prevMonth}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1"
+                onClick={handleExportCsv}
+                className="px-3.5 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
               >
-                <ChevronRight className="w-4 h-4" />
-                الشهر السابق
+                <FileSpreadsheet className="w-4 h-4" />
+                تصدير الشهر
               </button>
-              <span className="px-3 py-1.5 bg-slate-900 text-emerald-400 font-bold rounded-xl">
-                {currentYear}-{String(currentMonth + 1).padStart(2, '0')}
-              </span>
-              <button
-                onClick={nextMonth}
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1"
-              >
-                الشهر التالي
-                <ChevronLeft className="w-4 h-4" />
-              </button>
+
+              <div className="flex items-center gap-1.5 font-mono text-xs">
+                <button
+                  onClick={prevMonth}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                  السابق
+                </button>
+                <span className="px-3 py-1.5 bg-slate-900 text-emerald-400 font-bold rounded-xl">
+                  {currentYear}-{String(currentMonth + 1).padStart(2, '0')}
+                </span>
+                <button
+                  onClick={nextMonth}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold cursor-pointer transition-all flex items-center gap-1"
+                >
+                  التالي
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -872,7 +1050,10 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             {Array.from({ length: daysInMonth }, (_, i) => {
               const dayNum = i + 1;
               const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-              const daySegs = allSegments.filter((s) => s.date === dateStr);
+              const daySegs = allSegments.filter((s) => {
+                if (selectedUserId !== 'ALL' && s.userId !== selectedUserId) return false;
+                return s.date === dateStr;
+              });
               const totalHours = daySegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
               const isSelected = selectedDateStr === dateStr;
               const isToday = dateStr === todayStr;
