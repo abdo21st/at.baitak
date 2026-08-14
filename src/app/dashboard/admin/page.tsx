@@ -683,6 +683,7 @@ export default function AdminDashboard() {
                     <SortHeader title="الرقم السري (PIN)" sortKey="pinCode" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
                     <SortHeader title="أجر الساعة المباشر" sortKey="hourlyRate" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
                     <SortHeader title="راتب الوظيفة الخاص" sortKey="monthlySalary" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
+                    <th className="py-3.5 px-4 font-bold text-center text-emerald-700">إجمالي المرتب الشهري</th>
                     <SortHeader title="نوع الحساب" sortKey="role" sortConfig={userSortConfig} onRequestSort={requestUserSort} align="center" />
                     <th className="py-3.5 px-4 font-bold text-center">الإجراءات</th>
                   </tr>
@@ -725,6 +726,12 @@ export default function AdminDashboard() {
                         ) : (
                           <span className="text-slate-400 font-sans font-medium text-[11px]">بدون وظيفة خاصة</span>
                         )}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-black text-emerald-700 bg-emerald-50/40">
+                        {(((u.targetMonthlyHours || 160) * (u.hourlyRate || 0)) + (u.monthlySalary || 0)).toFixed(2)} د.ل
+                        <span className="block text-[9px] text-slate-400 font-sans font-normal font-mono">
+                          ({u.targetMonthlyHours || 160}س × {u.hourlyRate || 0} + {u.monthlySalary || 0})
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center font-sans">
                         {u.role === 'ADMIN' ? (
@@ -1037,6 +1044,19 @@ export default function AdminDashboard() {
                   />
                 </div>
                 )}
+              </div>
+
+              {/* Total Monthly Salary Calculation Live Preview */}
+              <div className="p-3.5 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl border border-blue-800 space-y-1 font-sans">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-300">إجمالي المرتب الشهري التقديري:</span>
+                  <span className="text-emerald-400 font-mono font-black text-sm">
+                    {(((Number(empTargetHours) || 160) * (Number(empRate) || 0)) + (Number(empMonthlySalary) || 0)).toFixed(2)} د.ل
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono">
+                  ({Number(empTargetHours) || 160}س × {Number(empRate) || 0} د.ل) + (راتب الوظيفة {Number(empMonthlySalary) || 0} د.ل)
+                </p>
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}

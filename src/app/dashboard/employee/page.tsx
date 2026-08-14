@@ -777,6 +777,64 @@ export default function EmployeeDashboard() {
               <div className="py-10 text-center text-slate-400">جاري تحميل البيانات...</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Full Width Highlighted Box: إجمالي مرتب الموظف بالنسبة لساعات الشهر + الوظيفة الخاصة */}
+                <div className="col-span-full bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-blue-800/60 space-y-4 font-sans">
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+                        <Coins className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-white flex items-center gap-2">
+                          إجمالي مرتب الموظف الشهري (ساعات الشهر + الوظيفة الخاصة)
+                        </h3>
+                        <p className="text-slate-300 text-xs font-semibold mt-0.5">
+                          الراتب المزدوج التقديري الكامل عند استكمال ساعات العمل الشهرية + مستحقات الوظيفة الخاصة
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-left font-mono">
+                      <div className="text-2xl font-black text-emerald-400">
+                        {(((p.targetMonthlyHours || 160) * (p.hourlyRate || 0)) + (p.monthlySalary || 0)).toFixed(2)} د.ل
+                      </div>
+                      <span className="text-slate-400 text-xs block font-sans">/ إجمالي الاستحقاق الشهري المستهدف</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
+                      <span className="text-slate-400 block font-bold">1. أجر الساعات المستهدفة ({p.targetMonthlyHours || 160}س):</span>
+                      <div className="text-sm font-black text-blue-300 font-mono">
+                        {((p.targetMonthlyHours || 160) * (p.hourlyRate || 0)).toFixed(2)} د.ل
+                      </div>
+                      <span className="text-[11px] text-slate-400 block font-mono">
+                        ({p.targetMonthlyHours || 160} س × {p.hourlyRate || 0} د.ل/س)
+                      </span>
+                    </div>
+
+                    <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
+                      <span className="text-slate-400 block font-bold">2. راتب الوظيفة / الصفة الخاصة:</span>
+                      <div className="text-sm font-black text-amber-300 font-mono">
+                        {(p.monthlySalary || 0).toFixed(2)} د.ل
+                      </div>
+                      <span className="text-[11px] text-slate-400 block">
+                        {p.isHourly !== false ? `ساعات مستهدفة (${p.targetMonthlyHours || 160}س)` : `راتب شهري ثابت`}
+                      </span>
+                    </div>
+
+                    <div className="bg-emerald-500/10 rounded-2xl p-3.5 border border-emerald-500/20 space-y-1">
+                      <span className="text-emerald-300 block font-bold">3. المستحق المكتسب الفعلي (الشهر الحالي):</span>
+                      <div className="text-sm font-black text-emerald-400 font-mono">
+                        {totalMonthlyEarned} د.ل
+                      </div>
+                      <span className="text-[11px] text-emerald-300/80 block">
+                        (تم إنجاز {totalMonthlyHours} ساعة حضور حتى الآن)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
                   <p className="text-xs text-slate-500 font-bold mb-1">اسم الموظف</p>
                   <p className="text-base font-black text-slate-900">{p.name}</p>
