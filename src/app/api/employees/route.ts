@@ -27,6 +27,7 @@ async function getOrSeedUsers(): Promise<User[]> {
           pinCode: u.password || '1234',
           name: u.name,
           role: u.role as any,
+          phone: u.phone || null,
           hourlyRate: u.hourlyRate || 0,
           jobTitle: hasRoles ? jobRoleTitles.join(' + ') : 'بدون وظيفة خاصة',
           departments: assignedDeps,
@@ -78,7 +79,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours } = body;
+    const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours, phone } = body;
 
     if (!name || !employeeCode) {
       return NextResponse.json({ success: false, error: 'الاسم ورقم الموظف مطلوبان' }, { status: 400 });
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
         data: {
           employeeCode: codeStr,
           name: nameStr,
+          phone: phone ? String(phone).trim() : null,
           email: `${codeStr}-${Date.now()}@hodoork.ly`,
           password: pinStr,
           role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
@@ -148,7 +150,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours } = body;
+    const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours, phone } = body;
 
     const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
     const pinStr = pinCode ? String(pinCode).trim() : undefined;
@@ -176,6 +178,7 @@ export async function PUT(req: NextRequest) {
           ...(nameStr && { name: nameStr }),
           ...(codeStr && { employeeCode: codeStr }),
           ...(pinStr && { password: pinStr }),
+          ...(phone !== undefined && { phone: phone ? String(phone).trim() : null }),
           ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
           ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
           ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),

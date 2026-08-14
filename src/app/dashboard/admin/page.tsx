@@ -72,6 +72,7 @@ export default function AdminDashboard() {
   const [empName, setEmpName] = useState('');
   const [empCode, setEmpCode] = useState('');
   const [empPin, setEmpPin] = useState('');
+  const [empPhone, setEmpPhone] = useState('');
   const [empDepartmentId, setEmpDepartmentId] = useState('');
   const [empJobRoleId, setEmpJobRoleId] = useState('');
   const [empDepartmentIds, setEmpDepartmentIds] = useState<string[]>([]);
@@ -350,6 +351,7 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
+          phone: empPhone,
           departmentIds: empDepartmentIds,
           jobRoleIds: empJobRoleIds,
           hourlyRate: Number(empRate) || 0
@@ -363,6 +365,7 @@ export default function AdminDashboard() {
         setEmpName('');
         setEmpCode('');
         setEmpPin('');
+        setEmpPhone('');
         setEmpDepartmentIds([]);
         setEmpJobRoleIds([]);
       } else {
@@ -391,6 +394,7 @@ export default function AdminDashboard() {
           name: empName,
           employeeCode: empCode,
           pinCode: empPin,
+          phone: empPhone,
           departmentIds: empDepartmentIds,
           jobRoleIds: empJobRoleIds,
           hourlyRate: Number(empRate) || 0
@@ -401,6 +405,7 @@ export default function AdminDashboard() {
       if (data.success) {
         setUsers(data.users);
         setEditingUser(null);
+        setEmpPhone('');
       } else {
         setUserMsg(data.error || 'حدث خطأ في تعديل الموظف');
       }
@@ -435,6 +440,7 @@ export default function AdminDashboard() {
     setEmpName('');
     setEmpCode('');
     setEmpPin('1234');
+    setEmpPhone('');
     setEmpDepartmentId('');
     setEmpDepartmentIds([]);
     setEmpJobRoleId('');
@@ -498,6 +504,7 @@ export default function AdminDashboard() {
     setEmpName(u.name);
     setEmpCode(u.employeeCode);
     setEmpPin(u.pinCode);
+    setEmpPhone(u.phone || '');
     const depIds = u.departments ? u.departments.map((d) => d.id) : (u.departmentId ? [u.departmentId] : []);
     const roleIds = u.jobRoles ? u.jobRoles.map((r) => r.id) : (u.jobRoleId ? [u.jobRoleId] : []);
     setEmpDepartmentIds(depIds);
@@ -955,7 +962,15 @@ export default function AdminDashboard() {
                             {u.name.substring(0, 1)}
                           </div>
                           <div>
-                            <div>{u.name}</div>
+                            <div className="text-slate-900">{u.name}</div>
+                            {u.phone ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md font-mono font-bold mt-0.5" dir="ltr">
+                                <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                {u.phone}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-amber-600 font-semibold block mt-0.5">⚠️ بدون رقم هاتف</span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1562,6 +1577,23 @@ export default function AdminDashboard() {
                 )}
               </div>
 
+              <div>
+                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  رقم هاتف الواتساب (لإرسال تنبيهات الوصول وكشوفات الرواتب)
+                </label>
+                <input
+                  type="tel"
+                  lang="en-US"
+                  dir="ltr"
+                  value={empPhone}
+                  onChange={(e) => setEmpPhone(e.target.value)}
+                  placeholder="مثال: 0912345678 أو +218912345678"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-left focus:outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">تصل للموظف عليه رسائل التذكير عند وصوله للصيدلية وتقارير الرواتب الشهرية</p>
+              </div>
+
               {/* Total Monthly Salary Calculation Live Preview */}
               <div className="p-3.5 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-2xl border border-blue-800 space-y-1 font-sans">
                 <div className="flex items-center justify-between text-xs font-bold">
@@ -1723,6 +1755,23 @@ export default function AdminDashboard() {
                   />
                 </div>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  رقم هاتف الواتساب (لإرسال تنبيهات الوصول وكشوفات الرواتب)
+                </label>
+                <input
+                  type="tel"
+                  lang="en-US"
+                  dir="ltr"
+                  value={empPhone}
+                  onChange={(e) => setEmpPhone(e.target.value)}
+                  placeholder="مثال: 0912345678 أو +218912345678"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-left focus:outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">تصل للموظف عليه رسائل التذكير عند وصوله للصيدلية وتقارير الرواتب الشهرية</p>
               </div>
 
               {userMsg && <p className="text-rose-600 font-bold text-center">{userMsg}</p>}
