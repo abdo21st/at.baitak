@@ -69,85 +69,83 @@ export function calculateShiftWithRateRules(
   const workHours = Number((totalMins / 60).toFixed(2));
   const activeRules = (rules || []).filter(r => r.isActive);
 
-  let totalBaseCost = 0;
   let totalBonusCost = 0;
   const ruleMinutesMap: { [ruleId: string]: { rule: RateRule; minutes: number; bonus: number } } = {};
 
-  // Evaluate in 1-minute steps
-  for (let m = startMins; m < endMins; m++) {
-    const isNextDay = m >= 1440;
-    const effectiveDate = isNextDay ? getNextDateStr(date) : date;
-    const dayOfWeek = new Date(effectiveDate + 'T12:00:00').getDay(); // 0=Sun ... 5=Fri, 6=Sat
-    const minuteOfDay = m % 1440;
+  // Evaluate in 1-minute steps for active rate rules
+  if (activeRules.length > 0) {
+    for (let m = startMins; m < endMins; m++) {
+      const isNextDay = m >= 1440;
+      const effectiveDate = isNextDay ? getNextDateStr(date) : date;
+      const dayOfWeek = new Date(effectiveDate + 'T12:00:00').getDay(); // 0=Sun ... 5=Fri, 6=Sat
+      const minuteOfDay = m % 1440;
 
-    const baseMinuteCost = (directHourlyRate || 0) / 60;
-    totalBaseCost += baseMinuteCost;
-
-    // Check applicable rules for this specific minute
-    activeRules.forEach((rule) => {
-      // 1. Check user / department scope
-      if (rule.appliesTo === 'EMPLOYEE' && rule.targetId && rule.targetId !== userId) {
-        return;
-      }
-      if (rule.appliesTo === 'DEPARTMENT' && rule.targetId) {
-        if (!departmentIds || !departmentIds.includes(rule.targetId)) {
+      // Check applicable rules for this specific minute
+      activeRules.forEach((rule) => {
+        // 1. Check user / department scope
+        if (rule.appliesTo === 'EMPLOYEE' && rule.targetId && rule.targetId !== userId) {
           return;
         }
-      }
-
-      // 2. Check date / day of week
-      if (rule.ruleType === 'ONE_TIME') {
-        if (rule.specificDate && rule.specificDate !== effectiveDate) {
-          return;
-        }
-      } else {
-        // RECURRING
-        if (rule.daysOfWeek && rule.daysOfWeek.length > 0) {
-          if (!rule.daysOfWeek.includes(dayOfWeek)) {
+        if (rule.appliesTo === 'DEPARTMENT' && rule.targetId) {
+          if (!departmentIds || !departmentIds.includes(rule.targetId)) {
             return;
           }
         }
-      }
 
-      // 3. Check time of day
-      if (rule.startTime && rule.endTime) {
-        const [rStartH, rStartM] = rule.startTime.split(':').map(Number);
-        const [rEndH, rEndM] = rule.endTime.split(':').map(Number);
-        const rStartTotal = rStartH * 60 + (rStartM || 0);
-        let rEndTotal = rEndH * 60 + (rEndM || 0);
-        if (rEndTotal === 0 && (rEndH === 24 || rule.endTime === '24:00')) {
-          rEndTotal = 1440;
-        }
-
-        if (rStartTotal < rEndTotal) {
-          if (minuteOfDay < rStartTotal || minuteOfDay >= rEndTotal) {
+        // 2. Check date / day of week
+        if (rule.ruleType === 'ONE_TIME') {
+          if (rule.specificDate && rule.specificDate !== effectiveDate) {
             return;
           }
         } else {
-          // Rule crosses midnight (e.g. 22:00 to 06:00)
-          if (minuteOfDay < rStartTotal && minuteOfDay >= rEndTotal) {
-            return;
+          // RECURRING
+          if (rule.daysOfWeek && rule.daysOfWeek.length > 0) {
+            if (!rule.daysOfWeek.includes(dayOfWeek)) {
+              return;
+            }
           }
         }
-      }
 
-      // Rule matched this minute!
-      let minuteBonus = 0;
-      if (rule.increaseType === 'FIXED_AMOUNT') {
-        minuteBonus = (rule.value || 0) / 60;
-      } else {
-        // PERCENTAGE
-        minuteBonus = ((directHourlyRate || 0) * ((rule.value || 0) / 100)) / 60;
-      }
+        // 3. Check time of day
+        if (rule.startTime && rule.endTime) {
+          const [rStartH, rStartM] = rule.startTime.split(':').map(Number);
+          const [rEndH, rEndM] = rule.endTime.split(':').map(Number);
+          const rStartTotal = rStartH * 60 + (rStartM || 0);
+          let rEndTotal = rEndH * 60 + (rEndM || 0);
+          if (rEndTotal === 0 && (rEndH === 24 || rule.endTime === '24:00')) {
+            rEndTotal = 1440;
+          }
 
-      totalBonusCost += minuteBonus;
+          if (rStartTotal < rEndTotal) {
+            if (minuteOfDay < rStartTotal || minuteOfDay >= rEndTotal) {
+              return;
+            }
+          } else {
+            // Rule crosses midnight (e.g. 22:00 to 06:00)
+            if (minuteOfDay < rStartTotal && minuteOfDay >= rEndTotal) {
+              return;
+            }
+          }
+        }
 
-      if (!ruleMinutesMap[rule.id]) {
-        ruleMinutesMap[rule.id] = { rule, minutes: 0, bonus: 0 };
-      }
-      ruleMinutesMap[rule.id].minutes += 1;
-      ruleMinutesMap[rule.id].bonus += minuteBonus;
-    });
+        // Rule matched this minute!
+        let minuteBonus = 0;
+        if (rule.increaseType === 'FIXED_AMOUNT') {
+          minuteBonus = (rule.value || 0) / 60;
+        } else {
+          // PERCENTAGE
+          minuteBonus = ((directHourlyRate || 0) * ((rule.value || 0) / 100)) / 60;
+        }
+
+        totalBonusCost += minuteBonus;
+
+        if (!ruleMinutesMap[rule.id]) {
+          ruleMinutesMap[rule.id] = { rule, minutes: 0, bonus: 0 };
+        }
+        ruleMinutesMap[rule.id].minutes += 1;
+        ruleMinutesMap[rule.id].bonus += minuteBonus;
+      });
+    }
   }
 
   // Job Role Dual Salary Component
@@ -161,7 +159,7 @@ export function calculateShiftWithRateRules(
     jobRoleCost = isFirstRecordOfDay ? Number(((monthlySalary || 0) / 30).toFixed(2)) : 0;
   }
 
-  const finalBaseCost = Number(totalBaseCost.toFixed(2));
+  const finalBaseCost = Number((workHours * (directHourlyRate || 0)).toFixed(2));
   const finalBonusCost = Number(totalBonusCost.toFixed(2));
   const totalCost = Number((finalBaseCost + finalBonusCost + jobRoleCost).toFixed(2));
 

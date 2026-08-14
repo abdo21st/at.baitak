@@ -893,7 +893,7 @@ export default function AdminDashboard() {
                               const hourly = userObj?.hourlyRate || 0;
                               const base = Number((r.workHours * hourly).toFixed(2));
                               const bonus = Number((r.earnedCost - base).toFixed(2));
-                              if (bonus > 0) {
+                              if (bonus > 0.05) {
                                 return (
                                   <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + البدلات وعلاوات الشفتات: ${bonus} د.ل`}>
                                     <span>أساسي: {base}</span>
