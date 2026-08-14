@@ -38,7 +38,7 @@ async function getOrSeedUsers(): Promise<User[]> {
           jobRoleId: primaryRole?.id,
           jobRoleTitle: primaryRole?.title,
           monthlySalary: hasRoles ? assignedRoles.reduce((sum, r) => sum + r.monthlySalary, 0) : 0,
-          targetMonthlyHours: primaryRole?.targetMonthlyHours || 160,
+          targetMonthlyHours: primaryRole?.targetMonthlyHours || 0,
           isHourly: primaryRole ? primaryRole.isHourly !== false : true
         };
       });
@@ -55,8 +55,8 @@ async function getOrSeedUsers(): Promise<User[]> {
           password: u.pinCode,
           role: u.role as any,
           hourlyRate: u.hourlyRate,
-          monthlySalary: u.hourlyRate * 160 || 500,
-          targetMonthlyHours: 160,
+          monthlySalary: 0,
+          targetMonthlyHours: 0,
           jobTitle: u.jobTitle || 'موظف'
         }
       });
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     const roleIds: string[] = Array.isArray(jobRoleIds) ? jobRoleIds : (jobRoleId ? [jobRoleId] : []);
 
     let finalMonthlySalary = 0;
-    let finalTargetHours = Number(targetMonthlyHours) || 160;
+    let finalTargetHours = Number(targetMonthlyHours) || 0;
     let finalJobTitle = jobTitle || 'موظف';
 
     if (roleIds.length > 0) {

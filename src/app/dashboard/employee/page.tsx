@@ -967,8 +967,8 @@ export default function EmployeeDashboard() {
                       <p className="text-base font-black text-amber-700 font-mono">{p.monthlySalary} د.ل / شهر</p>
                       <p className="text-[11px] text-amber-900 font-bold mt-0.5">
                         {p.isHourly !== false 
-                          ? `مقابل ${p.targetMonthlyHours || 160} ساعة مستهدفة`
-                          : `راتب شهري ثابت (مرتبط بأيام الحضور — اليومية: ${Number(((p.monthlySalary || 500) / 30).toFixed(2))} د.ل)`}
+                          ? (p.targetMonthlyHours && p.targetMonthlyHours > 0 ? `مقابل ${p.targetMonthlyHours} ساعة مستهدفة` : 'حسب الساعات المنجزة')
+                          : `راتب شهري ثابت (مرتبط بأيام الحضور — اليومية: ${Number(((p.monthlySalary || 0) / 30).toFixed(2))} د.ل)`}
                       </p>
                     </div>
                   </div>

@@ -25,8 +25,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   // Forms inputs
   const [depNameInput, setDepNameInput] = useState('');
   const [roleTitleInput, setRoleTitleInput] = useState('');
-  const [monthlySalaryInput, setMonthlySalaryInput] = useState('500');
-  const [targetHoursInput, setTargetHoursInput] = useState('160');
+  const [monthlySalaryInput, setMonthlySalaryInput] = useState('');
+  const [targetHoursInput, setTargetHoursInput] = useState('');
   const [isHourlyInput, setIsHourlyInput] = useState(true);
 
   const fetchDepartments = async () => {
@@ -93,8 +93,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
           action: 'CREATE_JOB_ROLE',
           departmentId: selectedDepId,
           roleTitle: roleTitleInput,
-          monthlySalary: Number(monthlySalaryInput) || 500,
-          targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 160) : 160,
+          monthlySalary: Number(monthlySalaryInput) || 0,
+          targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 0) : 0,
           isHourly: isHourlyInput
         })
       });
@@ -104,8 +104,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
         onDepartmentsChange?.(data.departments);
         setIsAddRoleOpen(false);
         setRoleTitleInput('');
-        setMonthlySalaryInput('500');
-        setTargetHoursInput('160');
+        setMonthlySalaryInput('');
+        setTargetHoursInput('');
         setIsHourlyInput(true);
       } else {
         setMsg(data.error || 'خطأ في إضافة الوظيفة');
@@ -132,8 +132,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
           action: 'EDIT_JOB_ROLE',
           id: editingRole.id,
           title: roleTitleInput,
-          monthlySalary: Number(monthlySalaryInput),
-          targetMonthlyHours: isHourlyInput ? Number(targetHoursInput) : 160,
+          monthlySalary: Number(monthlySalaryInput) || 0,
+          targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 0) : 0,
           isHourly: isHourlyInput
         })
       });
@@ -191,8 +191,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   const openAddRoleModal = (depId: string) => {
     setSelectedDepId(depId);
     setRoleTitleInput('');
-    setMonthlySalaryInput('500');
-    setTargetHoursInput('160');
+    setMonthlySalaryInput('');
+    setTargetHoursInput('');
     setIsHourlyInput(true);
     setMsg(null);
     setIsAddRoleOpen(true);
@@ -201,8 +201,8 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   const openEditRoleModal = (r: JobRole) => {
     setEditingRole(r);
     setRoleTitleInput(r.title);
-    setMonthlySalaryInput(String(r.monthlySalary));
-    setTargetHoursInput(String(r.targetMonthlyHours));
+    setMonthlySalaryInput(r.monthlySalary ? String(r.monthlySalary) : '');
+    setTargetHoursInput(r.targetMonthlyHours ? String(r.targetMonthlyHours) : '');
     setIsHourlyInput(r.isHourly !== false);
     setMsg(null);
   };
@@ -288,7 +288,9 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                   dep.jobRoles.map((role) => {
                     const isHourly = role.isHourly !== false;
                     const sampleResult = isHourly
-                      ? Number(((100 * role.monthlySalary) / (role.targetMonthlyHours || 160)).toFixed(2))
+                      ? (role.targetMonthlyHours && role.targetMonthlyHours > 0
+                          ? Number(((100 * role.monthlySalary) / role.targetMonthlyHours).toFixed(2))
+                          : 0)
                       : Number((role.monthlySalary / 30).toFixed(2));
 
                     return (
@@ -492,7 +494,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                     dir="ltr"
                     value={targetHoursInput}
                     onChange={(e) => setTargetHoursInput(e.target.value)}
-                    placeholder="160"
+                    placeholder="مثال: 120 أو 200"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
                   />
                 </div>

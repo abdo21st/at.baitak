@@ -24,7 +24,7 @@ function calculateDualEarnedCost(
   workHours: number,
   directHourlyRate: number = 0,
   monthlySalary: number = 0,
-  targetMonthlyHours: number = 160,
+  targetMonthlyHours: number = 0,
   isHourly: boolean = true,
   isFirstRecordOfDay: boolean = true
 ): number {
@@ -37,8 +37,11 @@ function calculateDualEarnedCost(
   let jobRoleCost = 0;
   if (monthlySalary > 0) {
     if (isHourly) {
-      const targetHours = targetMonthlyHours || 160;
-      jobRoleCost = (workHours * monthlySalary) / targetHours;
+      if (targetMonthlyHours && targetMonthlyHours > 0) {
+        jobRoleCost = (workHours * monthlySalary) / targetMonthlyHours;
+      } else {
+        jobRoleCost = 0; // If target hours is not specified, do NOT calculate job role portion
+      }
     } else {
       // Non-hourly / Fixed monthly salary: daily portion = monthlySalary / 30 ONLY once per unique day
       if (isFirstRecordOfDay) {
@@ -61,20 +64,17 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
       orderBy: { createdAt: 'desc' }
     });
 
-    if (dbRecords.length > 0) {
-      // Sort chronologically ascending to accurately determine first record of each unique calendar date
-      const recordsAsc = [...dbRecords].sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return (a.checkInTime || '').localeCompare(b.checkInTime || '');
-      });
-
-      const seenUserDates = new Set<string>();
+    if (dbRecords && dbRecords.length > 0) {
+      // Identify the first record of each day for each user (for non-hourly daily bonus calculation)
+      const userDateSeen = new Set<string>();
       const recordIsFirstMap = new Map<string, boolean>();
 
-      for (const r of recordsAsc) {
+      // Sort ascending by checkInTime to properly determine the first record of the day
+      const sortedByTime = [...dbRecords].sort((a, b) => a.checkInTime.localeCompare(b.checkInTime));
+      for (const r of sortedByTime) {
         const key = `${r.userId}_${r.date}`;
-        if (!seenUserDates.has(key)) {
-          seenUserDates.add(key);
+        if (!userDateSeen.has(key)) {
+          userDateSeen.add(key);
           recordIsFirstMap.set(r.id, true);
         } else {
           recordIsFirstMap.set(r.id, false);
@@ -84,7 +84,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
       const mapped = dbRecords.map((r) => {
         const directRate = r.user?.hourlyRate || 0;
         const jobSalary = r.user?.monthlySalary || 0;
-        const targetHours = r.user?.targetMonthlyHours || 160;
+        const targetHours = r.user?.targetMonthlyHours || 0;
         const primaryRole = r.user?.jobRoles?.[0];
         const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
         const isFirst = recordIsFirstMap.get(r.id) ?? true;
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
 
     let directHourlyRate = 0;
     let monthlySalary = 0;
-    let targetMonthlyHours = 160;
+    let targetMonthlyHours = 0;
     let isHourly = true;
 
     try {
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       if (u) {
         directHourlyRate = u.hourlyRate || 0;
         monthlySalary = u.monthlySalary || 0;
-        targetMonthlyHours = u.targetMonthlyHours || 160;
+        targetMonthlyHours = u.targetMonthlyHours || 0;
         const primaryRole = u.jobRoles?.[0];
         isHourly = primaryRole ? primaryRole.isHourly !== false : true;
       }
@@ -407,7 +407,7 @@ export async function PUT(req: NextRequest) {
 
     const directHourlyRate = targetRec.user?.hourlyRate || 0;
     const monthlySalary = targetRec.user?.monthlySalary || 0;
-    const targetMonthlyHours = targetRec.user?.targetMonthlyHours || 160;
+    const targetMonthlyHours = targetRec.user?.targetMonthlyHours || 0;
     const primaryRole = targetRec.user?.jobRoles?.[0];
     const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
 
@@ -528,7 +528,7 @@ export async function PATCH(req: NextRequest) {
           let earnedCost = target.earnedCost;
           const directHourlyRate = target.user?.hourlyRate || 0;
           const monthlySalary = target.user?.monthlySalary || 0;
-          const targetMonthlyHours = target.user?.targetMonthlyHours || 160;
+          const targetMonthlyHours = target.user?.targetMonthlyHours || 0;
           const targetRole = target.user?.jobRoles?.[0];
           const isHourly = targetRole ? targetRole.isHourly !== false : true;
 

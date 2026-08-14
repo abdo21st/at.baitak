@@ -107,8 +107,8 @@ export async function POST(req: NextRequest) {
       await prisma.jobRole.create({
         data: {
           title: String(roleTitle).trim(),
-          monthlySalary: Number(monthlySalary) || 500,
-          targetMonthlyHours: Number(targetMonthlyHours) || 160,
+          monthlySalary: Number(monthlySalary) || 0,
+          targetMonthlyHours: Number(targetMonthlyHours) || 0,
           isHourly: isHourly !== false,
           departmentId
         }

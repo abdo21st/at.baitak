@@ -45,8 +45,8 @@ model Department {
 model JobRole {
   id                 String             @id @default(uuid())
   title              String
-  monthlySalary      Float              @default(500.0) // الراتب الشهري المحدد للوظيفة
-  targetMonthlyHours Float              @default(160.0) // ساعات الوظيفة المطلوبة في الشهر
+  monthlySalary      Float              @default(0.0) // الراتب الشهري المحدد للوظيفة
+  targetMonthlyHours Float              @default(0.0) // ساعات الوظيفة المطلوبة في الشهر (0 إذا لم تحدد)
   isHourly           Boolean            @default(true)  // true: مرتبطة بساعات | false: راتب شهري ثابت
   departmentId       String
   department         Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
@@ -82,9 +82,9 @@ model User {
   jobTitle           String
   departments        Department[]       @relation("UserDepartments")
   jobRoles           JobRole[]          @relation("UserJobRoles")
-  monthlySalary      Float              @default(500.0) // الراتب الشهري للوظيفة
-  targetMonthlyHours Float              @default(160.0) // ساعات الوظيفة بالشهر
-  hourlyRate         Float              @default(0.0)   // أجر الساعة المستنتج
+  monthlySalary      Float              @default(0.0) // الراتب الشهري للوظيفة
+  targetMonthlyHours Float              @default(0.0) // ساعات الوظيفة بالشهر
+  hourlyRate         Float              @default(0.0)   // أجر الساعة المباشر
   attendances        AttendanceRecord[]
   leaves             LeaveRequest[]
   createdAt          DateTime           @default(now())
@@ -101,7 +101,7 @@ model AttendanceRecord {
   checkInTime  String           // HH:mm:ss
   checkOutTime String?          // HH:mm:ss
   workHours    Float            @default(0.0)
-  earnedCost   Float            @default(0.0) // Calculated (workHours * monthlySalary) / targetMonthlyHours
+  earnedCost   Float            @default(0.0)
   isVerified   Boolean          @default(false) // توثيق الاعتماد من المدير
   verifiedAt   DateTime?        // تاريخ ووقت التوثيق
   checkInLat   Float?
@@ -147,7 +147,7 @@ model CompanySettings {
   managerPhone              String?  @default("")
   n8nWebhookUrl             String   @default("https://n8n.ordermt.ly/webhook/attendance-alert")
   whatsappNotificationsEnabled Boolean @default(true)
-  defaultTargetMonthlyHours Float    @default(160.0)
+  defaultTargetMonthlyHours Float    @default(0.0)
   autoCloseHours            Float    @default(12.0)
   gpsEnabled                Boolean  @default(false)
   gpsLatitude               Float?   @default(32.8872)
