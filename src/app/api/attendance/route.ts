@@ -61,11 +61,16 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
   try {
     const dbRecords = await prisma.attendanceRecord.findMany({
       where: userIdFilter ? { userId: userIdFilter } : undefined,
-      include: { user: { include: { jobRoles: true } } },
+      include: { user: { include: { jobRoles: true, departments: true } } },
       orderBy: { createdAt: 'desc' }
     });
 
     if (dbRecords && dbRecords.length > 0) {
+      let activeRules: any[] = [];
+      try {
+        activeRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+      } catch {}
+
       // Identify the first record of each day for each user (for non-hourly daily bonus calculation)
       const userDateSeen = new Set<string>();
       const recordIsFirstMap = new Map<string, boolean>();
@@ -89,7 +94,25 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         const primaryRole = r.user?.jobRoles?.[0];
         const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
         const isFirst = recordIsFirstMap.get(r.id) ?? true;
-        const dualCost = calculateDualEarnedCost(r.workHours, directRate, jobSalary, targetHours, isHourly, isFirst);
+        const userDeptIds = r.user?.departments?.map((d: any) => d.id) || [];
+
+        let calculatedEarned = r.earnedCost;
+        if (r.checkOutTime) {
+          const shiftCost = calculateShiftWithRateRules(
+            r.date,
+            r.checkInTime,
+            r.checkOutTime,
+            directRate,
+            jobSalary,
+            targetHours,
+            isHourly,
+            isFirst,
+            activeRules,
+            r.userId,
+            userDeptIds
+          );
+          calculatedEarned = shiftCost.totalCost;
+        }
 
         return {
           id: r.id,
@@ -100,7 +123,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
           checkInTime: r.checkInTime,
           checkOutTime: r.checkOutTime || null,
           workHours: r.workHours,
-          earnedCost: dualCost,
+          earnedCost: calculatedEarned,
           isVerified: r.isVerified ?? false,
           verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : undefined,
           checkInLat: r.checkInLat,
