@@ -5,7 +5,7 @@ import { RateRule, Department, User } from '@/lib/types';
 import { 
   TrendingUp, Plus, Edit3, Trash2, CheckCircle2, Clock, Calendar, 
   Sparkles, Zap, ShieldCheck, AlertCircle, Percent, DollarSign, Users, Building2,
-  CalendarDays, PlayCircle, HelpCircle
+  CalendarDays, PlayCircle, HelpCircle, RefreshCw
 } from 'lucide-react';
 import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 
@@ -27,6 +27,8 @@ const dayNames = [
 export default function RateRulesManagement({ departments = [], users = [] }: RateRulesManagementProps) {
   const [rules, setRules] = useState<RateRule[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [recalcLoading, setRecalcLoading] = useState<boolean>(false);
+  const [recalcMsg, setRecalcMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingRule, setEditingRule] = useState<RateRule | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -190,6 +192,34 @@ export default function RateRulesManagement({ departments = [], users = [] }: Ra
     }
   };
 
+  const handleRecalculateMonth = async () => {
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (!confirm(`هل أنت متأكد من إعادة احتساب كافة سجلات دوام الشهر الحالي (${currentMonthStr}) وفق القواعد النشطة الآن؟`)) {
+      return;
+    }
+
+    setRecalcLoading(true);
+    setRecalcMsg(null);
+    try {
+      const res = await fetch('/api/rate-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RECALCULATE_MONTH', month: currentMonthStr })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRecalcMsg({ text: data.message || 'تمت إعادة الاحتساب بنجاح', type: 'success' });
+      } else {
+        setRecalcMsg({ text: data.error || 'خطأ أثناء إعادة الاحتساب', type: 'error' });
+      }
+    } catch {
+      setRecalcMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' });
+    } finally {
+      setRecalcLoading(false);
+    }
+  };
+
   // Run live simulation calculation
   const simResult = calculateShiftWithRateRules(
     simDate,
@@ -206,31 +236,56 @@ export default function RateRulesManagement({ departments = [], users = [] }: Ra
   return (
     <div className="space-y-6 font-cairo" dir="rtl">
       {/* Top Header Banner */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-tr from-amber-500 to-orange-600 text-white rounded-2xl flex items-center justify-center font-black shadow-md">
-            <Zap className="w-6 h-6" />
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-tr from-amber-500 to-orange-600 text-white rounded-2xl flex items-center justify-center font-black shadow-md">
+              <Zap className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                نظام قواعد تسعير الساعات والبدلات المخصصة
+                <span className="text-[11px] bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-lg font-bold border border-amber-200">
+                  تسعير ديناميكي ذكي
+                </span>
+              </h2>
+              <p className="text-slate-500 text-xs font-semibold">
+                تحديد زيادات مخصصة (نسبة % أو قيمة ثابتة) لأيام معينة، شفتات السهر الليلية، أو مناسبات محددة
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              نظام قواعد تسعير الساعات والبدلات المخصصة
-              <span className="text-[11px] bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-lg font-bold border border-amber-200">
-                تسعير ديناميكي ذكي
-              </span>
-            </h2>
-            <p className="text-slate-500 text-xs font-semibold">
-              تحديد زيادات مخصصة (نسبة % أو قيمة ثابتة) لأيام معينة، شفتات السهر الليلية، أو مناسبات محددة
-            </p>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={handleRecalculateMonth}
+              disabled={recalcLoading}
+              className="px-4 h-11 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-sm flex items-center gap-2 cursor-pointer transition-all"
+              title="تطبيق القواعد النشطة على كافة سجلات دوام الشهر الحالي"
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-400 ${recalcLoading ? 'animate-spin' : ''}`} />
+              {recalcLoading ? 'جاري إعادة الاحتساب...' : 'إعادة احتساب سجلات الشهر الحالي 🔄'}
+            </button>
+
+            <button
+              onClick={openAddModal}
+              className="px-4 h-11 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة قاعدة تسعير جديدة
+            </button>
           </div>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="px-4 h-11 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          إضافة قاعدة تسعير جديدة
-        </button>
+        {recalcMsg && (
+          <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+            recalcMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+              : 'bg-rose-50 text-rose-900 border-rose-200'
+          }`}>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{recalcMsg.text}</span>
+          </div>
+        )}
       </div>
 
       {/* Rules Grid */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 
 // 1. GET Rate Rules
 export async function GET() {
@@ -13,10 +14,85 @@ export async function GET() {
   }
 }
 
-// 2. POST Create Rate Rule
+// 2. POST Create Rate Rule OR Recalculate Month
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    if (body.action === 'RECALCULATE_MONTH') {
+      const now = new Date();
+      const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const targetMonth = body.month || currentMonthStr;
+
+      // 1. Fetch active rate rules
+      const activeRules = await (prisma as any).rateRule.findMany({
+        where: { isActive: true }
+      });
+
+      // 2. Fetch all attendance records for the target month
+      const monthRecords = await prisma.attendanceRecord.findMany({
+        where: {
+          date: { startsWith: targetMonth }
+        },
+        include: {
+          user: {
+            include: {
+              jobRoles: true,
+              departments: true
+            }
+          }
+        },
+        orderBy: { checkInTime: 'asc' }
+      });
+
+      let updatedCount = 0;
+
+      for (const rec of monthRecords) {
+        if (!rec.checkInTime || !rec.checkOutTime) continue;
+
+        const directHourlyRate = rec.user?.hourlyRate || 0;
+        const monthlySalary = rec.user?.monthlySalary || 0;
+        const targetMonthlyHours = rec.user?.targetMonthlyHours || 0;
+        const primaryRole = rec.user?.jobRoles?.[0];
+        const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
+        const userDeptIds = rec.user?.departments?.map((d) => d.id) || [];
+
+        // Check if first record of day for fixed monthly daily portion
+        const isFirst = monthRecords.findIndex(r => r.userId === rec.userId && r.date === rec.date) === monthRecords.indexOf(rec);
+
+        const shiftCost = calculateShiftWithRateRules(
+          rec.date,
+          rec.checkInTime,
+          rec.checkOutTime,
+          directHourlyRate,
+          monthlySalary,
+          targetMonthlyHours,
+          isHourly,
+          isFirst,
+          activeRules,
+          rec.userId,
+          userDeptIds
+        );
+
+        await prisma.attendanceRecord.update({
+          where: { id: rec.id },
+          data: {
+            workHours: shiftCost.workHours,
+            earnedCost: shiftCost.totalCost
+          }
+        });
+
+        updatedCount++;
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `تمت إعادة احتساب ${updatedCount} سجل لشهر (${targetMonth}) بنجاح وفق القواعد النشطة`,
+        updatedCount,
+        month: targetMonth
+      });
+    }
+
     const {
       name,
       ruleType,
