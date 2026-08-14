@@ -19,13 +19,14 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   return true;
 }
 
-// Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours OR monthlySalary / 30)
+// Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours OR monthlySalary / 30 once per day)
 function calculateDualEarnedCost(
   workHours: number,
   directHourlyRate: number = 0,
   monthlySalary: number = 0,
   targetMonthlyHours: number = 160,
-  isHourly: boolean = true
+  isHourly: boolean = true,
+  isFirstRecordOfDay: boolean = true
 ): number {
   if (!workHours || workHours <= 0) return 0;
 
@@ -39,8 +40,12 @@ function calculateDualEarnedCost(
       const targetHours = targetMonthlyHours || 160;
       jobRoleCost = (workHours * monthlySalary) / targetHours;
     } else {
-      // Non-hourly / Fixed monthly salary: daily portion = monthlySalary / 30
-      jobRoleCost = monthlySalary / 30;
+      // Non-hourly / Fixed monthly salary: daily portion = monthlySalary / 30 ONLY once per unique day
+      if (isFirstRecordOfDay) {
+        jobRoleCost = monthlySalary / 30;
+      } else {
+        jobRoleCost = 0;
+      }
     }
   }
 
@@ -57,13 +62,33 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
     });
 
     if (dbRecords.length > 0) {
+      // Sort chronologically ascending to accurately determine first record of each unique calendar date
+      const recordsAsc = [...dbRecords].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.checkInTime || '').localeCompare(b.checkInTime || '');
+      });
+
+      const seenUserDates = new Set<string>();
+      const recordIsFirstMap = new Map<string, boolean>();
+
+      for (const r of recordsAsc) {
+        const key = `${r.userId}_${r.date}`;
+        if (!seenUserDates.has(key)) {
+          seenUserDates.add(key);
+          recordIsFirstMap.set(r.id, true);
+        } else {
+          recordIsFirstMap.set(r.id, false);
+        }
+      }
+
       const mapped = dbRecords.map((r) => {
         const directRate = r.user?.hourlyRate || 0;
         const jobSalary = r.user?.monthlySalary || 0;
         const targetHours = r.user?.targetMonthlyHours || 160;
         const primaryRole = r.user?.jobRoles?.[0];
         const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
-        const dualCost = calculateDualEarnedCost(r.workHours, directRate, jobSalary, targetHours, isHourly);
+        const isFirst = recordIsFirstMap.get(r.id) ?? true;
+        const dualCost = calculateDualEarnedCost(r.workHours, directRate, jobSalary, targetHours, isHourly, isFirst);
 
         return {
           id: r.id,
@@ -74,7 +99,7 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
           checkInTime: r.checkInTime,
           checkOutTime: r.checkOutTime || null,
           workHours: r.workHours,
-          earnedCost: r.earnedCost > 0 ? r.earnedCost : dualCost,
+          earnedCost: dualCost,
           isVerified: r.isVerified ?? false,
           verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : undefined,
           checkInLat: r.checkInLat,
@@ -221,7 +246,16 @@ export async function POST(req: NextRequest) {
 
       const totalMins = endMins - startMins;
       workHours = Number((totalMins / 60).toFixed(2));
-      earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly);
+
+      let isFirstRecordOfDay = true;
+      try {
+        const existingSameDayCount = await prisma.attendanceRecord.count({
+          where: { userId, date: todayDate }
+        });
+        isFirstRecordOfDay = existingSameDayCount === 0;
+      } catch {}
+
+      earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly, isFirstRecordOfDay);
     }
 
     let newRecord: AttendanceRecord;
@@ -378,7 +412,21 @@ export async function PUT(req: NextRequest) {
     const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
 
     const workHours = Number((totalMins / 60).toFixed(2));
-    const earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly);
+
+    let isFirstRecordOfDay = true;
+    try {
+      const earlierSameDayRecords = await prisma.attendanceRecord.findMany({
+        where: {
+          userId: targetRec.userId,
+          date: targetRec.date,
+          id: { not: recordId }
+        },
+        orderBy: { checkInTime: 'asc' }
+      });
+      isFirstRecordOfDay = earlierSameDayRecords.length === 0 || (earlierSameDayRecords[0].checkInTime > targetRec.checkInTime);
+    } catch {}
+
+    const earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly, isFirstRecordOfDay);
 
     const updated = await prisma.attendanceRecord.update({
       where: { id: recordId },
