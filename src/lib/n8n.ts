@@ -144,3 +144,65 @@ export async function sendTestWebhook(targetPhone?: string, webhookUrl?: string)
     webhookUrl
   );
 }
+
+export async function sendMonthlyPayrollToN8n(
+  payroll: {
+    employeeName: string;
+    employeeCode: string;
+    employeePhone?: string | null;
+    month: string;
+    totalHours: number;
+    hoursFormatted: string;
+    totalDays: number;
+    hourlyRate: number;
+    hourlyDue: number;
+    monthlySalary: number;
+    jobRoleDue: number;
+    totalDue: number;
+  },
+  webhookUrl?: string
+): Promise<boolean> {
+  const message = `📄 *كشف حساب الراتب وساعات الدوام الشهري*\n🏢 *نظام حضورك لتوثيق الدوام*\n━━━━━━━━━━━━━━━━━━\n👤 *الموظف:* ${payroll.employeeName} (كود: ${payroll.employeeCode})\n📅 *الشهر المستحق:* ${payroll.month}\n\n⏱️ *ساعات الدوام المنجزة:* ${payroll.hoursFormatted}\n🗓️ *أيام الحضور الفعلية:* ${payroll.totalDays} يوم\n💵 *أجر ساعات العمل:* ${payroll.hourlyDue.toFixed(2)} د.ل (${payroll.hourlyRate} د.ل/ساعة)\n💼 *بدل الوظيفة الثابت:* ${payroll.jobRoleDue.toFixed(2)} د.ل\n━━━━━━━━━━━━━━━━━━\n💰 *صافي المستحق النهائي:* ${payroll.totalDue.toFixed(2)} د.ل\n━━━━━━━━━━━━━━━━━━\n🙏 نشكركم على جهودكم والتزامكم خلال هذا الشهر!`;
+
+  if (payroll.employeePhone) {
+    await sendDirectWhatsApp(payroll.employeePhone, message);
+  }
+
+  return triggerN8nWebhook(
+    'MONTHLY_PAYROLL_DIGEST',
+    {
+      type: 'MONTHLY_PAYROLL',
+      employeePhone: payroll.employeePhone || '',
+      payroll,
+      messageFormatted: message
+    },
+    webhookUrl
+  );
+}
+
+export async function sendArrivalReminderToN8n(
+  employee: {
+    name: string;
+    code: string;
+    phone?: string | null;
+  },
+  webhookUrl?: string
+): Promise<boolean> {
+  const message = `📍 *مرحباً بك يا ${employee.name} في الصيدلية!* 🏢\n\nتم رصد وصولك لموقع العمل بنجاح 🟢\nتذكير لطيف: لا تنسَ فتح نظام حضورك وتسجيل الحضور لبدء احتساب ساعات دوامك المرن:\n👉 https://at.baitak.mtapp.ly\n\nنتمنى لك وقتاً طيباً وعملاً موفقاً! 🌿`;
+
+  if (employee.phone) {
+    await sendDirectWhatsApp(employee.phone, message);
+  }
+
+  return triggerN8nWebhook(
+    'ARRIVAL_LOCATION_REMINDER',
+    {
+      type: 'ARRIVAL_REMINDER',
+      employeePhone: employee.phone || '',
+      employeeName: employee.name,
+      employeeCode: employee.code,
+      messageFormatted: message
+    },
+    webhookUrl
+  );
+}

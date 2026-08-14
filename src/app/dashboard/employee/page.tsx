@@ -206,6 +206,17 @@ export default function EmployeeDashboard() {
   const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;
   const isCheckedIn  = !!activeRecord;
 
+  // إرسال تنبيه واتساب فوري للموظف عند دخوله نطاق الصيدلية (وصول للموقع)
+  useEffect(() => {
+    if (isInsideZone === true && !isCheckedIn && user?.id) {
+      fetch('/api/webhook/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ARRIVED_AT_LOCATION', employeeId: user.id })
+      }).catch(() => {});
+    }
+  }, [isInsideZone, isCheckedIn, user?.id]);
+
   // Unique attended calendar dates count in current month
   const uniqueAttendedDates = new Set(userRecords.map((r) => r.date).filter(Boolean));
   const uniqueAttendedDaysCount = uniqueAttendedDates.size;
@@ -548,6 +559,74 @@ export default function EmployeeDashboard() {
 
         {/* TAB: الدوام الحالي */}
         {activeTab === 'attendance' && (<>
+          {/* Smart Geofence Alert: Inside Pharmacy & Not Checked In */}
+          {isInsideZone === true && !isCheckedIn && (
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-black shrink-0 animate-pulse">
+                  <MapPin className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black flex items-center gap-1.5">
+                    📍 أنت الآن متواجد داخل الصيدلية!
+                  </p>
+                  <p className="text-xs text-blue-100 font-semibold">
+                    لا تنسَ تسجيل حضورك لبدء احتساب ساعات دوامك بدقة ⏱️
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const hrs = String(now.getHours() % 12 || 12).padStart(2, '0');
+                  const mins = String(now.getMinutes()).padStart(2, '0');
+                  const per = now.getHours() >= 12 ? 'PM' : 'AM';
+                  setCheckInHour(hrs);
+                  setCheckInMinute(mins);
+                  setCheckInPeriod(per);
+                }}
+                className="w-full sm:w-auto px-5 h-10 bg-white text-blue-800 hover:bg-blue-50 font-black rounded-xl text-xs shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                تسجيل الحضور الآن ⚡
+              </button>
+            </div>
+          )}
+
+          {/* Smart Geofence Alert: Outside Pharmacy & Has Open Shift */}
+          {isInsideZone === false && isCheckedIn && (
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-black shrink-0">
+                  <ShieldAlert className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black flex items-center gap-1.5">
+                    ⚠️ تنبيه مغادرة: أنت الآن خارج نطاق الصيدلية!
+                  </p>
+                  <p className="text-xs text-rose-100 font-semibold">
+                    لديك شفت دوام مفتوح حالياً، يرجى تسجيل الانصراف لتوثيق ساعاتك بدقة 🔴
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const now = new Date();
+                  const hrs = String(now.getHours() % 12 || 12).padStart(2, '0');
+                  const mins = String(now.getMinutes()).padStart(2, '0');
+                  const per = now.getHours() >= 12 ? 'PM' : 'AM';
+                  setCheckOutHour(hrs);
+                  setCheckOutMinute(mins);
+                  setCheckOutPeriod(per);
+                }}
+                className="w-full sm:w-auto px-5 h-10 bg-white text-rose-800 hover:bg-rose-50 font-black rounded-xl text-xs shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                تسجيل الانصراف فوراً 🛑
+              </button>
+            </div>
+          )}
+
           {/* GPS Status & Geofencing Card */}
           {gpsConfig?.gpsEnabled && (
             <div className={`p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row items-center justify-between gap-4 font-cairo ${

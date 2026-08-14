@@ -24,6 +24,7 @@ export interface User {
   pinCode: string;            // الرقم السري (مثل 1234)
   name: string;
   role: UserRole;
+  phone?: string | null;
   hourlyRate: number;         // قيمة أجر الساعة الاستدلالي بالدينار الليبي
   jobTitle?: string;
   departmentId?: string;

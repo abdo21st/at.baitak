@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendDailyDigestToN8n, sendCheckoutReminderToN8n, sendTestWebhook } from '@/lib/n8n';
+import { sendDailyDigestToN8n, sendCheckoutReminderToN8n, sendTestWebhook, sendMonthlyPayrollToN8n, sendArrivalReminderToN8n } from '@/lib/n8n';
+
+// Anti-spam map to prevent spamming employee WhatsApp with arrival reminders (min 2 hours interval)
+const lastArrivalAlertTimestamps = new Map<string, number>();
 
 function normalizeWebhookUrl(url?: string): string {
   if (!url) return 'http://102.203.201.52:5678/webhook/attendance-alert';
@@ -104,6 +107,98 @@ export async function POST(req: NextRequest) {
         success: true,
         message: `تم فحص الشفتات المفتوحة وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
         count: sentCount
+      });
+    }
+
+    if (action === 'MONTHLY_PAYROLL') {
+      const targetMonth = body.month || todayDate.substring(0, 7);
+      const employeeId = body.employeeId;
+
+      const whereUser = employeeId ? { id: employeeId } : { role: { not: 'ADMIN' as const } };
+      const employees = await prisma.user.findMany({
+        where: whereUser,
+        include: {
+          jobRoles: true,
+          attendances: {
+            where: {
+              date: { startsWith: targetMonth }
+            }
+          }
+        }
+      });
+
+      let sentCount = 0;
+      for (const emp of employees) {
+        const records = emp.attendances;
+        const totalHours = Number(records.reduce((sum: number, r: { workHours: number }) => sum + (r.workHours || 0), 0).toFixed(2));
+        const wholeHours = Math.floor(totalHours);
+        const mins = Math.round((totalHours - wholeHours) * 60);
+        const hoursFormatted = mins > 0 ? `${wholeHours} ساعة و ${mins} دقيقة` : `${wholeHours} ساعة`;
+
+        const uniqueDays = new Set(records.map((r: { date: string }) => r.date).filter(Boolean)).size;
+        const hourlyRate = emp.hourlyRate || 0;
+        const hourlyDue = Number((totalHours * hourlyRate).toFixed(2));
+
+        const effectiveRoles = emp.jobRoles || [];
+        const totalMonthlySalary = effectiveRoles.reduce((sum: number, r: { monthlySalary: number }) => sum + (r.monthlySalary || 0), 0) + (emp.monthlySalary || 0);
+        const jobRoleDailyRate = totalMonthlySalary > 0 ? totalMonthlySalary / 30 : 0;
+        const jobRoleDue = Number((uniqueDays * jobRoleDailyRate).toFixed(2));
+        const totalDue = Number((hourlyDue + jobRoleDue).toFixed(2));
+
+        if (emp.phone) {
+          await sendMonthlyPayrollToN8n({
+            employeeName: emp.name,
+            employeeCode: emp.employeeCode,
+            employeePhone: emp.phone,
+            month: targetMonth,
+            totalHours,
+            hoursFormatted,
+            totalDays: uniqueDays,
+            hourlyRate,
+            hourlyDue,
+            monthlySalary: totalMonthlySalary,
+            jobRoleDue,
+            totalDue
+          }, targetUrl);
+          sentCount++;
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `تم إرسال كشوفات رواتب شهر (${targetMonth}) لـ ${sentCount} موظف بنجاح! 🟢`,
+        count: sentCount
+      });
+    }
+
+    if (action === 'ARRIVED_AT_LOCATION') {
+      const employeeId = body.employeeId;
+      if (!employeeId) {
+        return NextResponse.json({ success: false, error: 'معرف الموظف مطلوب' }, { status: 400 });
+      }
+
+      const emp = await prisma.user.findUnique({ where: { id: employeeId } });
+      if (!emp || !emp.phone) {
+        return NextResponse.json({ success: false, error: 'الموظف غير موجود أو ليس لديه رقم هاتف' }, { status: 404 });
+      }
+
+      // Check anti-spam: 2 hours interval
+      const lastSent = lastArrivalAlertTimestamps.get(emp.id) || 0;
+      const now = Date.now();
+      if (now - lastSent < 2 * 60 * 60 * 1000) {
+        return NextResponse.json({ success: true, message: 'تم إرسال تذكير الوصول مسبقاً', skipped: true });
+      }
+
+      lastArrivalAlertTimestamps.set(emp.id, now);
+      await sendArrivalReminderToN8n({
+        name: emp.name,
+        code: emp.employeeCode,
+        phone: emp.phone
+      }, targetUrl);
+
+      return NextResponse.json({
+        success: true,
+        message: `تم إرسال رسالة تذكير الوصول للصيدلية إلى واتساب الموظف (${emp.name}) بنجاح! 🟢`
       });
     }
 

@@ -9,7 +9,7 @@ import {
   UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
   Briefcase, MapPin, Settings, ShieldAlert, Navigation, MessageSquare, 
   Send, Check, Bell, PanelRightClose, PanelRightOpen, Menu, Sparkles, 
-  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle
+  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText
 } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
@@ -138,6 +138,9 @@ export default function AdminDashboard() {
     }
   };
 
+  const [payrollMonth, setPayrollMonth] = useState(() => new Date().toISOString().substring(0, 7));
+  const [payrollEmpId, setPayrollEmpId] = useState('ALL');
+
   const handleTriggerWhatsAppAction = async (action: 'TEST' | 'DAILY_DIGEST' | 'REMIND_OPEN_SHIFTS') => {
     setWhatsappActionLoading(true);
     setWhatsappActionMsg(null);
@@ -156,6 +159,34 @@ export default function AdminDashboard() {
       }
     } catch {
       setWhatsappActionMsg({ text: 'تعذر إرسال الطلب إلى الـ Webhook', type: 'error' });
+    } finally {
+      setWhatsappActionLoading(false);
+    }
+  };
+
+  const handleSendMonthlyPayroll = async () => {
+    setWhatsappActionLoading(true);
+    setWhatsappActionMsg(null);
+
+    try {
+      const res = await fetch('/api/webhook/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'MONTHLY_PAYROLL',
+          month: payrollMonth,
+          employeeId: payrollEmpId === 'ALL' ? undefined : payrollEmpId,
+          webhookUrl: n8nWebhookUrl
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWhatsappActionMsg({ text: data.message || 'تم إرسال كشوفات الرواتب بنجاح! 🟢', type: 'success' });
+      } else {
+        setWhatsappActionMsg({ text: data.error || 'فشل إرسال كشوفات الرواتب', type: 'error' });
+      }
+    } catch {
+      setWhatsappActionMsg({ text: 'تعذر الاتصال بالخادم', type: 'error' });
     } finally {
       setWhatsappActionLoading(false);
     }
@@ -1234,6 +1265,70 @@ export default function AdminDashboard() {
                   <RefreshCw className="w-4 h-4" />
                   {whatsappActionLoading ? 'جاري الفحص...' : 'إرسال اختبار الاتصال'}
                 </button>
+              </div>
+            </div>
+
+            {/* Monthly Payroll Reports WhatsApp Dispatch Card */}
+            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-indigo-700/30 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-indigo-800/60 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600/40 border border-indigo-400/30 flex items-center justify-center font-black shrink-0 shadow-inner">
+                    <FileText className="w-6 h-6 text-indigo-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                      إرسال كشوفات الرواتب وساعات الدوام الشهرية على واتساب
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md font-extrabold border border-emerald-400/30">مؤتمت</span>
+                    </h3>
+                    <p className="text-xs text-indigo-200 mt-1 font-semibold">
+                      إرسال تقرير تفصيلي لساعات الدوام الفعلي وأيام الحضور وصافي الراتب المستحق بـ (د.ل) لكل موظف مباشرة على رقمه في نهاية كل شهر
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="block text-indigo-200 font-bold mb-1.5">
+                    اختر الشهر المستحق
+                  </label>
+                  <input
+                    type="month"
+                    value={payrollMonth}
+                    onChange={(e) => setPayrollMonth(e.target.value)}
+                    className="w-full h-11 bg-slate-800/90 border border-indigo-600/40 rounded-xl px-3.5 text-white font-mono font-bold focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-indigo-200 font-bold mb-1.5">
+                    تحديد الموظفين المستلمين
+                  </label>
+                  <select
+                    value={payrollEmpId}
+                    onChange={(e) => setPayrollEmpId(e.target.value)}
+                    className="w-full h-11 bg-slate-800/90 border border-indigo-600/40 rounded-xl px-3.5 text-white font-bold focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  >
+                    <option value="ALL">🌟 جميع الموظفين (إرسال جماعي لكافة الكادر)</option>
+                    {users.filter(u => u.role !== 'ADMIN').map((u) => (
+                      <option key={u.id} value={u.id}>
+                        👤 {u.name} ({u.employeeCode}) {u.phone ? `• ${u.phone}` : '⚠️(بدون هاتف)'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    disabled={whatsappActionLoading}
+                    onClick={handleSendMonthlyPayroll}
+                    className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-black rounded-xl shadow-lg shadow-emerald-900/40 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                    {whatsappActionLoading ? 'جاري الإرسال...' : 'إرسال كشوفات الرواتب الآن 🚀'}
+                  </button>
+                </div>
               </div>
             </div>
 
