@@ -541,13 +541,14 @@ export default function AdminDashboard() {
         {/* Sidebar Header: Brand & Collapse Toggle */}
         <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-emerald-500 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/20 shrink-0">
-              <ShieldCheck className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon-192.png" alt="صيدلية بيتك" className="w-full h-full object-contain" />
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0">
-                <h1 className="text-sm font-black text-white truncate tracking-tight">حضورك • الإدارة</h1>
-                <p className="text-[10px] text-emerald-400 font-bold truncate">لوحة التحكم المركزية</p>
+                <h1 className="text-sm font-black text-white truncate tracking-tight">حضورك • صيدلية بيتك</h1>
+                <p className="text-[10px] text-blue-400 font-bold truncate">لوحة التحكم المركزية</p>
               </div>
             )}
           </div>

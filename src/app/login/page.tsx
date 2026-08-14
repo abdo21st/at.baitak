@@ -69,14 +69,19 @@ export default function LoginPage() {
       <div className="bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
         {/* App Branding Logo */}
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-emerald-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-            <Clock className="w-9 h-9" />
+          <div className="w-20 h-20 bg-white rounded-3xl p-2 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/10 border border-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon-192.png"
+              alt="صيدلية بيتك"
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            نظام تدوين الساعات اليومي
+            حضورك | صيدلية بيتك
           </h1>
           <p className="text-slate-500 text-xs font-semibold">
-            أدخل رقم الموظف والرقم السري لبدء وتسجيل وقت الحضور والانصراف
+            أدخل رقم الموظف والرقم السري لتسجيل أوقات الدوام ومتابعة المستحقات
           </p>
         </div>
 
