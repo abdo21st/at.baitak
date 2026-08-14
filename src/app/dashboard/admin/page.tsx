@@ -882,10 +882,26 @@ export default function AdminDashboard() {
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-emerald-600 font-bold">{formatTime12h(r.checkInTime)}</td>
-                          <td className="py-3.5 px-4 text-rose-600 font-bold">{formatTime12h(r.checkOutTime)}</td>
                           <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
-                          <td className="py-3.5 px-4 text-center font-black text-emerald-700">{r.earnedCost} د.ل</td>
+                          <td className="py-3.5 px-4 text-center font-mono">
+                            <div className="font-black text-emerald-700">{r.earnedCost} د.ل</div>
+                            {(() => {
+                              const userObj = users.find(u => u.id === r.userId);
+                              const hourly = userObj?.hourlyRate || 0;
+                              const base = Number((r.workHours * hourly).toFixed(2));
+                              const bonus = Number((r.earnedCost - base).toFixed(2));
+                              if (bonus > 0) {
+                                return (
+                                  <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + البدلات وعلاوات الشفتات: ${bonus} د.ل`}>
+                                    <span>أساسي: {base}</span>
+                                    <span>+</span>
+                                    <span className="text-orange-700">بدلات: {bonus}</span>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </td>
                           <td className="py-3.5 px-4 text-center font-sans">
                             {r.isVerified ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold">

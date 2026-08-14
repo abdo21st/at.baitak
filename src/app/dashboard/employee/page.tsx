@@ -476,7 +476,24 @@ export default function EmployeeDashboard() {
                   <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
                   <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
                   <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
-                  <td className="py-3.5 px-4 text-center font-black text-teal-700">{r.earnedCost} د.ل</td>
+                  <td className="py-3.5 px-4 text-center font-mono">
+                    <div className="font-black text-teal-700 text-sm">{r.earnedCost} د.ل</div>
+                    {(() => {
+                      const hourly = p.hourlyRate || 0;
+                      const base = Number((r.workHours * hourly).toFixed(2));
+                      const bonus = Number((r.earnedCost - base).toFixed(2));
+                      if (bonus > 0) {
+                        return (
+                          <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + البدلات وعلاوات الشفتات: ${bonus} د.ل`}>
+                            <span>أساسي: {base}</span>
+                            <span>+</span>
+                            <span className="text-orange-700">بدلات: {bonus}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </td>
                   <td className="py-3.5 px-4 text-center font-sans">
                     {r.isVerified
                       ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold"><CheckCircle2 className="w-3.5 h-3.5" />موثّق</span>
@@ -885,39 +902,70 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
-                      <span className="text-slate-400 block font-bold">1. أجر الساعات الأساسي ({totalMonthlyHours} ساعة):</span>
-                      <div className="text-sm font-black text-blue-300 font-mono">
-                        {(totalMonthlyHours * (p.hourlyRate || 0)).toFixed(2)} د.ل
-                      </div>
-                      <span className="text-[11px] text-slate-400 block font-mono">
-                        ({totalMonthlyHours} س × {p.hourlyRate || 0} د.ل/س)
-                      </span>
-                    </div>
+                  {(() => {
+                    const baseHoursCost = Number((totalMonthlyHours * (p.hourlyRate || 0)).toFixed(2));
+                    let jobRolePortion = 0;
+                    if (p.isHourly !== false && p.targetMonthlyHours && p.targetMonthlyHours > 0) {
+                      jobRolePortion = Number(((totalMonthlyHours * (p.monthlySalary || 0)) / p.targetMonthlyHours).toFixed(2));
+                    } else if ((p.monthlySalary || 0) > 0) {
+                      jobRolePortion = Number((uniqueAttendedDaysCount * ((p.monthlySalary || 0) / 30)).toFixed(2));
+                    }
+                    const shiftBonusesCost = Number(Math.max(0, totalMonthlyEarned - baseHoursCost - jobRolePortion).toFixed(2));
+                    const totalBonusesAndRole = Number((jobRolePortion + shiftBonusesCost).toFixed(2));
 
-                    <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
-                      <span className="text-slate-400 block font-bold">
-                        2. البدلات وعلاوات الشفتات والوظيفة:
-                      </span>
-                      <div className="text-sm font-black text-amber-300 font-mono">
-                        {Math.max(0, Number((totalMonthlyEarned - (totalMonthlyHours * (p.hourlyRate || 0))).toFixed(2)))} د.ل
-                      </div>
-                      <span className="text-[11px] text-slate-400 block">
-                        علاوات شفتات السهر والجمعة + الراتب الوظيفي
-                      </span>
-                    </div>
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
+                          <span className="text-slate-400 block font-bold">1. أجر الساعات الأساسي ({totalMonthlyHours} ساعة):</span>
+                          <div className="text-sm font-black text-blue-300 font-mono">
+                            {baseHoursCost.toFixed(2)} د.ل
+                          </div>
+                          <span className="text-[11px] text-slate-400 block font-mono">
+                            ({totalMonthlyHours} س × {p.hourlyRate || 0} د.ل/س)
+                          </span>
+                        </div>
 
-                    <div className="bg-emerald-500/10 rounded-2xl p-3.5 border border-emerald-500/20 space-y-1">
-                      <span className="text-emerald-300 block font-bold">3. ملخص الحضور المسجل:</span>
-                      <div className="text-sm font-black text-emerald-400 font-mono">
-                        {uniqueAttendedDaysCount} يوم عمل
+                        <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-400 block font-bold">2. البدلات وعلاوات الشفتات والوظيفة:</span>
+                            <div className="text-sm font-black text-amber-300 font-mono">
+                              {totalBonusesAndRole.toFixed(2)} د.ل
+                            </div>
+                          </div>
+                          <div className="space-y-1 pt-1.5 border-t border-white/10 text-[11px]">
+                            {jobRolePortion > 0 && (
+                              <div className="flex items-center justify-between text-amber-200/90 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <Briefcase className="w-3 h-3 text-amber-400 shrink-0" />
+                                  مستحق الوظيفة ({p.isHourly !== false ? 'ساعات' : `${uniqueAttendedDaysCount} يوم × ${((p.monthlySalary || 0) / 30).toFixed(2)} د.ل`}):
+                                </span>
+                                <span className="font-mono font-bold text-amber-300">+{jobRolePortion.toFixed(2)} د.ل</span>
+                              </div>
+                            )}
+                            {shiftBonusesCost > 0 && (
+                              <div className="flex items-center justify-between text-orange-200/90 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <Zap className="w-3 h-3 text-orange-400 shrink-0" />
+                                  علاوات شفتات السهر والجمعة:
+                                </span>
+                                <span className="font-mono font-bold text-orange-300">+{shiftBonusesCost.toFixed(2)} د.ل</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="bg-emerald-500/10 rounded-2xl p-3.5 border border-emerald-500/20 space-y-1">
+                          <span className="text-emerald-300 block font-bold">3. ملخص الحضور المسجل:</span>
+                          <div className="text-sm font-black text-emerald-400 font-mono">
+                            {uniqueAttendedDaysCount} يوم عمل
+                          </div>
+                          <span className="text-[11px] text-emerald-300/80 block">
+                            (بإجمالي {totalMonthlyHours} ساعة دوام منجزة)
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[11px] text-emerald-300/80 block">
-                        (بإجمالي {totalMonthlyHours} ساعة دوام منجزة)
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
