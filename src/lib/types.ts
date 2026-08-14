@@ -78,3 +78,24 @@ export interface CompanySettings {
   gpsRadiusMeters: number;
 }
 
+export type RuleType = 'RECURRING' | 'ONE_TIME';
+export type RateIncreaseType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+
+export interface RateRule {
+  id: string;
+  name: string;
+  ruleType: RuleType;
+  daysOfWeek: number[]; // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  specificDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  increaseType: RateIncreaseType;
+  value: number; // e.g. 50 (%) or 3.5 (LYD)
+  appliesTo: 'ALL' | 'DEPARTMENT' | 'EMPLOYEE';
+  targetId?: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+

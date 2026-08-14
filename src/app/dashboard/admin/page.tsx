@@ -9,10 +9,11 @@ import {
   UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
   Briefcase, MapPin, Settings, ShieldAlert, Navigation, MessageSquare, 
   Send, Check, Bell, PanelRightClose, PanelRightOpen, Menu, Sparkles, 
-  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText
+  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText, Zap
 } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
+import RateRulesManagement from '@/components/RateRulesManagement';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
@@ -23,8 +24,8 @@ export default function AdminDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS' vs 'SETTINGS' vs 'WHATSAPP'
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
 
   // Sidebar Collapsed & Mobile States (الخيار رقم 2: القائمة الجانبية الفاخرة)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -653,6 +654,28 @@ export default function AdminDashboard() {
           </button>
 
           <button
+            onClick={() => { setActiveTab('RATE_RULES'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'RATE_RULES'
+                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="قواعد وزيادات الساعات"
+          >
+            <Zap className="w-5 h-5 shrink-0 text-amber-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">قواعد وزيادات الساعات</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">
+                  جديد
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
             onClick={() => { setActiveTab('SETTINGS'); setMobileSidebarOpen(false); }}
             className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
               sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
@@ -738,6 +761,7 @@ export default function AdminDashboard() {
                   {activeTab === 'CALENDAR' && 'تقويم ساعات الحضور والخط الزمني'}
                   {activeTab === 'EMPLOYEES' && 'قسم إدارة الموظفين'}
                   {activeTab === 'DEPARTMENTS' && 'إدارة الأقسام والوظائف'}
+                  {activeTab === 'RATE_RULES' && 'قواعد وبدلات تسعير الساعات الديناميكية'}
                   {activeTab === 'SETTINGS' && 'إعدادات GPS والموقع الجغرافي'}
                   {activeTab === 'WHATSAPP' && 'إعدادات وإشعارات واتساب عبر n8n'}
                 </h1>
@@ -746,6 +770,7 @@ export default function AdminDashboard() {
                   {activeTab === 'CALENDAR' && 'استعراض الحضور والشفتات عبر التقويم اليومي والشهري'}
                   {activeTab === 'EMPLOYEES' && 'إضافة وتعديل بيانات الموظفين وأجورهم ومستحقاتهم'}
                   {activeTab === 'DEPARTMENTS' && 'إدارة الهيكل الإداري والأقسام والوظائف ورواتبها'}
+                  {activeTab === 'RATE_RULES' && 'تحديد زيادات الأجر بالساعة لأيام معينة، شفتات الليل، أو مناسبات محددة'}
                   {activeTab === 'SETTINGS' && 'ضبط نطاق مقر العمل الجغرافي والتسجيل الذكي'}
                   {activeTab === 'WHATSAPP' && 'الربط التلقائي مع واتساب لإرسال ملخصات الدوام وتنبيهات الشفتات'}
                 </p>
@@ -1434,6 +1459,11 @@ export default function AdminDashboard() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* TAB 6: RATE RULES & CUSTOM SURCHARGES */}
+        {activeTab === 'RATE_RULES' && (
+          <RateRulesManagement departments={departments} users={users} />
         )}
       </main>
       </div>

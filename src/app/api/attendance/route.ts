@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { AttendanceRecord } from '@/lib/types';
 import { calculateGpsDistanceMeters } from '@/lib/utils';
+import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 
 let memoryRecords: AttendanceRecord[] = [];
 
@@ -218,11 +219,12 @@ export async function POST(req: NextRequest) {
     let monthlySalary = 0;
     let targetMonthlyHours = 0;
     let isHourly = true;
+    let userDepartmentIds: string[] = [];
 
     try {
       const u = await prisma.user.findUnique({
         where: { id: userId },
-        include: { jobRoles: true }
+        include: { jobRoles: true, departments: true }
       });
       if (u) {
         directHourlyRate = u.hourlyRate || 0;
@@ -230,6 +232,7 @@ export async function POST(req: NextRequest) {
         targetMonthlyHours = u.targetMonthlyHours || 0;
         const primaryRole = u.jobRoles?.[0];
         isHourly = primaryRole ? primaryRole.isHourly !== false : true;
+        userDepartmentIds = u.departments.map(d => d.id);
       }
     } catch {}
 
@@ -255,7 +258,25 @@ export async function POST(req: NextRequest) {
         isFirstRecordOfDay = existingSameDayCount === 0;
       } catch {}
 
-      earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly, isFirstRecordOfDay);
+      let rateRules: any[] = [];
+      try {
+        rateRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+      } catch {}
+
+      const shiftCost = calculateShiftWithRateRules(
+        todayDate,
+        checkInTime,
+        checkOutTime,
+        directHourlyRate,
+        monthlySalary,
+        targetMonthlyHours,
+        isHourly,
+        isFirstRecordOfDay,
+        rateRules,
+        userId,
+        userDepartmentIds
+      );
+      earnedCost = shiftCost.totalCost;
     }
 
     let newRecord: AttendanceRecord;
@@ -426,7 +447,24 @@ export async function PUT(req: NextRequest) {
       isFirstRecordOfDay = earlierSameDayRecords.length === 0 || (earlierSameDayRecords[0].checkInTime > targetRec.checkInTime);
     } catch {}
 
-    const earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly, isFirstRecordOfDay);
+    let rateRules: any[] = [];
+    try {
+      rateRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+    } catch {}
+
+    const shiftCost = calculateShiftWithRateRules(
+      targetRec.date,
+      targetRec.checkInTime,
+      checkOutTime,
+      directHourlyRate,
+      monthlySalary,
+      targetMonthlyHours,
+      isHourly,
+      isFirstRecordOfDay,
+      rateRules,
+      targetRec.userId
+    );
+    const earnedCost = shiftCost.totalCost;
 
     const updated = await prisma.attendanceRecord.update({
       where: { id: recordId },
@@ -552,7 +590,25 @@ export async function PATCH(req: NextRequest) {
             }
 
             workHours = Number((diffMins / 60).toFixed(2));
-            earnedCost = calculateDualEarnedCost(workHours, directHourlyRate, monthlySalary, targetMonthlyHours, isHourly);
+
+            let patchRules: any[] = [];
+            try {
+              patchRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+            } catch {}
+
+            const shiftCost = calculateShiftWithRateRules(
+              newDate,
+              newIn,
+              newOut,
+              directHourlyRate,
+              monthlySalary,
+              targetMonthlyHours,
+              isHourly,
+              true,
+              patchRules,
+              target.userId
+            );
+            earnedCost = shiftCost.totalCost;
           }
 
           const updated = await prisma.attendanceRecord.update({
