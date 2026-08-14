@@ -13,7 +13,7 @@ export async function sendDirectWhatsApp(phone: string, text: string): Promise<b
   if (!cleanPhone) return false;
 
   const chatId = `${cleanPhone}@c.us`;
-  const wahaUrl = process.env.WAHA_API_URL || 'http://127.0.0.1:3008/api/sendText';
+  const wahaUrl = process.env.WAHA_API_URL || 'http://102.203.201.52:3008/api/sendText';
 
   try {
     const res = await fetch(wahaUrl, {
@@ -36,7 +36,7 @@ export async function sendDirectWhatsApp(phone: string, text: string): Promise<b
 }
 
 export async function triggerN8nWebhook(event: string, payload: Record<string, any>, webhookUrl?: string): Promise<boolean> {
-  const targetUrl = webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://127.0.0.1:5678/webhook/attendance-alert';
+  const targetUrl = webhookUrl || process.env.N8N_WEBHOOK_URL || 'http://102.203.201.52:5678/webhook/attendance-alert';
 
   try {
     const res = await fetch(targetUrl, {
