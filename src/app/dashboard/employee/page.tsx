@@ -887,7 +887,7 @@ export default function EmployeeDashboard() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
-                      <span className="text-slate-400 block font-bold">1. أجر ساعات الدوام ({totalMonthlyHours} ساعة):</span>
+                      <span className="text-slate-400 block font-bold">1. أجر الساعات الأساسي ({totalMonthlyHours} ساعة):</span>
                       <div className="text-sm font-black text-blue-300 font-mono">
                         {(totalMonthlyHours * (p.hourlyRate || 0)).toFixed(2)} د.ل
                       </div>
@@ -898,15 +898,13 @@ export default function EmployeeDashboard() {
 
                     <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-1">
                       <span className="text-slate-400 block font-bold">
-                        2. مستحقات الوظيفة ({uniqueAttendedDaysCount} يوم عمل):
+                        2. البدلات وعلاوات الشفتات والوظيفة:
                       </span>
                       <div className="text-sm font-black text-amber-300 font-mono">
                         {Math.max(0, Number((totalMonthlyEarned - (totalMonthlyHours * (p.hourlyRate || 0))).toFixed(2)))} د.ل
                       </div>
                       <span className="text-[11px] text-slate-400 block">
-                        {p.isHourly !== false
-                          ? `مرتبطة بساعات الدوام`
-                          : `(اليومية: ${((p.monthlySalary || 0) / 30).toFixed(2)} د.ل × ${uniqueAttendedDaysCount} يوم عمل)`}
+                        علاوات شفتات السهر والجمعة + الراتب الوظيفي
                       </span>
                     </div>
 
