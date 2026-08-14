@@ -4,7 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord, Department, JobRole, CompanySettings } from '@/lib/types';
 import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
-import { Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, Briefcase, MapPin, Settings, ShieldAlert, Navigation } from 'lucide-react';
+import { 
+  Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, 
+  UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
+  Briefcase, MapPin, Settings, ShieldAlert, Navigation, MessageSquare, 
+  Send, Check, Bell, PanelRightClose, PanelRightOpen, Menu, Sparkles, 
+  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle
+} from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 import { useSortableData } from '@/hooks/useSortableData';
@@ -17,8 +23,19 @@ export default function AdminDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS' vs 'SETTINGS'
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'SETTINGS'>('ATTENDANCE');
+  // Tab State: 'ATTENDANCE' vs 'CALENDAR' vs 'EMPLOYEES' vs 'DEPARTMENTS' vs 'SETTINGS' vs 'WHATSAPP'
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
+
+  // Sidebar Collapsed & Mobile States (الخيار رقم 2: القائمة الجانبية الفاخرة)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // WhatsApp & n8n Automation Settings State
+  const [managerPhone, setManagerPhone] = useState('');
+  const [n8nWebhookUrl, setN8nWebhookUrl] = useState('https://n8n.ordermt.ly/webhook/attendance-alert');
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [whatsappActionMsg, setWhatsappActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [whatsappActionLoading, setWhatsappActionLoading] = useState(false);
 
   // GPS Settings State
   const [gpsEnabled, setGpsEnabled] = useState(false);
@@ -83,9 +100,64 @@ export default function AdminDashboard() {
         if (s.gpsLatitude) setGpsLatitude(String(s.gpsLatitude));
         if (s.gpsLongitude) setGpsLongitude(String(s.gpsLongitude));
         if (s.gpsRadiusMeters) setGpsRadiusMeters(String(s.gpsRadiusMeters));
+        if (s.managerPhone) setManagerPhone(String(s.managerPhone));
+        if (s.n8nWebhookUrl) setN8nWebhookUrl(String(s.n8nWebhookUrl));
+        if (s.whatsappNotificationsEnabled !== undefined) setWhatsappEnabled(Boolean(s.whatsappNotificationsEnabled));
       }
     } catch (e) {
       console.error('Error fetching dashboard data:', e);
+    }
+  };
+
+  // WhatsApp & n8n Automation Handlers
+  const handleSaveWhatsAppSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWhatsappActionLoading(true);
+    setWhatsappActionMsg(null);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          managerPhone,
+          n8nWebhookUrl,
+          whatsappNotificationsEnabled: whatsappEnabled
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWhatsappActionMsg({ text: '✅ تم حفظ إعدادات واتساب و n8n بنجاح!', type: 'success' });
+      } else {
+        setWhatsappActionMsg({ text: data.error || 'خطأ في حفظ الإعدادات', type: 'error' });
+      }
+    } catch {
+      setWhatsappActionMsg({ text: 'تعذر الاتصال بالخادم', type: 'error' });
+    } finally {
+      setWhatsappActionLoading(false);
+    }
+  };
+
+  const handleTriggerWhatsAppAction = async (action: 'TEST' | 'DAILY_DIGEST' | 'REMIND_OPEN_SHIFTS') => {
+    setWhatsappActionLoading(true);
+    setWhatsappActionMsg(null);
+
+    try {
+      const res = await fetch('/api/webhook/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, managerPhone, webhookUrl: n8nWebhookUrl })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWhatsappActionMsg({ text: data.message || 'تمت العملية بنجاح!', type: 'success' });
+      } else {
+        setWhatsappActionMsg({ text: data.error || 'فشلت العملية', type: 'error' });
+      }
+    } catch {
+      setWhatsappActionMsg({ text: 'تعذر إرسال الطلب إلى الـ Webhook', type: 'error' });
+    } finally {
+      setWhatsappActionLoading(false);
     }
   };
 
@@ -412,97 +484,252 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">
-      {/* Header Bar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm print:hidden">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-bold shadow-md">
-              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo flex flex-col" dir="rtl">
+      {/* Mobile Backdrop */}
+      {mobileSidebarOpen && (
+        <div 
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
+        />
+      )}
+
+      {/* Modern Collapsible Sidebar (الخيار رقم 2: القائمة الجانبية الفاخرة) */}
+      <aside
+        className={`fixed top-0 right-0 h-screen z-50 bg-slate-950 text-white flex flex-col justify-between border-l border-slate-800 shadow-2xl transition-all duration-300 print:hidden ${
+          sidebarCollapsed ? 'w-20' : 'w-72'
+        } ${mobileSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}
+      >
+        {/* Sidebar Header: Brand & Collapse Toggle */}
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-emerald-500 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/20 shrink-0">
+              <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                لوحة المدير الإدارية لتوثيق الدوام وإدارة الموظفين والأقسام
-              </h1>
-              <p className="text-slate-500 text-xs font-semibold">
-                توثيق الحضور وتعديل ساعات الدوام وإدارة الأقسام والوظائف وقيمها الشهرية
-              </p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <h1 className="text-sm font-black text-white truncate tracking-tight">حضورك • الإدارة</h1>
+                <p className="text-[10px] text-emerald-400 font-bold truncate">لوحة التحكم المركزية</p>
+              </div>
+            )}
           </div>
+
+          {/* Desktop Collapse Button */}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden md:flex p-2 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all"
+            title={sidebarCollapsed ? 'توسيع القائمة' : 'طي القائمة'}
+          >
+            {sidebarCollapsed ? <PanelRightOpen className="w-5 h-5" /> : <PanelRightClose className="w-5 h-5" />}
+          </button>
+
+          {/* Mobile Close Button */}
+          <button
+            onClick={() => setMobileSidebarOpen(false)}
+            className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Sidebar Navigation Items */}
+        <div className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+          <button
+            onClick={() => { setActiveTab('ATTENDANCE'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'ATTENDANCE'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="سجل وتوثيق الدوام"
+          >
+            <Calendar className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">سجل وتوثيق الدوام</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-mono font-bold">
+                  {records.length}
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('CALENDAR'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'CALENDAR'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="تقويم ساعات الحضور والخط الزمني"
+          >
+            <BarChart3 className="w-5 h-5 shrink-0 text-teal-400" />
+            {!sidebarCollapsed && <span className="flex-1 text-right truncate">تقويم الحضور الزمني</span>}
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('EMPLOYEES'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'EMPLOYEES'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="قسم إدارة الموظفين"
+          >
+            <Users className="w-5 h-5 shrink-0 text-blue-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">إدارة الموظفين</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-mono font-bold">
+                  {users.filter(u => u.role !== 'ADMIN').length}
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('DEPARTMENTS'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'DEPARTMENTS'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="إدارة الأقسام والوظائف"
+          >
+            <Building2 className="w-5 h-5 shrink-0 text-indigo-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">الأقسام والوظائف</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-mono font-bold">
+                  {departments.length}
+                </span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('SETTINGS'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'SETTINGS'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="إعدادات GPS والموقع"
+          >
+            <MapPin className="w-5 h-5 shrink-0 text-purple-400" />
+            {!sidebarCollapsed && <span className="flex-1 text-right truncate">إعدادات GPS والموقع</span>}
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('WHATSAPP'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'WHATSAPP'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="إشعارات واتساب و n8n"
+          >
+            <MessageSquare className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">إشعارات واتساب & n8n</span>
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Sidebar Footer: User profile & Logout */}
+        <div className="p-3 border-t border-slate-800/80 space-y-2">
+          {!sidebarCollapsed && (
+            <div className="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black shrink-0">
+                م
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-200 truncate">مدير النظام</p>
+                <p className="text-[10px] text-emerald-400 font-mono">متصل الآن 🟢</p>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleLogout}
-            className="h-10 px-3.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+            className={`w-full h-10 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3'
+            } text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/50`}
+            title="تسجيل الخروج"
           >
-            <LogOut className="w-4 h-4" />
-            خروج
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!sidebarCollapsed && <span>تسجيل الخروج</span>}
           </button>
         </div>
-      </header>
+      </aside>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        {/* Navigation Tabs (سجل وتوثيق الدوام vs تقويم ساعات الحضور vs قسم الموظفين vs إدارة الأقسام والوظائف) */}
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-2 print:hidden">
-          <button
-            onClick={() => setActiveTab('ATTENDANCE')}
-            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'ATTENDANCE'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar className="w-4 h-4 text-emerald-400" />
-            سجل وتوثيق دوام الموظفين ({records.length})
-          </button>
+      {/* Main Content Area (يتكيف تلقائياً مع حجم القائمة الجانبية) */}
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? 'md:mr-20' : 'md:mr-72'} flex-1 flex flex-col`}>
+        {/* Top Header Bar */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm print:hidden">
+          <div className="px-4 md:px-8 py-3.5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="md:hidden p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-          <button
-            onClick={() => setActiveTab('CALENDAR')}
-            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'CALENDAR'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4 text-emerald-400" />
-            تقويم ساعات الحضور والخط الزمني
-          </button>
+              <div>
+                <h1 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+                  {activeTab === 'ATTENDANCE' && 'سجل وتوثيق دوام الموظفين'}
+                  {activeTab === 'CALENDAR' && 'تقويم ساعات الحضور والخط الزمني'}
+                  {activeTab === 'EMPLOYEES' && 'قسم إدارة الموظفين'}
+                  {activeTab === 'DEPARTMENTS' && 'إدارة الأقسام والوظائف'}
+                  {activeTab === 'SETTINGS' && 'إعدادات GPS والموقع الجغرافي'}
+                  {activeTab === 'WHATSAPP' && 'إعدادات وإشعارات واتساب عبر n8n'}
+                </h1>
+                <p className="text-slate-500 text-[11px] font-semibold hidden sm:block">
+                  {activeTab === 'ATTENDANCE' && 'توثيق الحضور وتعديل ساعات الدوام وإجمالي الأجور المستحقة'}
+                  {activeTab === 'CALENDAR' && 'استعراض الحضور والشفتات عبر التقويم اليومي والشهري'}
+                  {activeTab === 'EMPLOYEES' && 'إضافة وتعديل بيانات الموظفين وأجورهم ومستحقاتهم'}
+                  {activeTab === 'DEPARTMENTS' && 'إدارة الهيكل الإداري والأقسام والوظائف ورواتبها'}
+                  {activeTab === 'SETTINGS' && 'ضبط نطاق مقر العمل الجغرافي والتسجيل الذكي'}
+                  {activeTab === 'WHATSAPP' && 'الربط التلقائي مع واتساب لإرسال ملخصات الدوام وتنبيهات الشفتات'}
+                </p>
+              </div>
+            </div>
 
-          <button
-            onClick={() => setActiveTab('EMPLOYEES')}
-            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'EMPLOYEES'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Users className="w-4 h-4 text-blue-400" />
-            قسم إدارة الموظفين ({users.filter(u => u.role !== 'ADMIN').length})
-          </button>
+            {/* Quick Metrics Badge */}
+            <div className="flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-slate-600 font-sans">السجلات:</span>
+                <span className="text-blue-700 font-black">{records.length}</span>
+                <span className="text-slate-300">|</span>
+                <span className="text-slate-600 font-sans">الموظفون:</span>
+                <span className="text-emerald-700 font-black">{users.filter(u => u.role !== 'ADMIN').length}</span>
+              </div>
+            </div>
+          </div>
+        </header>
 
-          <button
-            onClick={() => setActiveTab('DEPARTMENTS')}
-            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'DEPARTMENTS'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Building2 className="w-4 h-4 text-indigo-400" />
-            إدارة الأقسام والوظائف
-          </button>
-
-          <button
-            onClick={() => setActiveTab('SETTINGS')}
-            className={`flex-1 h-12 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'SETTINGS'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <MapPin className="w-4 h-4 text-purple-400" />
-            إعدادات GPS والموقع
-          </button>
-        </div>
+        {/* Main Content Body */}
+        <main className="flex-1 px-4 md:px-8 py-6 space-y-6">
 
         {/* TAB 1: ATTENDANCE LOG & VERIFICATION */}
         {activeTab === 'ATTENDANCE' && (
@@ -897,7 +1124,201 @@ export default function AdminDashboard() {
             </form>
           </div>
         )}
+
+        {/* TAB 6: WHATSAPP & N8N AUTOMATION (إشعارات واتساب و n8n) */}
+        {activeTab === 'WHATSAPP' && (
+          <div className="space-y-6">
+            {/* Top Overview Banner */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 text-white rounded-3xl p-6 md:p-8 border border-emerald-800/40 shadow-xl space-y-3 font-sans">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+                    <MessageSquare className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-white flex items-center gap-2">
+                      أتمتة إشعارات واتساب عبر n8n Webhook
+                    </h2>
+                    <p className="text-slate-300 text-xs font-semibold">
+                      إرسال ملخصات الدوام اليومية للمدير وتنبيه الموظفين عند التأخر أو نسيان تسجيل الانصراف
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 ${
+                    whatsappEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${whatsappEnabled ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'}`}></span>
+                    {whatsappEnabled ? 'الإشعارات مفعلة' : 'الإشعارات متوقفة'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification & Status Alert */}
+            {whatsappActionMsg && (
+              <div className={`p-4 rounded-2xl text-xs font-black text-center flex items-center justify-center gap-2 border ${
+                whatsappActionMsg.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : 'bg-rose-50 text-rose-900 border-rose-200'
+              }`}>
+                {whatsappActionMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+                {whatsappActionMsg.text}
+              </div>
+            )}
+
+            {/* Quick Actions Grid (إجراءات سريعة فورية) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Action 1: Send Daily Digest */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Send className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900">إرسال ملخص دوام اليوم</h3>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                    إرسال تقرير فوري لواتساب المدير يضم قائمة الحاضرين وساعات عملهم وشفتاتهم المفتوحة.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={whatsappActionLoading}
+                  onClick={() => handleTriggerWhatsAppAction('DAILY_DIGEST')}
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  {whatsappActionLoading ? 'جاري الإرسال...' : 'إرسال الملخص لواتساب الآن'}
+                </button>
+              </div>
+
+              {/* Action 2: Check & Remind Open Shifts */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900">تنبيه الشفتات المفتوحة</h3>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                    فحص الموظفين الذين مضى على حضورهم أكثر من 4 ساعات دون تسجيل انصراف وتنبيههم فوراً.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={whatsappActionLoading}
+                  onClick={() => handleTriggerWhatsAppAction('REMIND_OPEN_SHIFTS')}
+                  className="w-full h-11 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center gap-2"
+                >
+                  <Bell className="w-4 h-4" />
+                  {whatsappActionLoading ? 'جاري الفحص...' : 'فحص وتنبيه الموظفين'}
+                </button>
+              </div>
+
+              {/* Action 3: Test Webhook */}
+              <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <RefreshCw className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900">اختبار اتصال n8n</h3>
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                    إرسال رسالة اختبار (Ping) للتأكد من وصول البيانات بنجاح إلى سيناريو n8n.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={whatsappActionLoading}
+                  onClick={() => handleTriggerWhatsAppAction('TEST')}
+                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all text-xs flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  {whatsappActionLoading ? 'جاري الفحص...' : 'إرسال اختبار الاتصال'}
+                </button>
+              </div>
+            </div>
+
+            {/* Webhook & Manager Phone Settings Form */}
+            <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm space-y-6">
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-emerald-600" />
+                  بيانات الربط والاتصال مع n8n
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 font-semibold">
+                  حدد عنوان الـ Webhook ورقم واتساب المدير المسؤول عن استلام التقارير اليومية
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveWhatsAppSettings} className="space-y-5 text-xs">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
+                    <Navigation className="w-4 h-4 text-emerald-600" />
+                    رابط n8n Webhook URL *
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    dir="ltr"
+                    value={n8nWebhookUrl}
+                    onChange={(e) => setN8nWebhookUrl(e.target.value)}
+                    placeholder="https://n8n.ordermt.ly/webhook/attendance-alert"
+                    className="w-full h-12 bg-slate-50 border border-slate-200 rounded-xl px-3.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-emerald-500 text-left"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">الرابط المستلم لأحداث الحضور والانصراف والتقارير اليومية في سير عمل n8n</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
+                      <Phone className="w-4 h-4 text-blue-600" />
+                      رقم واتساب المدير المستلم للتقارير (مع الرمز الدولي)
+                    </label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={managerPhone}
+                      onChange={(e) => setManagerPhone(e.target.value)}
+                      placeholder="+218910000000"
+                      className="w-full h-12 bg-slate-50 border border-slate-200 rounded-xl px-3.5 text-slate-900 font-mono font-bold focus:outline-none focus:border-blue-500 text-left"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">مثال: +218912345678</p>
+                  </div>
+
+                  <div className="flex flex-col justify-center">
+                    <label className="block text-slate-700 font-bold mb-1.5 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      حالة التفعيل التلقائي
+                    </label>
+                    <label className="h-12 bg-slate-50 border border-slate-200 rounded-xl px-4 flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={whatsappEnabled}
+                        onChange={(e) => setWhatsappEnabled(e.target.checked)}
+                        className="w-5 h-5 text-emerald-600 rounded-md cursor-pointer accent-emerald-600"
+                      />
+                      <span className="font-extrabold text-slate-800 text-xs">
+                        تفعيل إرسال إشعارات وتنبيهات واتساب التلقائية
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={whatsappActionLoading}
+                    className="w-full sm:w-auto px-8 h-12 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-sm rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {whatsappActionLoading ? 'جاري الحفظ...' : 'حفظ إعدادات واتساب و n8n'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </main>
+      </div>
 
       {/* Add Employee Modal with Equal Height Inputs h-11 */}
       {isAddUserOpen && (

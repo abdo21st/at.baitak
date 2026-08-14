@@ -66,7 +66,9 @@ export interface CompanySettings {
   id: string;
   companyName: string;
   logoUrl?: string | null;
+  managerPhone?: string | null;
   n8nWebhookUrl: string;
+  whatsappNotificationsEnabled?: boolean;
   defaultTargetMonthlyHours: number;
   autoCloseHours: number;
   gpsEnabled: boolean;

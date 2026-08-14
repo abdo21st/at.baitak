@@ -144,7 +144,9 @@ model CompanySettings {
   id                        String   @id @default("default")
   companyName               String   @default("نظام تدوين ساعات العمل المخصص")
   logoUrl                   String?
+  managerPhone              String?  @default("")
   n8nWebhookUrl             String   @default("https://n8n.ordermt.ly/webhook/attendance-alert")
+  whatsappNotificationsEnabled Boolean @default(true)
   defaultTargetMonthlyHours Float    @default(160.0)
   autoCloseHours            Float    @default(12.0)
   gpsEnabled                Boolean  @default(false)

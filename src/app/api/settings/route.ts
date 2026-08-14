@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { companyName, gpsEnabled, gpsLatitude, gpsLongitude, gpsRadiusMeters, n8nWebhookUrl, autoCloseHours } = body;
+    const { companyName, gpsEnabled, gpsLatitude, gpsLongitude, gpsRadiusMeters, n8nWebhookUrl, autoCloseHours, managerPhone, whatsappNotificationsEnabled } = body;
 
     const updated = await prisma.companySettings.upsert({
       where: { id: 'default' },
@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
         ...(gpsLongitude !== undefined && { gpsLongitude: Number(gpsLongitude) }),
         ...(gpsRadiusMeters !== undefined && { gpsRadiusMeters: Number(gpsRadiusMeters) }),
         ...(n8nWebhookUrl !== undefined && { n8nWebhookUrl: String(n8nWebhookUrl) }),
-        ...(autoCloseHours !== undefined && { autoCloseHours: Number(autoCloseHours) })
+        ...(autoCloseHours !== undefined && { autoCloseHours: Number(autoCloseHours) }),
+        ...(managerPhone !== undefined && { managerPhone: String(managerPhone).trim() }),
+        ...(whatsappNotificationsEnabled !== undefined && { whatsappNotificationsEnabled: Boolean(whatsappNotificationsEnabled) })
       },
       create: {
         id: 'default',
@@ -50,7 +52,9 @@ export async function POST(req: NextRequest) {
         gpsLongitude: gpsLongitude ? Number(gpsLongitude) : 13.1913,
         gpsRadiusMeters: gpsRadiusMeters ? Number(gpsRadiusMeters) : 200,
         n8nWebhookUrl: n8nWebhookUrl || 'https://n8n.ordermt.ly/webhook/attendance-alert',
-        autoCloseHours: autoCloseHours ? Number(autoCloseHours) : 12.0
+        autoCloseHours: autoCloseHours ? Number(autoCloseHours) : 12.0,
+        managerPhone: managerPhone ? String(managerPhone).trim() : '',
+        whatsappNotificationsEnabled: whatsappNotificationsEnabled !== undefined ? Boolean(whatsappNotificationsEnabled) : true
       }
     });
 
