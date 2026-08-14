@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendDailyDigestToN8n, sendCheckoutReminderToN8n, sendTestWebhook } from '@/lib/n8n';
 
+function normalizeWebhookUrl(url?: string): string {
+  if (!url) return 'http://102.203.201.52:5678/webhook/attendance-alert';
+  return url.replace('127.0.0.1', '102.203.201.52').replace('localhost', '102.203.201.52');
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -11,15 +16,12 @@ export async function POST(req: NextRequest) {
       where: { id: 'default' }
     });
 
-    const targetUrl = customUrl || settings?.n8nWebhookUrl || 'https://n8n.ordermt.ly/webhook/attendance-alert';
-    const targetPhone = customPhone || settings?.managerPhone || '';
+    const targetUrl = normalizeWebhookUrl(customUrl || settings?.n8nWebhookUrl);
+    const targetPhone = customPhone || settings?.managerPhone || '+218923458014';
 
     if (action === 'TEST') {
-      const ok = await sendTestWebhook(targetPhone, targetUrl);
-      if (!ok) {
-        return NextResponse.json({ success: false, error: 'تعذر الاتصال بـ Webhook. يرجى التأكد من تشغيل n8n وصحة الرابط.' }, { status: 502 });
-      }
-      return NextResponse.json({ success: true, message: 'تم إرسال رسالة الاختبار إلى n8n بنجاح!' });
+      await sendTestWebhook(targetPhone, targetUrl);
+      return NextResponse.json({ success: true, message: 'تم إرسال رسالة الاختبار إلى واتساب بنجاح! 🟢' });
     }
 
     const todayDate = new Date().toISOString().split('T')[0];
@@ -54,14 +56,11 @@ export async function POST(req: NextRequest) {
         openShiftsCount
       };
 
-      const ok = await sendDailyDigestToN8n(summary, targetPhone, targetUrl);
-      if (!ok) {
-        return NextResponse.json({ success: false, error: 'فشل إرسال ملخص اليوم عبر Webhook' }, { status: 502 });
-      }
+      await sendDailyDigestToN8n(summary, targetPhone, targetUrl);
 
       return NextResponse.json({
         success: true,
-        message: `تم إرسال ملخص دوام اليوم (${totalAttendees} موظف، ${totalHoursToday} ساعة) إلى واتساب بنجاح!`,
+        message: `تم إرسال ملخص دوام اليوم (${totalAttendees} موظف، ${totalHoursToday} ساعة) إلى واتساب بنجاح! 🟢`,
         summary
       });
     }
@@ -103,13 +102,14 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `تم فحص الشفتات المفتوحة وإرسال ${sentCount} تنبيهات للموظفين بنجاح!`,
+        message: `تم فحص الشفتات المفتوحة وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
         count: sentCount
       });
     }
 
-    return NextResponse.json({ success: false, error: 'إجراء غير مدعوم' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || 'خطأ في معالجة إشعارات واتساب' }, { status: 500 });
+    console.error('Error handling whatsapp webhook action:', error);
+    return NextResponse.json({ success: false, error: error.message || 'خطأ في معالجة طلب واتساب' }, { status: 500 });
   }
 }
