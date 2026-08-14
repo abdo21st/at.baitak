@@ -320,8 +320,30 @@ export default function AdminDashboard() {
     }
   };
 
-  // When selected department changes, filter available job roles
+  // All available job roles across all departments
+  const allAvailableJobRoles = departments.flatMap((d) => (d.jobRoles || []).map((r) => ({ ...r, departmentName: d.name })));
   const availableJobRoles = departments.find((d) => d.id === empDepartmentId)?.jobRoles || [];
+
+  const toggleJobRoleSelection = (roleId: string) => {
+    setEmpJobRoleIds((prev) => {
+      const exists = prev.includes(roleId);
+      const newIds = exists ? prev.filter((id) => id !== roleId) : [...prev, roleId];
+
+      const selectedRoles = allAvailableJobRoles.filter((r) => newIds.includes(r.id));
+      const totalSalary = selectedRoles.reduce((sum, r) => sum + (r.monthlySalary || 0), 0);
+      const primaryRole = selectedRoles[0];
+
+      setEmpMonthlySalary(String(totalSalary));
+      setEmpTargetHours(primaryRole ? String(primaryRole.targetMonthlyHours || 0) : '0');
+      setEmpJobRoleId(primaryRole ? primaryRole.id : '');
+
+      const relatedDepIds = Array.from(new Set(selectedRoles.map((r) => r.departmentId).filter(Boolean)));
+      setEmpDepartmentIds(relatedDepIds);
+      setEmpDepartmentId(relatedDepIds[0] || '');
+
+      return newIds;
+    });
+  };
 
   const handleJobRoleChange = (roleId: string) => {
     setEmpJobRoleId(roleId);
@@ -513,9 +535,13 @@ export default function AdminDashboard() {
     const roleIds = u.jobRoles ? u.jobRoles.map((r) => r.id) : (u.jobRoleId ? [u.jobRoleId] : []);
     setEmpDepartmentIds(depIds);
     setEmpJobRoleIds(roleIds);
-    // Sync single-select state for dropdowns
     setEmpDepartmentId(depIds[0] || '');
     setEmpJobRoleId(roleIds[0] || '');
+    
+    const selectedRoles = allAvailableJobRoles.filter((r) => roleIds.includes(r.id));
+    const totalSalary = selectedRoles.reduce((sum, r) => sum + (r.monthlySalary || 0), 0);
+    setEmpMonthlySalary(String(totalSalary || u.monthlySalary || 0));
+    setEmpTargetHours(String(selectedRoles[0]?.targetMonthlyHours || u.targetMonthlyHours || 0));
     setEmpRate(String(u.hourlyRate || 50));
     setUserMsg(null);
   };
@@ -1529,47 +1555,62 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">القسم التابع له الموظف</label>
-                  <select
-                    value={empDepartmentId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEmpDepartmentId(val);
-                      setEmpDepartmentIds(val ? [val] : []);
-                      setEmpJobRoleId('');
-                      setEmpJobRoleIds([]);
-                    }}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">اختر القسم (اختياري)</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* Multi-Job Roles Selection */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-slate-700 font-bold flex items-center gap-1">
+                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                    الوظائف والمهام الخاصة (يمكنك تحديد أكثر من وظيفة):
+                  </label>
+                  {empJobRoleIds.length > 0 && (
+                    <span className="text-[11px] font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200">
+                      محدد: {empJobRoleIds.length} وظيفة (+{empMonthlySalary} د.ل)
+                    </span>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
-                  <select
-                    value={empJobRoleId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      handleJobRoleChange(val);
-                      setEmpJobRoleIds(val ? [val] : []);
-                    }}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
-                    {availableJobRoles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title} ({r.monthlySalary} د.ل - {r.isHourly !== false ? `${r.targetMonthlyHours}س` : 'راتب شهري ثابت'})
-                      </option>
-                    ))}
-                  </select>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 max-h-44 overflow-y-auto space-y-1.5">
+                  {allAvailableJobRoles.length === 0 ? (
+                    <p className="text-slate-400 text-xs text-center py-2">لا توجد وظائف خاصة مضافة بعد. يمكنك إضافتها من شاشة الأقسام.</p>
+                  ) : (
+                    allAvailableJobRoles.map((r) => {
+                      const isChecked = empJobRoleIds.includes(r.id);
+                      return (
+                        <div
+                          key={r.id}
+                          onClick={() => toggleJobRoleSelection(r.id)}
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isChecked
+                              ? 'bg-blue-50/90 border-blue-300 shadow-2xs text-blue-950 font-bold'
+                              : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="w-4 h-4 text-blue-600 rounded cursor-pointer accent-blue-600"
+                            />
+                            <div>
+                              <div className="text-xs font-black">{r.title}</div>
+                              <div className="text-[10px] text-slate-500 font-medium">القسم: {r.departmentName}</div>
+                            </div>
+                          </div>
+                          <div className="text-left font-mono text-[11px] flex items-center gap-1">
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              +{r.monthlySalary} د.ل
+                            </span>
+                            {r.hasCommission && (
+                              <span className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 font-sans font-bold">
+                                عمولة {r.commissionRate}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -1727,47 +1768,62 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">القسم</label>
-                  <select
-                    value={empDepartmentId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEmpDepartmentId(val);
-                      setEmpDepartmentIds(val ? [val] : []);
-                      setEmpJobRoleId('');
-                      setEmpJobRoleIds([]);
-                    }}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">اختر القسم</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* Multi-Job Roles Selection */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-slate-700 font-bold flex items-center gap-1">
+                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
+                    الوظائف والمهام الخاصة المسندة للموظف:
+                  </label>
+                  {empJobRoleIds.length > 0 && (
+                    <span className="text-[11px] font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200">
+                      محدد: {empJobRoleIds.length} وظيفة (+{empMonthlySalary} د.ل)
+                    </span>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">الوظيفة / الصفة الخاصة</label>
-                  <select
-                    value={empJobRoleId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      handleJobRoleChange(val);
-                      setEmpJobRoleIds(val ? [val] : []);
-                    }}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">بدون وظيفة خاصة (ساعات فقط)</option>
-                    {availableJobRoles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title} ({r.monthlySalary} د.ل - {r.isHourly !== false ? `${r.targetMonthlyHours}س` : 'راتب شهري ثابت'})
-                      </option>
-                    ))}
-                  </select>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 max-h-44 overflow-y-auto space-y-1.5">
+                  {allAvailableJobRoles.length === 0 ? (
+                    <p className="text-slate-400 text-xs text-center py-2">لا توجد وظائف خاصة مضافة بعد. يمكنك إضافتها من شاشة الأقسام.</p>
+                  ) : (
+                    allAvailableJobRoles.map((r) => {
+                      const isChecked = empJobRoleIds.includes(r.id);
+                      return (
+                        <div
+                          key={r.id}
+                          onClick={() => toggleJobRoleSelection(r.id)}
+                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isChecked
+                              ? 'bg-blue-50/90 border-blue-300 shadow-2xs text-blue-950 font-bold'
+                              : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="w-4 h-4 text-blue-600 rounded cursor-pointer accent-blue-600"
+                            />
+                            <div>
+                              <div className="text-xs font-black">{r.title}</div>
+                              <div className="text-[10px] text-slate-500 font-medium">القسم: {r.departmentName}</div>
+                            </div>
+                          </div>
+                          <div className="text-left font-mono text-[11px] flex items-center gap-1">
+                            <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              +{r.monthlySalary} د.ل
+                            </span>
+                            {r.hasCommission && (
+                              <span className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 font-sans font-bold">
+                                عمولة {r.commissionRate}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
