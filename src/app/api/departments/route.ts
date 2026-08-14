@@ -63,12 +63,15 @@ async function getOrSeedDepartments() {
       name: d.name,
       code: d.code,
       userCount: d.users.length,
-      jobRoles: d.jobRoles.map((r) => ({
+      jobRoles: d.jobRoles.map((r: any) => ({
         id: r.id,
         title: r.title,
         monthlySalary: r.monthlySalary,
         targetMonthlyHours: r.targetMonthlyHours,
         isHourly: r.isHourly !== false,
+        hasCommission: Boolean(r.hasCommission),
+        commissionType: r.commissionType || 'SALES',
+        commissionRate: Number(r.commissionRate) || 0,
         departmentId: r.departmentId,
         departmentName: d.name
       }))
@@ -89,7 +92,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, departmentName, departmentId, roleTitle, monthlySalary, targetMonthlyHours, isHourly } = body;
+    const { action, departmentName, departmentId, roleTitle, monthlySalary, targetMonthlyHours, isHourly, hasCommission, commissionType, commissionRate } = body;
 
     if (action === 'CREATE_DEPARTMENT') {
       if (!departmentName) {
@@ -110,8 +113,11 @@ export async function POST(req: NextRequest) {
           monthlySalary: Number(monthlySalary) || 0,
           targetMonthlyHours: Number(targetMonthlyHours) || 0,
           isHourly: isHourly !== false,
+          hasCommission: Boolean(hasCommission),
+          commissionType: String(commissionType || 'SALES'),
+          commissionRate: Number(commissionRate) || 0,
           departmentId
-        }
+        } as any
       });
     }
 
@@ -126,7 +132,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, id, name, title, monthlySalary, targetMonthlyHours, isHourly } = body;
+    const { action, id, name, title, monthlySalary, targetMonthlyHours, isHourly, hasCommission, commissionType, commissionRate } = body;
 
     if (action === 'EDIT_DEPARTMENT') {
       await prisma.department.update({
@@ -140,8 +146,11 @@ export async function PUT(req: NextRequest) {
           ...(title && { title: String(title).trim() }),
           ...(monthlySalary !== undefined && { monthlySalary: Number(monthlySalary) }),
           ...(targetMonthlyHours !== undefined && { targetMonthlyHours: Number(targetMonthlyHours) }),
-          ...(isHourly !== undefined && { isHourly: Boolean(isHourly) })
-        }
+          ...(isHourly !== undefined && { isHourly: Boolean(isHourly) }),
+          ...(hasCommission !== undefined && { hasCommission: Boolean(hasCommission) }),
+          ...(commissionType !== undefined && { commissionType: String(commissionType) }),
+          ...(commissionRate !== undefined && { commissionRate: Number(commissionRate) })
+        } as any
       });
     }
 

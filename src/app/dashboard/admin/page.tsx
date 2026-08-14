@@ -59,6 +59,7 @@ export default function AdminDashboard() {
   const [editOutHour, setEditOutHour] = useState('04');
   const [editOutMinute, setEditOutMinute] = useState('00');
   const [editOutPeriod, setEditOutPeriod] = useState<'AM' | 'PM'>('PM');
+  const [editShiftAmount, setEditShiftAmount] = useState('0');
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -261,6 +262,7 @@ export default function AdminDashboard() {
     setMsg(null);
     setEditDate(rec.date);
     setEditCheckOutDate(rec.date);
+    setEditShiftAmount(rec.shiftAmount !== undefined ? String(rec.shiftAmount) : '0');
     const inState = convert24to12(rec.checkInTime);
     setEditInHour(inState.hour);
     setEditInMinute(inState.minute);
@@ -299,7 +301,8 @@ export default function AdminDashboard() {
           date: editDate,
           checkInTime: newIn,
           checkOutDate: editCheckOutDate,
-          checkOutTime: newOut
+          checkOutTime: newOut,
+          shiftAmount: Number(editShiftAmount) || 0
         })
       });
 
@@ -892,17 +895,26 @@ export default function AdminDashboard() {
                               const userObj = users.find(u => u.id === r.userId);
                               const hourly = userObj?.hourlyRate || 0;
                               const base = Number((r.workHours * hourly).toFixed(2));
-                              const bonus = Number((r.earnedCost - base).toFixed(2));
-                              if (bonus > 0.05) {
-                                return (
-                                  <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + البدلات وعلاوات الشفتات: ${bonus} د.ل`}>
-                                    <span>أساسي: {base}</span>
-                                    <span>+</span>
-                                    <span className="text-orange-700">بدلات: {bonus}</span>
-                                  </div>
-                                );
-                              }
-                              return null;
+                              const comm = Number((r as any).commissionAmount) || 0;
+                              const bonus = Number((r.earnedCost - base - comm).toFixed(2));
+                              return (
+                                <div className="space-y-0.5">
+                                  {bonus > 0.05 && (
+                                    <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + علاوات الشفتات: ${bonus} د.ل`}>
+                                      <span>أساسي: {base}</span>
+                                      <span>+</span>
+                                      <span className="text-orange-700">بدلات: {bonus}</span>
+                                    </div>
+                                  )}
+                                  {comm > 0 && (
+                                    <div className="text-[10px] text-emerald-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                                      <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
+                                      <span>➔</span>
+                                      <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
                             })()}
                           </td>
                           <td className="py-3.5 px-4 text-center font-sans">
@@ -1943,6 +1955,27 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Shift Amount (Sales / Purchases) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-800 font-extrabold">قيمة مبيعات أو مشتريات الوردية (د.ل)</label>
+                  {Boolean((editingRecord as any).commissionRate) && (
+                    <span className="text-[11px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-lg font-mono">
+                      نسبة العمولة: {(editingRecord as any).commissionRate}%
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  lang="en-US"
+                  dir="ltr"
+                  value={editShiftAmount}
+                  onChange={(e) => setEditShiftAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                />
               </div>
 
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}

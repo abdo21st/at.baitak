@@ -97,6 +97,11 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         const userDeptIds = r.user?.departments?.map((d: any) => d.id) || [];
 
         let calculatedEarned = r.earnedCost;
+        const shiftAmt = (r as any).shiftAmount || 0;
+        const commRate = (r as any).commissionRate || (primaryRole?.hasCommission ? primaryRole.commissionRate : 0) || 0;
+        const commType = (r as any).shiftAmountType || (primaryRole?.hasCommission ? primaryRole.commissionType : null);
+        const commAmt = (r as any).commissionAmount !== undefined ? (r as any).commissionAmount : Number(((shiftAmt * commRate) / 100).toFixed(2));
+
         if (r.checkOutTime) {
           const shiftCost = calculateShiftWithRateRules(
             r.date,
@@ -109,7 +114,9 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
             isFirst,
             activeRules,
             r.userId,
-            userDeptIds
+            userDeptIds,
+            shiftAmt,
+            commRate
           );
           calculatedEarned = shiftCost.totalCost;
         }
@@ -124,6 +131,10 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
           checkOutTime: r.checkOutTime || null,
           workHours: r.workHours,
           earnedCost: calculatedEarned,
+          shiftAmount: shiftAmt,
+          shiftAmountType: commType,
+          commissionRate: commRate,
+          commissionAmount: commAmt,
           isVerified: r.isVerified ?? false,
           verifiedAt: r.verifiedAt ? r.verifiedAt.toISOString() : undefined,
           checkInLat: r.checkInLat,
@@ -361,7 +372,7 @@ export async function POST(req: NextRequest) {
       record: newRecord,
       isOutsideGps,
       gpsDistanceMeters,
-      warning: isOutsideGps ? `تنبيه: تم تسجيل الحضور وخير موقعك يبعد ${gpsDistanceMeters} متر عن مقر العمل!` : undefined
+      warning: isOutsideGps ? `تنبيه: تم تسجيل الحضور ولكن موقعك يبعد ${gpsDistanceMeters} متر عن مقر العمل!` : undefined
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في تسجيل الدوام' }, { status: 500 });
@@ -372,7 +383,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { recordId, checkOutTime, checkOutDate, checkOutLat, checkOutLng, lat, lng } = body;
+    const { recordId, checkOutTime, checkOutDate, checkOutLat, checkOutLng, lat, lng, shiftAmount } = body;
 
     const finalLat = checkOutLat ?? lat ?? null;
     const finalLng = checkOutLng ?? lng ?? null;
@@ -455,6 +466,12 @@ export async function PUT(req: NextRequest) {
     const primaryRole = targetRec.user?.jobRoles?.[0];
     const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
 
+    const hasCommission = Boolean(primaryRole?.hasCommission);
+    const commissionRate = hasCommission ? (Number(primaryRole?.commissionRate) || 0) : 0;
+    const shiftAmountType = hasCommission ? (primaryRole?.commissionType || 'SALES') : null;
+    const shiftAmountNum = Number(shiftAmount) || 0;
+    const commissionAmount = Number(((shiftAmountNum * commissionRate) / 100).toFixed(2));
+
     const workHours = Number((totalMins / 60).toFixed(2));
 
     let isFirstRecordOfDay = true;
@@ -485,7 +502,10 @@ export async function PUT(req: NextRequest) {
       isHourly,
       isFirstRecordOfDay,
       rateRules,
-      targetRec.userId
+      targetRec.userId,
+      undefined,
+      shiftAmountNum,
+      commissionRate
     );
     const earnedCost = shiftCost.totalCost;
 
@@ -495,6 +515,10 @@ export async function PUT(req: NextRequest) {
         checkOutTime,
         workHours,
         earnedCost,
+        shiftAmount: shiftAmountNum,
+        shiftAmountType,
+        commissionRate,
+        commissionAmount,
         checkOutLat: finalLat,
         checkOutLng: finalLng,
         isOutsideGps
@@ -512,6 +536,10 @@ export async function PUT(req: NextRequest) {
       checkOutTime: updated.checkOutTime,
       workHours: updated.workHours,
       earnedCost: updated.earnedCost,
+      shiftAmount: updated.shiftAmount || 0,
+      shiftAmountType: updated.shiftAmountType || null,
+      commissionRate: updated.commissionRate || 0,
+      commissionAmount: updated.commissionAmount || 0,
       isVerified: updated.isVerified ?? false,
       verifiedAt: updated.verifiedAt?.toISOString(),
       checkInLat: updated.checkInLat,
@@ -529,8 +557,6 @@ export async function PUT(req: NextRequest) {
       gpsDistanceMeters,
       warning: isOutsideGps ? `تنبيه: تم تسجيل الانصراف ولكن موقعك يبعد ${gpsDistanceMeters} متر عن مقر العمل!` : undefined
     });
-
-    return NextResponse.json({ success: true, record: mapped });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في تسجيل الانصراف' }, { status: 500 });
   }
@@ -540,43 +566,64 @@ export async function PUT(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, recordId, date, checkInTime, checkOutTime, checkOutDate } = body;
+    const { action, recordId, checkInTime, checkOutTime, date, checkOutDate, shiftAmount } = body;
+
+    if (!recordId) {
+      return NextResponse.json({ success: false, error: 'معرف السجل مطلوب' }, { status: 400 });
+    }
 
     try {
-      const target = await prisma.attendanceRecord.findUnique({
-        where: { id: recordId },
-        include: { user: { include: { jobRoles: true } } }
-      });
+      if (action === 'VERIFY') {
+        const target = await prisma.attendanceRecord.findUnique({
+          where: { id: recordId },
+          include: { user: true }
+        });
 
-      if (target) {
-        if (action === 'VERIFY') {
+        if (target) {
+          const newVerified = !target.isVerified;
           const verified = await prisma.attendanceRecord.update({
             where: { id: recordId },
-            data: { isVerified: true, verifiedAt: new Date() },
+            data: {
+              isVerified: newVerified,
+              verifiedAt: newVerified ? new Date() : null
+            },
             include: { user: true }
           });
-          const verifiedMapped = {
-            id: verified.id,
-            userId: verified.userId,
-            userName: verified.user?.name || 'موظف',
-            employeeCode: verified.user?.employeeCode || '101',
-            date: verified.date,
-            checkInTime: verified.checkInTime,
-            checkOutTime: verified.checkOutTime,
-            workHours: verified.workHours,
-            earnedCost: verified.earnedCost,
-            isVerified: true,
-            verifiedAt: verified.verifiedAt?.toISOString(),
-            createdAt: verified.createdAt.toISOString()
-          };
-          return NextResponse.json({ success: true, message: 'تم توثيق الحضور بنجاح', record: verifiedMapped });
-        }
 
-        if (action === 'EDIT_TIME' || action === 'EMPLOYEE_EDIT') {
-          if (target.isVerified && body.isEmployeeRequest) {
+          return NextResponse.json({
+            success: true,
+            message: newVerified ? 'تم اعتماد وتوثيق السجل بنجاح' : 'تم إلغاء توثيق السجل',
+            record: {
+              id: verified.id,
+              userId: verified.userId,
+              userName: verified.user?.name || 'موظف',
+              employeeCode: verified.user?.employeeCode || '101',
+              date: verified.date,
+              checkInTime: verified.checkInTime,
+              checkOutTime: verified.checkOutTime,
+              workHours: verified.workHours,
+              earnedCost: verified.earnedCost,
+              shiftAmount: verified.shiftAmount || 0,
+              shiftAmountType: verified.shiftAmountType || null,
+              commissionRate: verified.commissionRate || 0,
+              commissionAmount: verified.commissionAmount || 0,
+              isVerified: verified.isVerified,
+              verifiedAt: verified.verifiedAt?.toISOString(),
+              createdAt: verified.createdAt.toISOString()
+            }
+          });
+        }
+      } else if (action === 'EDIT_TIME') {
+        const target = await prisma.attendanceRecord.findUnique({
+          where: { id: recordId },
+          include: { user: { include: { jobRoles: true } } }
+        });
+
+        if (target) {
+          if (checkInTime && checkOutTime && checkInTime === checkOutTime) {
             return NextResponse.json({
               success: false,
-              error: 'خطأ: تم توثيق هذا السجل من قبل المدير مسبقاً، ولا يمكن تعديله!'
+              error: 'خطأ: لا يمكن أن يتطابق وقت الحضور ووقت الانصراف في نفس اللحظة!'
             }, { status: 400 });
           }
 
@@ -590,8 +637,13 @@ export async function PATCH(req: NextRequest) {
           const directHourlyRate = target.user?.hourlyRate || 0;
           const monthlySalary = target.user?.monthlySalary || 0;
           const targetMonthlyHours = target.user?.targetMonthlyHours || 0;
-          const targetRole = target.user?.jobRoles?.[0];
+          const targetRole = (target.user as any)?.jobRoles?.[0];
           const isHourly = targetRole ? targetRole.isHourly !== false : true;
+
+          const commissionRate = (target as any).commissionRate || (targetRole?.hasCommission ? Number(targetRole.commissionRate) || 0 : 0);
+          const shiftAmountType = (target as any).shiftAmountType || (targetRole?.hasCommission ? targetRole.commissionType : 'SALES');
+          const newShiftAmount = shiftAmount !== undefined ? (Number(shiftAmount) || 0) : ((target as any).shiftAmount || 0);
+          const commissionAmount = Number(((newShiftAmount * commissionRate) / 100).toFixed(2));
 
           if (newIn && newOut) {
             const inStr = `${newDate}T${newIn.length === 5 ? newIn + ':00' : newIn}`;
@@ -629,7 +681,10 @@ export async function PATCH(req: NextRequest) {
               isHourly,
               true,
               patchRules,
-              target.userId
+              target.userId,
+              undefined,
+              newShiftAmount,
+              commissionRate
             );
             earnedCost = shiftCost.totalCost;
           }
@@ -641,27 +696,35 @@ export async function PATCH(req: NextRequest) {
               checkInTime: newIn,
               checkOutTime: newOut,
               workHours,
-              earnedCost
-            },
+              earnedCost,
+              shiftAmount: newShiftAmount,
+              shiftAmountType,
+              commissionRate,
+              commissionAmount
+            } as any,
             include: { user: true }
           });
 
           const mapped = {
             id: updated.id,
             userId: updated.userId,
-            userName: updated.user?.name || 'موظف',
-            employeeCode: updated.user?.employeeCode || '101',
+            userName: (updated as any).user?.name || 'موظف',
+            employeeCode: (updated as any).user?.employeeCode || '101',
             date: updated.date,
             checkInTime: updated.checkInTime,
             checkOutTime: updated.checkOutTime,
             workHours: updated.workHours,
             earnedCost: updated.earnedCost,
+            shiftAmount: (updated as any).shiftAmount || 0,
+            shiftAmountType: (updated as any).shiftAmountType || null,
+            commissionRate: (updated as any).commissionRate || 0,
+            commissionAmount: (updated as any).commissionAmount || 0,
             isVerified: updated.isVerified ?? false,
             verifiedAt: updated.verifiedAt?.toISOString(),
             createdAt: updated.createdAt.toISOString()
           };
 
-          return NextResponse.json({ success: true, message: 'تم تعديل وقت الحضور والانصراف بنجاح', record: mapped });
+          return NextResponse.json({ success: true, message: 'تم تعديل وقت الحضور والانصراف ومبلغ الوردية بنجاح', record: mapped });
         }
       }
     } catch {}

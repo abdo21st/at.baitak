@@ -158,11 +158,16 @@ export async function sendMonthlyPayrollToN8n(
     hourlyDue: number;
     monthlySalary: number;
     jobRoleDue: number;
+    totalCommissions?: number;
     totalDue: number;
   },
   webhookUrl?: string
 ): Promise<boolean> {
-  const message = `📄 *كشف حساب الراتب وساعات الدوام الشهري*\n🏢 *نظام حضورك لتوثيق الدوام*\n━━━━━━━━━━━━━━━━━━\n👤 *الموظف:* ${payroll.employeeName} (كود: ${payroll.employeeCode})\n📅 *الشهر المستحق:* ${payroll.month}\n\n⏱️ *ساعات الدوام المنجزة:* ${payroll.hoursFormatted}\n🗓️ *أيام الحضور الفعلية:* ${payroll.totalDays} يوم\n💵 *أجر ساعات العمل:* ${payroll.hourlyDue.toFixed(2)} د.ل (${payroll.hourlyRate} د.ل/ساعة)\n💼 *بدل الوظيفة الثابت:* ${payroll.jobRoleDue.toFixed(2)} د.ل\n━━━━━━━━━━━━━━━━━━\n💰 *صافي المستحق النهائي:* ${payroll.totalDue.toFixed(2)} د.ل\n━━━━━━━━━━━━━━━━━━\n🙏 نشكركم على جهودكم والتزامكم خلال هذا الشهر!`;
+  const commLine = (payroll.totalCommissions && payroll.totalCommissions > 0)
+    ? `\n🛒 *إجمالي العمولات المستحقة:* ${payroll.totalCommissions.toFixed(2)} د.ل`
+    : '';
+
+  const message = `📄 *كشف حساب الراتب وساعات الدوام الشهري*\n🏢 *نظام حضورك لتوثيق الدوام*\n━━━━━━━━━━━━━━━━━━\n👤 *الموظف:* ${payroll.employeeName} (كود: ${payroll.employeeCode})\n📅 *الشهر المستحق:* ${payroll.month}\n\n⏱️ *ساعات الدوام المنجزة:* ${payroll.hoursFormatted}\n🗓️ *أيام الحضور الفعلية:* ${payroll.totalDays} يوم\n💵 *أجر ساعات العمل:* ${payroll.hourlyDue.toFixed(2)} د.ل (${payroll.hourlyRate} د.ل/ساعة)\n💼 *بدل الوظيفة الثابت:* ${payroll.jobRoleDue.toFixed(2)} د.ل${commLine}\n━━━━━━━━━━━━━━━━━━\n💰 *صافي المستحق النهائي:* ${payroll.totalDue.toFixed(2)} د.ل\n━━━━━━━━━━━━━━━━━━\n🙏 نشكركم على جهودكم والتزامكم خلال هذا الشهر!`;
 
   if (payroll.employeePhone) {
     await sendDirectWhatsApp(payroll.employeePhone, message);

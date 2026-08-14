@@ -14,6 +14,9 @@ export interface JobRole {
   monthlySalary: number;      // الراتب الشهري المحدد للوظيفة (مثال: 500 د.ل)
   targetMonthlyHours: number; // ساعات الوظيفة المطلوبة في الشهر (مثال: 160 ساعة)
   isHourly: boolean;          // true: مرتبطة بساعات | false: راتب شهري ثابت
+  hasCommission?: boolean;    // تفعيل عمولة المبيعات / المشتريات
+  commissionType?: string;    // 'SALES' | 'PURCHASES'
+  commissionRate?: number;    // نسبة العمولة %
   departmentId: string;
   departmentName?: string;
 }
@@ -52,7 +55,11 @@ export interface AttendanceRecord {
   checkInTime: string;         // HH:mm:ss (وقت الحضور)
   checkOutTime: string | null; // HH:mm:ss (وقت الانصراف)
   workHours: number;           // إجمالي ساعات اليوم
-  earnedCost: number;          // قيمة الساعات لليوم بالدينار الليبي ((ساعات الدوام * الراتب الشهري) / 160)
+  earnedCost: number;          // قيمة الساعات لليوم بالدينار الليبي
+  shiftAmount?: number;        // قيمة مبيعات أو مشتريات الوردية (د.ل)
+  shiftAmountType?: string | null; // 'SALES' | 'PURCHASES'
+  commissionRate?: number;     // نسبة العمولة %
+  commissionAmount?: number;   // قيمة العمولة المحتسبة للوردية (د.ل)
   isVerified: boolean;         // توثيق الاعتماد من المدير (true / false)
   verifiedAt?: string;         // تاريخ ووقت التوثيق
   checkInLat?: number | null;

@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
         const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
         const userDeptIds = rec.user?.departments?.map((d) => d.id) || [];
 
-        // Check if first record of day for fixed monthly daily portion
         const isFirst = monthRecords.findIndex(r => r.userId === rec.userId && r.date === rec.date) === monthRecords.indexOf(rec);
+        const shiftAmt = (rec as any).shiftAmount || 0;
+        const commRate = (rec as any).commissionRate || (primaryRole?.hasCommission ? Number(primaryRole.commissionRate) : 0) || 0;
 
         const shiftCost = calculateShiftWithRateRules(
           rec.date,
@@ -71,15 +72,18 @@ export async function POST(req: NextRequest) {
           isFirst,
           activeRules,
           rec.userId,
-          userDeptIds
+          userDeptIds,
+          shiftAmt,
+          commRate
         );
 
         await prisma.attendanceRecord.update({
           where: { id: rec.id },
           data: {
             workHours: shiftCost.workHours,
-            earnedCost: shiftCost.totalCost
-          }
+            earnedCost: shiftCost.totalCost,
+            commissionAmount: shiftCost.commissionAmount
+          } as any
         });
 
         updatedCount++;

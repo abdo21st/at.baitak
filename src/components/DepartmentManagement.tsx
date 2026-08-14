@@ -28,6 +28,9 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   const [monthlySalaryInput, setMonthlySalaryInput] = useState('');
   const [targetHoursInput, setTargetHoursInput] = useState('');
   const [isHourlyInput, setIsHourlyInput] = useState(true);
+  const [hasCommissionInput, setHasCommissionInput] = useState(false);
+  const [commissionTypeInput, setCommissionTypeInput] = useState<'SALES' | 'PURCHASES'>('SALES');
+  const [commissionRateInput, setCommissionRateInput] = useState('');
 
   const fetchDepartments = async () => {
     try {
@@ -95,7 +98,10 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
           roleTitle: roleTitleInput,
           monthlySalary: Number(monthlySalaryInput) || 0,
           targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 0) : 0,
-          isHourly: isHourlyInput
+          isHourly: isHourlyInput,
+          hasCommission: hasCommissionInput,
+          commissionType: commissionTypeInput,
+          commissionRate: hasCommissionInput ? (Number(commissionRateInput) || 0) : 0
         })
       });
       const data = await res.json();
@@ -107,6 +113,9 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
         setMonthlySalaryInput('');
         setTargetHoursInput('');
         setIsHourlyInput(true);
+        setHasCommissionInput(false);
+        setCommissionTypeInput('SALES');
+        setCommissionRateInput('');
       } else {
         setMsg(data.error || 'خطأ في إضافة الوظيفة');
       }
@@ -134,7 +143,10 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
           title: roleTitleInput,
           monthlySalary: Number(monthlySalaryInput) || 0,
           targetMonthlyHours: isHourlyInput ? (Number(targetHoursInput) || 0) : 0,
-          isHourly: isHourlyInput
+          isHourly: isHourlyInput,
+          hasCommission: hasCommissionInput,
+          commissionType: commissionTypeInput,
+          commissionRate: hasCommissionInput ? (Number(commissionRateInput) || 0) : 0
         })
       });
       const data = await res.json();
@@ -194,6 +206,9 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
     setMonthlySalaryInput('');
     setTargetHoursInput('');
     setIsHourlyInput(true);
+    setHasCommissionInput(false);
+    setCommissionTypeInput('SALES');
+    setCommissionRateInput('');
     setMsg(null);
     setIsAddRoleOpen(true);
   };
@@ -204,6 +219,9 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
     setMonthlySalaryInput(r.monthlySalary ? String(r.monthlySalary) : '');
     setTargetHoursInput(r.targetMonthlyHours ? String(r.targetMonthlyHours) : '');
     setIsHourlyInput(r.isHourly !== false);
+    setHasCommissionInput(Boolean(r.hasCommission));
+    setCommissionTypeInput((r.commissionType as any) || 'SALES');
+    setCommissionRateInput(r.commissionRate ? String(r.commissionRate) : '');
     setMsg(null);
   };
 
@@ -296,7 +314,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                     return (
                       <div key={role.id} className="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-200 transition-all flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Briefcase className="w-4 h-4 text-blue-600" />
                             <span className="font-extrabold text-slate-900 text-sm">{role.title}</span>
                             {isHourly ? (
@@ -306,6 +324,11 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                             ) : (
                               <span className="px-2 py-0.5 bg-amber-100 text-amber-900 rounded-lg text-[10px] font-bold">
                                 راتب شهري ثابت
+                              </span>
+                            )}
+                            {role.hasCommission && (
+                              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-850 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1">
+                                🛒 عمولة {role.commissionType === 'PURCHASES' ? 'المشتريات' : 'المبيعات'}: {role.commissionRate}%
                               </span>
                             )}
                           </div>
@@ -500,6 +523,55 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                 </div>
               )}
 
+              {/* Commission Section in Add Modal */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-extrabold text-slate-900 block">نظام عمولة المبيعات / المشتريات للوردية</span>
+                    <span className="text-[10px] text-slate-500 font-semibold block">إلزام الموظف بتسجيل قيمة مبيعاته أو مشترياته عند الانصراف لاحتساب نسبة مئوية</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasCommissionInput}
+                      onChange={(e) => setHasCommissionInput(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
+                {hasCommissionInput && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">نوع العملية *</label>
+                      <select
+                        value={commissionTypeInput}
+                        onChange={(e) => setCommissionTypeInput(e.target.value as 'SALES' | 'PURCHASES')}
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="SALES">مبيعات (Sales)</option>
+                        <option value="PURCHASES">مشتريات (Purchases)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">نسبة العمولة (%) *</label>
+                      <input
+                        type="text"
+                        required={hasCommissionInput}
+                        lang="en-US"
+                        dir="ltr"
+                        value={commissionRateInput}
+                        onChange={(e) => setCommissionRateInput(e.target.value)}
+                        placeholder="مثال: 2.5 أو 5"
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}
 
               <div className="flex gap-2 pt-2">
@@ -604,6 +676,55 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
                   />
                 </div>
               )}
+
+              {/* Commission Section in Edit Modal */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-extrabold text-slate-900 block">نظام عمولة المبيعات / المشتريات للوردية</span>
+                    <span className="text-[10px] text-slate-500 font-semibold block">إلزام الموظف بتسجيل قيمة مبيعاته أو مشترياته عند الانصراف لاحتساب نسبة مئوية</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasCommissionInput}
+                      onChange={(e) => setHasCommissionInput(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {hasCommissionInput && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">نوع العملية *</label>
+                      <select
+                        value={commissionTypeInput}
+                        onChange={(e) => setCommissionTypeInput(e.target.value as 'SALES' | 'PURCHASES')}
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="SALES">مبيعات (Sales)</option>
+                        <option value="PURCHASES">مشتريات (Purchases)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">نسبة العمولة (%) *</label>
+                      <input
+                        type="text"
+                        required={hasCommissionInput}
+                        lang="en-US"
+                        dir="ltr"
+                        value={commissionRateInput}
+                        onChange={(e) => setCommissionRateInput(e.target.value)}
+                        placeholder="مثال: 2.5 أو 5"
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-slate-900 font-bold font-mono text-center focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {msg && <p className="text-rose-600 font-bold text-center">{msg}</p>}
 

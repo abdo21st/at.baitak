@@ -139,11 +139,13 @@ export async function POST(req: NextRequest) {
         const hourlyRate = emp.hourlyRate || 0;
         const hourlyDue = Number((totalHours * hourlyRate).toFixed(2));
 
+        const totalCommissions = Number(records.reduce((sum: number, r: any) => sum + (Number(r.commissionAmount) || 0), 0).toFixed(2));
+
         const effectiveRoles = emp.jobRoles || [];
         const totalMonthlySalary = effectiveRoles.reduce((sum: number, r: { monthlySalary: number }) => sum + (r.monthlySalary || 0), 0) + (emp.monthlySalary || 0);
         const jobRoleDailyRate = totalMonthlySalary > 0 ? totalMonthlySalary / 30 : 0;
         const jobRoleDue = Number((uniqueDays * jobRoleDailyRate).toFixed(2));
-        const totalDue = Number((hourlyDue + jobRoleDue).toFixed(2));
+        const totalDue = Number((hourlyDue + jobRoleDue + totalCommissions).toFixed(2));
 
         if (emp.phone) {
           await sendMonthlyPayrollToN8n({
@@ -158,6 +160,7 @@ export async function POST(req: NextRequest) {
             hourlyDue,
             monthlySalary: totalMonthlySalary,
             jobRoleDue,
+            totalCommissions,
             totalDue
           }, targetUrl);
           sentCount++;

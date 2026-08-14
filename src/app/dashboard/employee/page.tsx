@@ -52,6 +52,7 @@ export default function EmployeeDashboard() {
   const [checkOutHour,   setCheckOutHour]   = useState<string>('04');
   const [checkOutMinute, setCheckOutMinute] = useState<string>('00');
   const [checkOutPeriod, setCheckOutPeriod] = useState<'AM' | 'PM'>('PM');
+  const [shiftAmountInput, setShiftAmountInput] = useState<string>('0');
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg]         = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -323,6 +324,20 @@ export default function EmployeeDashboard() {
       return;
     }
 
+    const primaryRole = user?.jobRoles?.[0];
+    const hasCommission = Boolean(primaryRole?.hasCommission);
+    const commTypeTitle = primaryRole?.commissionType === 'PURCHASES' ? 'المشتريات' : 'المبيعات';
+
+    if (hasCommission) {
+      if (shiftAmountInput.trim() === '' || isNaN(Number(shiftAmountInput)) || Number(shiftAmountInput) < 0) {
+        setMsg({
+          text: `خطأ: يرجى إدخال إجمالي قيمة ${commTypeTitle} للوردية (أو كتابة 0 للمتابعة).`,
+          type: 'error'
+        });
+        return;
+      }
+    }
+
     setLoading(true); setMsg(null);
     try {
       const res  = await fetch('/api/attendance', {
@@ -333,7 +348,8 @@ export default function EmployeeDashboard() {
           checkOutDate: checkOutDate,
           checkOutTime: formattedCheckOut,
           checkOutLat: userLat,
-          checkOutLng: userLng
+          checkOutLng: userLng,
+          shiftAmount: Number(shiftAmountInput) || 0
         })
       });
       const data = await res.json();
@@ -342,6 +358,7 @@ export default function EmployeeDashboard() {
         let textMsg = `تم تسجيل الانصراف — ${formatHoursText(data.record.workHours)} — ${data.record.earnedCost} د.ل`;
         if (data.warning) textMsg = `${textMsg} — ${data.warning}`;
         setMsg({ text: textMsg, type: data.isOutsideGps ? 'error' : 'success' });
+        setShiftAmountInput('0');
       } else setMsg({ text: data.error || 'خطأ في تسجيل الانصراف', type: 'error' });
     } catch { setMsg({ text: 'خطأ في الاتصال بالخادم', type: 'error' }); }
     setLoading(false);
@@ -481,17 +498,26 @@ export default function EmployeeDashboard() {
                     {(() => {
                       const hourly = p.hourlyRate || 0;
                       const base = Number((r.workHours * hourly).toFixed(2));
-                      const bonus = Number((r.earnedCost - base).toFixed(2));
-                      if (bonus > 0.05) {
-                        return (
-                          <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + البدلات وعلاوات الشفتات: ${bonus} د.ل`}>
-                            <span>أساسي: {base}</span>
-                            <span>+</span>
-                            <span className="text-orange-700">بدلات: {bonus}</span>
-                          </div>
-                        );
-                      }
-                      return null;
+                      const comm = Number((r as any).commissionAmount) || 0;
+                      const bonus = Number((r.earnedCost - base - comm).toFixed(2));
+                      return (
+                        <div className="space-y-0.5">
+                          {bonus > 0.05 && (
+                            <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + علاوات الشفتات: ${bonus} د.ل`}>
+                              <span>أساسي: {base}</span>
+                              <span>+</span>
+                              <span className="text-orange-700">بدلات: {bonus}</span>
+                            </div>
+                          )}
+                          {comm > 0 && (
+                            <div className="text-[10px] text-emerald-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                              <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
+                              <span>➔</span>
+                              <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
+                            </div>
+                          )}
+                        </div>
+                      );
                     })()}
                   </td>
                   <td className="py-3.5 px-4 text-center font-sans">
@@ -799,6 +825,46 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {(() => {
+                  const primaryRole = profileData?.jobRoles?.[0] || user?.jobRoles?.[0];
+                  if (!primaryRole?.hasCommission) return null;
+                  const commType = primaryRole.commissionType || 'SALES';
+                  const commRate = Number(primaryRole.commissionRate) || 0;
+                  const enteredAmt = Number(shiftAmountInput) || 0;
+                  const estimatedComm = Number(((enteredAmt * commRate) / 100).toFixed(2));
+
+                  return (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3 font-sans">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="text-emerald-950 font-black text-sm flex items-center gap-1.5">
+                          <Coins className="w-4 h-4 text-emerald-600 shrink-0" />
+                          تسجيل إجمالي {commType === 'PURCHASES' ? 'المشتريات' : 'المبيعات'} للوردية (د.ل) *
+                        </label>
+                        <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-mono">
+                          نسبة العمولة: {commRate}%
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        lang="en-US"
+                        dir="ltr"
+                        value={shiftAmountInput}
+                        onChange={(e) => setShiftAmountInput(e.target.value)}
+                        placeholder="0"
+                        className="w-full bg-white border border-emerald-300 rounded-xl p-3 text-slate-900 font-mono text-center text-lg font-black focus:outline-none focus:border-emerald-500 shadow-sm"
+                      />
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-900 bg-white/80 p-2.5 rounded-xl border border-emerald-100 font-sans">
+                        <span>العمولة المحتسبة للوردية المضافة للراتب:</span>
+                        <span className="font-mono font-black text-emerald-700 text-sm">
+                          +{estimatedComm} د.ل
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <button type="submit" disabled={loading} className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-base rounded-xl shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-4">
                   <Square className="w-5 h-5 fill-white" />{loading ? 'جاري التسجيل...' : 'تسجيل وقت الانصراف'}
                 </button>
@@ -911,8 +977,9 @@ export default function EmployeeDashboard() {
                     } else if ((p.monthlySalary || 0) > 0) {
                       jobRolePortion = Number((uniqueAttendedDaysCount * ((p.monthlySalary || 0) / 30)).toFixed(2));
                     }
-                    const shiftBonusesCost = Number(Math.max(0, totalMonthlyEarned - baseHoursCost - jobRolePortion).toFixed(2));
-                    const totalBonusesAndRole = Number((jobRolePortion + shiftBonusesCost).toFixed(2));
+                    const totalMonthlyCommission = Number(userRecords.reduce((a, r) => a + (Number((r as any).commissionAmount) || 0), 0).toFixed(2));
+                    const shiftBonusesCost = Number(Math.max(0, totalMonthlyEarned - baseHoursCost - jobRolePortion - totalMonthlyCommission).toFixed(2));
+                    const totalBonusesAndRole = Number((jobRolePortion + shiftBonusesCost + totalMonthlyCommission).toFixed(2));
 
                     return (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -928,7 +995,7 @@ export default function EmployeeDashboard() {
 
                         <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-400 block font-bold">2. البدلات وعلاوات الشفتات والوظيفة:</span>
+                            <span className="text-slate-400 block font-bold">2. البدلات والعمولات وعلاوات الوظيفة:</span>
                             <div className="text-sm font-black text-amber-300 font-mono">
                               {totalBonusesAndRole.toFixed(2)} د.ل
                             </div>
@@ -941,6 +1008,15 @@ export default function EmployeeDashboard() {
                                   مستحق الوظيفة ({p.isHourly !== false ? 'ساعات' : `${uniqueAttendedDaysCount} يوم × ${((p.monthlySalary || 0) / 30).toFixed(2)} د.ل`}):
                                 </span>
                                 <span className="font-mono font-bold text-amber-300">+{jobRolePortion.toFixed(2)} د.ل</span>
+                              </div>
+                            )}
+                            {totalMonthlyCommission > 0 && (
+                              <div className="flex items-center justify-between text-emerald-200/90 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <Coins className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  إجمالي عمولات المبيعات/المشتريات:
+                                </span>
+                                <span className="font-mono font-bold text-emerald-300">+{totalMonthlyCommission.toFixed(2)} د.ل</span>
                               </div>
                             )}
                             {shiftBonusesCost > 0 && (

@@ -48,6 +48,9 @@ model JobRole {
   monthlySalary      Float              @default(0.0) // الراتب الشهري المحدد للوظيفة
   targetMonthlyHours Float              @default(0.0) // ساعات الوظيفة المطلوبة في الشهر (0 إذا لم تحدد)
   isHourly           Boolean            @default(true)  // true: مرتبطة بساعات | false: راتب شهري ثابت
+  hasCommission      Boolean            @default(false) // تفعيل عمولة المبيعات / المشتريات
+  commissionType     String             @default("SALES") // "SALES" | "PURCHASES"
+  commissionRate     Float              @default(0.0) // نسبة العمولة % (مثلاً 2.5)
   departmentId       String
   department         Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   users              User[]             @relation("UserJobRoles")
@@ -92,30 +95,34 @@ model User {
 }
 
 model AttendanceRecord {
-  id           String           @id @default(uuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  jobRoleId    String?
-  jobRole      JobRole?         @relation(fields: [jobRoleId], references: [id])
-  date         String           // YYYY-MM-DD
-  checkInTime  String           // HH:mm:ss
-  checkOutTime String?          // HH:mm:ss
-  workHours    Float            @default(0.0)
-  earnedCost   Float            @default(0.0)
-  isVerified   Boolean          @default(false) // توثيق الاعتماد من المدير
-  verifiedAt   DateTime?        // تاريخ ووقت التوثيق
-  checkInLat   Float?
-  checkInLng   Float?
-  checkOutLat  Float?
-  checkOutLng  Float?
-  isOutsideGps Boolean          @default(false) // تم التسجيل خارج نطاق GPS
-  projectId    String?
-  project      Project?         @relation(fields: [projectId], references: [id])
-  projectName  String?
-  taskNotes    String?
-  attachments  Attachment[]
-  method       AttendanceMethod @default(QUICK)
-  createdAt    DateTime         @default(now())
+  id               String           @id @default(uuid())
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobRoleId        String?
+  jobRole          JobRole?         @relation(fields: [jobRoleId], references: [id])
+  date             String           // YYYY-MM-DD
+  checkInTime      String           // HH:mm:ss
+  checkOutTime     String?          // HH:mm:ss
+  workHours        Float            @default(0.0)
+  earnedCost       Float            @default(0.0)
+  shiftAmount      Float            @default(0.0) // قيمة مبيعات/مشتريات الوردية (د.ل)
+  shiftAmountType  String?          // "SALES" | "PURCHASES"
+  commissionRate   Float            @default(0.0) // نسبة العمولة %
+  commissionAmount Float            @default(0.0) // قيمة العمولة المحتسبة للوردية (د.ل)
+  isVerified       Boolean          @default(false) // توثيق الاعتماد من المدير
+  verifiedAt       DateTime?        // تاريخ ووقت التوثيق
+  checkInLat       Float?
+  checkInLng       Float?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  isOutsideGps     Boolean          @default(false) // تم التسجيل خارج نطاق GPS
+  projectId        String?
+  project          Project?         @relation(fields: [projectId], references: [id])
+  projectName      String?
+  taskNotes        String?
+  attachments      Attachment[]
+  method           AttendanceMethod @default(QUICK)
+  createdAt        DateTime         @default(now())
 }
 
 model Attachment {

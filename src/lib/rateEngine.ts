@@ -5,6 +5,7 @@ export interface ShiftCostBreakdown {
   baseCost: number;
   bonusCost: number;
   jobRoleCost: number;
+  commissionAmount: number;
   totalCost: number;
   appliedRules: {
     ruleId: string;
@@ -31,15 +32,20 @@ export function calculateShiftWithRateRules(
   isFirstRecordOfDay: boolean,
   rules: RateRule[],
   userId?: string,
-  departmentIds?: string[]
+  departmentIds?: string[],
+  shiftAmount: number = 0,
+  commissionRate: number = 0
 ): ShiftCostBreakdown {
+  const finalCommission = Number(((shiftAmount || 0) * ((commissionRate || 0) / 100)).toFixed(2));
+
   if (!checkInTime || !checkOutTime) {
     return {
       workHours: 0,
       baseCost: 0,
       bonusCost: 0,
       jobRoleCost: 0,
-      totalCost: 0,
+      commissionAmount: finalCommission,
+      totalCost: finalCommission,
       appliedRules: []
     };
   }
@@ -61,6 +67,7 @@ export function calculateShiftWithRateRules(
       baseCost: 0,
       bonusCost: 0,
       jobRoleCost: 0,
+      commissionAmount: 0,
       totalCost: 0,
       appliedRules: []
     };
@@ -161,7 +168,7 @@ export function calculateShiftWithRateRules(
 
   const finalBaseCost = Number((workHours * (directHourlyRate || 0)).toFixed(2));
   const finalBonusCost = Number(totalBonusCost.toFixed(2));
-  const totalCost = Number((finalBaseCost + finalBonusCost + jobRoleCost).toFixed(2));
+  const totalCost = Number((finalBaseCost + finalBonusCost + jobRoleCost + finalCommission).toFixed(2));
 
   const appliedRules = Object.values(ruleMinutesMap).map(({ rule, minutes, bonus }) => ({
     ruleId: rule.id,
@@ -175,6 +182,7 @@ export function calculateShiftWithRateRules(
     baseCost: finalBaseCost,
     bonusCost: finalBonusCost,
     jobRoleCost,
+    commissionAmount: finalCommission,
     totalCost,
     appliedRules
   };
