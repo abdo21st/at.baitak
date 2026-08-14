@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, AttendanceRecord } from '@/lib/types';
 import { 
   Calendar as CalendarIcon, Clock, Printer, ChevronRight, ChevronLeft, 
   UserCheck, Coins, MapPin, ShieldAlert, Sparkles, Phone, MessageSquare, 
-  Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter
+  Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter, Moon
 } from 'lucide-react';
 import { formatTime12h } from '@/lib/utils';
 
@@ -25,23 +25,51 @@ const colorThemes = [
   { bg: 'from-teal-500 to-emerald-600', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' }
 ];
 
+export interface ShiftSegment {
+  id: string;
+  recordId: string;
+  userId: string;
+  userName: string;
+  employeeCode: string;
+  date: string; // The calendar date this segment belongs to (YYYY-MM-DD)
+  startTime: string; // 'HH:mm'
+  endTime: string; // 'HH:mm' or '24:00'
+  segmentHours: number;
+  segmentEarned: number;
+  isOvernight: boolean;
+  overnightPart?: 'START' | 'END';
+  originalCheckIn: string;
+  originalCheckOut?: string | null;
+  originalDate: string;
+  nextDate?: string;
+  isOutsideGps?: boolean;
+  isVerified?: boolean;
+  originalRecord: AttendanceRecord;
+}
+
 interface GroupedEmp {
   userId: string;
   userName: string;
   employeeCode: string;
   phone?: string | null;
-  records: AttendanceRecord[];
+  segments: ShiftSegment[];
   totalHours: number;
   totalEarned: number;
   theme: typeof colorThemes[0];
 }
 
+const getNextDateStr = (dateStr: string) => {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
+};
+
 export default function AttendanceCalendar({ users, records }: AttendanceCalendarProps) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDateStr, setSelectedDateStr] = useState<string>(todayStr);
   const [viewMode, setViewMode] = useState<'DAY' | 'WEEK' | 'MONTH'>('DAY');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'GPS_ALERT'>('ALL');
-  const [selectedShiftForDetail, setSelectedShiftForDetail] = useState<AttendanceRecord | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'GPS_ALERT' | 'OVERNIGHT'>('ALL');
+  const [selectedSegmentForDetail, setSelectedSegmentForDetail] = useState<ShiftSegment | null>(null);
 
   // Month Navigation State (Year & Month: 0-indexed)
   const today = new Date();
@@ -68,55 +96,170 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   // Days in selected Month
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  // Records for selected date & Grouping by employee
-  const selectedDayRecords = records.filter((r) => r.date === selectedDateStr);
+  // Convert all attendance records into day-bounded ShiftSegments (handling overnight shifts accurately)
+  const allSegments = useMemo(() => {
+    const segments: ShiftSegment[] = [];
+
+    records.forEach((r) => {
+      if (!r.checkInTime || !r.date) return;
+
+      const [inH, inM] = r.checkInTime.split(':').map(Number);
+      const inMinutes = inH * 60 + (inM || 0);
+
+      const matchedUser = users.find(u => u.id === r.userId);
+      const userRate = matchedUser?.hourlyRate || 50;
+      const effectiveRate = r.workHours && r.workHours > 0 ? (r.earnedCost / r.workHours) : userRate;
+
+      // Check if this record is an overnight shift
+      let isOvernight = false;
+      let outMinutes = inMinutes + 480;
+
+      if (r.checkOutTime) {
+        const [outH, outM] = r.checkOutTime.split(':').map(Number);
+        outMinutes = outH * 60 + (outM || 0);
+        if (outMinutes < inMinutes) {
+          isOvernight = true;
+        }
+      }
+
+      if (!isOvernight) {
+        // Single-day shift
+        const segHours = r.workHours || Number(((outMinutes - inMinutes) / 60).toFixed(2));
+        segments.push({
+          id: `seg-${r.id}-single`,
+          recordId: r.id,
+          userId: r.userId,
+          userName: r.userName,
+          employeeCode: r.employeeCode,
+          date: r.date,
+          startTime: r.checkInTime,
+          endTime: r.checkOutTime || '',
+          segmentHours: segHours,
+          segmentEarned: r.earnedCost || Number((segHours * effectiveRate).toFixed(2)),
+          isOvernight: false,
+          originalCheckIn: r.checkInTime,
+          originalCheckOut: r.checkOutTime,
+          originalDate: r.date,
+          isOutsideGps: r.isOutsideGps,
+          isVerified: r.isVerified,
+          originalRecord: r
+        });
+      } else {
+        // Overnight Shift: Split into Part 1 (Start Day -> 24:00) and Part 2 (00:00 -> End Day)
+        const nextDayStr = getNextDateStr(r.date);
+
+        // Part 1: Start Day (from checkInTime to 24:00)
+        const day1Mins = 1440 - inMinutes;
+        const day1Hours = Number((day1Mins / 60).toFixed(2));
+        const day1Earned = Number((day1Hours * effectiveRate).toFixed(2));
+
+        segments.push({
+          id: `seg-${r.id}-part1`,
+          recordId: r.id,
+          userId: r.userId,
+          userName: r.userName,
+          employeeCode: r.employeeCode,
+          date: r.date,
+          startTime: r.checkInTime,
+          endTime: '24:00',
+          segmentHours: day1Hours,
+          segmentEarned: day1Earned,
+          isOvernight: true,
+          overnightPart: 'START',
+          originalCheckIn: r.checkInTime,
+          originalCheckOut: r.checkOutTime,
+          originalDate: r.date,
+          nextDate: nextDayStr,
+          isOutsideGps: r.isOutsideGps,
+          isVerified: r.isVerified,
+          originalRecord: r
+        });
+
+        // Part 2: Next Day (from 00:00 to checkOutTime)
+        const day2Mins = outMinutes;
+        const day2Hours = Number((day2Mins / 60).toFixed(2));
+        const day2Earned = Number((day2Hours * effectiveRate).toFixed(2));
+
+        segments.push({
+          id: `seg-${r.id}-part2`,
+          recordId: r.id,
+          userId: r.userId,
+          userName: r.userName,
+          employeeCode: r.employeeCode,
+          date: nextDayStr,
+          startTime: '00:00',
+          endTime: r.checkOutTime || '06:00',
+          segmentHours: day2Hours,
+          segmentEarned: day2Earned,
+          isOvernight: true,
+          overnightPart: 'END',
+          originalCheckIn: r.checkInTime,
+          originalCheckOut: r.checkOutTime,
+          originalDate: r.date,
+          nextDate: nextDayStr,
+          isOutsideGps: r.isOutsideGps,
+          isVerified: r.isVerified,
+          originalRecord: r
+        });
+      }
+    });
+
+    return segments;
+  }, [records]);
+
+  // Selected Day Segments
+  const selectedDaySegments = allSegments.filter((s) => s.date === selectedDateStr);
 
   // Apply Filter
-  const filteredDayRecords = selectedDayRecords.filter((r) => {
-    if (activeFilter === 'ACTIVE') return !r.checkOutTime;
-    if (activeFilter === 'GPS_ALERT') return r.isOutsideGps;
+  const filteredDaySegments = selectedDaySegments.filter((s) => {
+    if (activeFilter === 'ACTIVE') return !s.originalCheckOut;
+    if (activeFilter === 'GPS_ALERT') return s.isOutsideGps;
+    if (activeFilter === 'OVERNIGHT') return s.isOvernight;
     return true;
   });
 
   const groupedList: GroupedEmp[] = [];
   const map: { [id: string]: GroupedEmp } = {};
 
-  filteredDayRecords.forEach((r) => {
-    if (!map[r.userId]) {
+  filteredDaySegments.forEach((s) => {
+    if (!map[s.userId]) {
       const themeIdx = Object.keys(map).length % colorThemes.length;
-      const matchedUser = users.find(u => u.id === r.userId);
-      map[r.userId] = {
-        userId: r.userId,
-        userName: r.userName,
-        employeeCode: r.employeeCode,
+      const matchedUser = users.find(u => u.id === s.userId);
+      map[s.userId] = {
+        userId: s.userId,
+        userName: s.userName,
+        employeeCode: s.employeeCode,
         phone: matchedUser?.phone || null,
-        records: [],
+        segments: [],
         totalHours: 0,
         totalEarned: 0,
         theme: colorThemes[themeIdx]
       };
-      groupedList.push(map[r.userId]);
+      groupedList.push(map[s.userId]);
     }
-    map[r.userId].records.push(r);
-    map[r.userId].totalHours += r.workHours || 0;
-    map[r.userId].totalEarned += r.earnedCost || 0;
+    map[s.userId].segments.push(s);
+    map[s.userId].totalHours += s.segmentHours || 0;
+    map[s.userId].totalEarned += s.segmentEarned || 0;
   });
 
-  // Calculate Pharmacy Hourly Coverage (0 to 23 hours)
+  // Calculate Pharmacy Hourly Coverage (0 to 23 hours) for Selected Day
   const hourlyCoverage = hours24.map((hour) => {
     const hourStartMins = hour * 60;
     const hourEndMins = (hour + 1) * 60;
 
-    const attendeesInHour = selectedDayRecords.filter((r) => {
-      if (!r.checkInTime) return false;
-      const [inH, inM] = r.checkInTime.split(':').map(Number);
+    const attendeesInHour = selectedDaySegments.filter((s) => {
+      if (!s.startTime) return false;
+      const [inH, inM] = s.startTime.split(':').map(Number);
       const startMins = inH * 60 + (inM || 0);
 
-      let endMins = startMins + 480; // default 8h if open
-      if (r.checkOutTime) {
-        const [outH, outM] = r.checkOutTime.split(':').map(Number);
-        endMins = outH * 60 + (outM || 0);
-        if (endMins < startMins) endMins += 24 * 60;
+      let endMins = startMins + 480;
+      if (s.endTime) {
+        if (s.endTime === '24:00') {
+          endMins = 1440;
+        } else {
+          const [outH, outM] = s.endTime.split(':').map(Number);
+          endMins = outH * 60 + (outM || 0);
+        }
       }
 
       return startMins < hourEndMins && endMins > hourStartMins;
@@ -129,16 +272,16 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     };
   });
 
-  // Monthly Records & Metrics
+  // Monthly Metrics based on Day-accurate segments
   const selectedMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-  const monthRecords = records.filter((r) => r.date && r.date.startsWith(selectedMonthPrefix));
+  const monthSegments = allSegments.filter((s) => s.date && s.date.startsWith(selectedMonthPrefix));
 
-  const monthTotalHours = Number(monthRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
-  const monthTotalEarned = Number(monthRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
-  const monthActiveEmployees = new Set(monthRecords.map((r) => r.userId)).size;
-  const monthWorkingDays = new Set(monthRecords.map((r) => r.date)).size;
+  const monthTotalHours = Number(monthSegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0).toFixed(2));
+  const monthTotalEarned = Number(monthSegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2));
+  const monthActiveEmployees = new Set(monthSegments.map((s) => s.userId)).size;
+  const monthWorkingDays = new Set(monthSegments.map((s) => s.date)).size;
 
-  // Weekly Records & Metrics (Saturday to Friday)
+  // Weekly Metrics (Saturday to Friday)
   const selDate = new Date(selectedDateStr);
   const dayOfWeek = selDate.getDay();
   const diffToSat = (dayOfWeek + 1) % 7;
@@ -150,11 +293,11 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   const weekStartStr = weekStart.toISOString().split('T')[0];
   const weekEndStr = weekEnd.toISOString().split('T')[0];
 
-  const weekRecords = records.filter((r) => r.date && r.date >= weekStartStr && r.date <= weekEndStr);
-  const weekTotalHours = Number(weekRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
-  const weekTotalEarned = Number(weekRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
-  const weekActiveEmployees = new Set(weekRecords.map((r) => r.userId)).size;
-  const weekWorkingDays = new Set(weekRecords.map((r) => r.date)).size;
+  const weekSegments = allSegments.filter((s) => s.date && s.date >= weekStartStr && s.date <= weekEndStr);
+  const weekTotalHours = Number(weekSegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0).toFixed(2));
+  const weekTotalEarned = Number(weekSegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2));
+  const weekActiveEmployees = new Set(weekSegments.map((s) => s.userId)).size;
+  const weekWorkingDays = new Set(weekSegments.map((s) => s.date)).size;
 
   // Week days array for Week Gantt Grid
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -192,17 +335,20 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     'سبتمبر (09)', 'أكتوبر (10)', 'نوفمبر (11)', 'ديسمبر (12)'
   ];
 
-  const getShiftBarPosition = (checkInStr: string, checkOutStr?: string | null) => {
-    if (!checkInStr) return { left: '0%', width: '0%' };
+  const getSegmentBarPosition = (startTime: string, endTime?: string | null) => {
+    if (!startTime) return { left: '0%', width: '0%' };
 
-    const [inH, inM] = checkInStr.split(':').map(Number);
+    const [inH, inM] = startTime.split(':').map(Number);
     const startMins = inH * 60 + (inM || 0);
 
     let endMins = startMins + 480;
-    if (checkOutStr) {
-      const [outH, outM] = checkOutStr.split(':').map(Number);
-      endMins = outH * 60 + (outM || 0);
-      if (endMins < startMins) endMins += 24 * 60;
+    if (endTime) {
+      if (endTime === '24:00') {
+        endMins = 1440;
+      } else {
+        const [outH, outM] = endTime.split(':').map(Number);
+        endMins = outH * 60 + (outM || 0);
+      }
     }
 
     const leftPercent = Math.min(100, Math.max(0, (startMins / 1440) * 100));
@@ -243,12 +389,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           <div>
             <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
               لوحة المراقبة الزمنية والتقويم الذكي
-              <span className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold border border-blue-200">
-                صيدلية بيتك
+              <span className="text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-md font-bold border border-indigo-200 flex items-center gap-1">
+                <Moon className="w-3 h-3 text-indigo-600" />
+                دعم الشفتات المتداخلة في يومين
               </span>
             </h2>
             <p className="text-slate-500 text-xs font-semibold">
-              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، ورصد الخط الزمني
+              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، وتوزيع ساعات الورديات الليلية على اليومين بدقة
             </p>
           </div>
         </div>
@@ -326,7 +473,18 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  كافة الشفتات ({selectedDayRecords.length})
+                  كافة الشفتات ({selectedDaySegments.length})
+                </button>
+                <button
+                  onClick={() => setActiveFilter('OVERNIGHT')}
+                  className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
+                    activeFilter === 'OVERNIGHT'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  ورديات ليلية متداخلة ({selectedDaySegments.filter(s => s.isOvernight).length})
                 </button>
                 <button
                   onClick={() => setActiveFilter('ACTIVE')}
@@ -337,7 +495,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  شفتات جارية الآن ({selectedDayRecords.filter(r => !r.checkOutTime).length})
+                  شفتات جارية الآن ({selectedDaySegments.filter(s => !s.originalCheckOut).length})
                 </button>
                 <button
                   onClick={() => setActiveFilter('GPS_ALERT')}
@@ -348,7 +506,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   }`}
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  خارج GPS ({selectedDayRecords.filter(r => r.isOutsideGps).length})
+                  خارج GPS ({selectedDaySegments.filter(s => s.isOutsideGps).length})
                 </button>
               </div>
 
@@ -366,7 +524,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               
               {/* 1. Top Ruler (Hours 00 to 23) */}
               <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800">
-                <span className="w-60 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">
+                <span className="w-64 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">
                   الموظف / الدوام
                 </span>
                 <div className="flex-1 grid text-center font-bold" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }} dir="ltr">
@@ -380,7 +538,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
 
               {/* 2. Pharmacy Shift Coverage Heatmap Bar (شريط كشف التغطية والفراغات) */}
               <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-indigo-500/30 shadow-inner flex flex-wrap sm:flex-nowrap items-center gap-4">
-                <div className="w-full sm:w-60 shrink-0 space-y-1 text-xs">
+                <div className="w-full sm:w-64 shrink-0 space-y-1 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-black text-indigo-300 text-sm">تغطية الصيدلية بالساعة</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
@@ -421,9 +579,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
 
               {/* 3. Combined Master Coverage Line */}
               <div className="p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800 flex flex-wrap sm:flex-nowrap items-start gap-4">
-                <div className="w-full sm:w-60 shrink-0 space-y-0.5 text-xs">
+                <div className="w-full sm:w-64 shrink-0 space-y-0.5 text-xs">
                   <span className="font-black text-blue-400 text-sm">الشريط الموحد المدمج</span>
-                  <p className="text-[10px] text-slate-400">تراكب كافة الشفتات في خط زمني واحد</p>
+                  <p className="text-[10px] text-slate-400">تراكب كافة الشفتات (بما فيها الورديات الليلية) في خط زمني واحد</p>
                 </div>
 
                 <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 p-2 overflow-hidden min-w-[320px]" dir="ltr">
@@ -449,17 +607,20 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   <div className="relative z-10 space-y-1">
                     {groupedList.map((emp) => (
                       <div key={`m-${emp.userId}`} className="relative h-3 w-full">
-                        {emp.records.map((rec) => {
-                          const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
+                        {emp.segments.map((seg) => {
+                          const pos = getSegmentBarPosition(seg.startTime, seg.endTime);
                           return (
                             <button
                               type="button"
-                              key={`ms-${rec.id}`}
-                              onClick={() => setSelectedShiftForDetail(rec)}
+                              key={`ms-${seg.id}`}
+                              onClick={() => setSelectedSegmentForDetail(seg)}
                               style={{ left: pos.left, width: pos.width }}
                               className={`absolute inset-y-0 bg-gradient-to-r ${emp.theme.bg} text-white text-[9px] font-black font-mono rounded-sm flex items-center justify-between px-1.5 shadow-sm transition-all whitespace-nowrap overflow-hidden cursor-pointer hover:opacity-90`}
+                              title={`${seg.userName}: ${seg.startTime} ➔ ${seg.endTime} (${formatHoursText(seg.segmentHours)})`}
                             >
-                              <span className="truncate leading-none">{rec.userName.split(' ')[0]}</span>
+                              <span className="truncate leading-none">
+                                {seg.isOvernight && '🌙 '}{seg.userName.split(' ')[0]}
+                              </span>
                             </button>
                           );
                         })}
@@ -473,13 +634,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               <div className="space-y-3 pt-2">
                 {groupedList.length === 0 ? (
                   <div className="py-8 text-center text-slate-500 text-xs font-bold">
-                    لا توجد سجلات دوام مطابقة للفلتر المحدد في هذا اليوم.
+                    لا توجد سجلات دوام مطابقة للفلتر المحدد في هذا اليوم ({selectedDateStr}).
                   </div>
                 ) : (
                   groupedList.map((emp) => (
                     <div key={emp.userId} className="p-3.5 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 transition-all flex flex-wrap sm:flex-nowrap items-center gap-4">
                       {/* Employee Meta Card */}
-                      <div className="w-full sm:w-60 shrink-0 space-y-1.5 text-xs">
+                      <div className="w-full sm:w-64 shrink-0 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="font-black text-white text-sm">{emp.userName}</span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${emp.theme.badge}`}>
@@ -487,7 +648,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-slate-400">إجمالي اليوم: {formatHoursText(emp.totalHours)}</span>
+                          <span className="text-slate-400">ساعات هذا اليوم: {formatHoursText(emp.totalHours)}</span>
                           <span className="text-emerald-400 font-mono">{emp.totalEarned.toFixed(2)} د.ل</span>
                         </div>
                         {emp.phone && (
@@ -521,20 +682,23 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                           ></div>
                         )}
 
-                        {/* Shift Blocks */}
-                        {emp.records.map((rec) => {
-                          const pos = getShiftBarPosition(rec.checkInTime, rec.checkOutTime);
+                        {/* Shift Segments */}
+                        {emp.segments.map((seg) => {
+                          const pos = getSegmentBarPosition(seg.startTime, seg.endTime);
                           return (
                             <button
                               type="button"
-                              key={rec.id}
-                              onClick={() => setSelectedShiftForDetail(rec)}
+                              key={seg.id}
+                              onClick={() => setSelectedSegmentForDetail(seg)}
                               style={{ left: pos.left, width: pos.width }}
                               className={`absolute top-1 bottom-1 bg-gradient-to-r ${emp.theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden z-10 cursor-pointer hover:ring-2 hover:ring-white`}
                             >
-                              <span>{formatTime12h(rec.checkInTime)}</span>
-                              <span className="opacity-90 font-sans truncate px-1">{formatHoursText(rec.workHours)}</span>
-                              <span>{rec.checkOutTime ? formatTime12h(rec.checkOutTime) : 'مباشر 🟢'}</span>
+                              <span className="flex items-center gap-1">
+                                {seg.isOvernight && <Moon className="w-3 h-3 text-amber-300 shrink-0" />}
+                                {seg.startTime === '00:00' ? '12:00 ص' : formatTime12h(seg.startTime)}
+                              </span>
+                              <span className="opacity-90 font-sans truncate px-1">{formatHoursText(seg.segmentHours)}</span>
+                              <span>{seg.endTime === '24:00' ? '12:00 ص (غداً)' : formatTime12h(seg.endTime)}</span>
                             </button>
                           );
                         })}
@@ -549,7 +713,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">الموظفين الحاضرين اليوم</span>
+                  <span className="text-slate-400 text-xs font-semibold block">الموظفين المتواجدين في هذا اليوم</span>
                   <span className="text-lg font-black text-emerald-400 font-mono">{groupedList.length} موظف</span>
                 </div>
                 <Users className="w-8 h-8 text-slate-700" />
@@ -557,9 +721,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
 
               <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">إجمالي ساعات اليوم</span>
+                  <span className="text-slate-400 text-xs font-semibold block">إجمالي الساعات المنجزة في هذا اليوم</span>
                   <span className="text-lg font-black text-white font-mono">
-                    {formatHoursText(selectedDayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0))}
+                    {formatHoursText(selectedDaySegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0))}
                   </span>
                 </div>
                 <Clock className="w-8 h-8 text-slate-700" />
@@ -567,9 +731,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
 
               <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">إجمالي مستحقات اليوم</span>
+                  <span className="text-slate-400 text-xs font-semibold block">إجمالي مستحقات هذا اليوم</span>
                   <span className="text-lg font-black text-emerald-400 font-mono">
-                    {selectedDayRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2)} د.ل
+                    {selectedDaySegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2)} د.ل
                   </span>
                 </div>
                 <Coins className="w-8 h-8 text-emerald-600" />
@@ -579,7 +743,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       )}
 
-      {/* VIEW 2: WEEKLY GANTT GRID (مخطط الأسبوع 7 أيام) */}
+      {/* VIEW 2: WEEKLY GANTT GRID (مخطط الأسبوع 7 أيام مع توزيع الشفتات المتداخلة) */}
       {viewMode === 'WEEK' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -589,7 +753,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 مخطط الدوام الأسبوعي ({weekStartStr} ➔ {weekEndStr})
               </h3>
               <p className="text-slate-500 text-xs font-semibold">
-                عرض ساعات الدوام ومستحقات كل موظف على مدار أيام الأسبوع السبعة
+                توزيع ساعات دوام كل يوم بدقة حتى للشفتات الليلية المتداخلة
               </p>
             </div>
           </div>
@@ -611,9 +775,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {users.filter(u => u.role !== 'ADMIN').map((emp) => {
-                  const empWeekRecs = weekRecords.filter(r => r.userId === emp.id);
-                  const totalWeekHours = empWeekRecs.reduce((acc, r) => acc + (r.workHours || 0), 0);
-                  const totalWeekEarned = empWeekRecs.reduce((acc, r) => acc + (r.earnedCost || 0), 0);
+                  const empWeekSegs = weekSegments.filter(s => s.userId === emp.id);
+                  const totalWeekHours = empWeekSegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
+                  const totalWeekEarned = empWeekSegs.reduce((acc, s) => acc + (s.segmentEarned || 0), 0);
 
                   return (
                     <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
@@ -622,8 +786,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                         <span className="text-[10px] text-slate-400 font-mono">({emp.employeeCode})</span>
                       </td>
                       {weekDays.map((d) => {
-                        const dayRecs = empWeekRecs.filter(r => r.date === d.dateStr);
-                        const dayHours = dayRecs.reduce((acc, r) => acc + (r.workHours || 0), 0);
+                        const daySegs = empWeekSegs.filter(s => s.date === d.dateStr);
+                        const dayHours = daySegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
+                        const hasOvernight = daySegs.some(s => s.isOvernight);
 
                         return (
                           <td key={d.dateStr} className="py-3.5 px-3 text-center">
@@ -633,8 +798,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                                   setSelectedDateStr(d.dateStr);
                                   setViewMode('DAY');
                                 }}
-                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-mono font-bold text-[11px] border border-blue-200 cursor-pointer"
+                                className={`px-2 py-1 rounded-lg font-mono font-bold text-[11px] border cursor-pointer inline-flex items-center gap-1 ${
+                                  hasOvernight
+                                    ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-200'
+                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200'
+                                }`}
                               >
+                                {hasOvernight && <Moon className="w-2.5 h-2.5 text-indigo-600" />}
                                 {dayHours.toFixed(1)} س
                               </button>
                             ) : (
@@ -658,7 +828,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       )}
 
-      {/* VIEW 3: MONTHLY HEATMAP CALENDAR (التقويم الشهري المصور) */}
+      {/* VIEW 3: MONTHLY HEATMAP CALENDAR */}
       {viewMode === 'MONTH' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -671,7 +841,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   تقويم شهر {monthNames[currentMonth]} {currentYear}
                 </h3>
                 <p className="text-slate-500 text-xs font-semibold">
-                  اختر أي يوم للانتقال الفوري إلى خطه الزمني 24 ساعة
+                  اختر أي يوم للانتقال الفوري إلى خطه الزمني 24 ساعة (مع مراعاة الشفتات المتداخلة)
                 </p>
               </div>
             </div>
@@ -702,10 +872,11 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             {Array.from({ length: daysInMonth }, (_, i) => {
               const dayNum = i + 1;
               const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-              const dayRecords = records.filter((r) => r.date === dateStr);
-              const totalHours = dayRecords.reduce((acc, r) => acc + (r.workHours || 0), 0);
+              const daySegs = allSegments.filter((s) => s.date === dateStr);
+              const totalHours = daySegs.reduce((acc, s) => acc + (s.segmentHours || 0), 0);
               const isSelected = selectedDateStr === dateStr;
               const isToday = dateStr === todayStr;
+              const hasOvernight = daySegs.some(s => s.isOvernight);
 
               return (
                 <button
@@ -719,13 +890,16 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                       ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400'
                       : isToday
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                      : dayRecords.length > 0
+                      : daySegs.length > 0
                       ? 'bg-slate-50 border-slate-200 text-slate-900 hover:border-blue-400'
                       : 'bg-white border-slate-100 text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center justify-between w-full">
-                    <span className="font-mono text-sm font-black">{dayNum}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono text-sm font-black">{dayNum}</span>
+                      {hasOvernight && <Moon className="w-3 h-3 text-indigo-500" />}
+                    </div>
                     {isToday && (
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'}`}>
                         اليوم
@@ -733,11 +907,11 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                     )}
                   </div>
 
-                  {dayRecords.length > 0 ? (
+                  {daySegs.length > 0 ? (
                     <div className="text-[10px] space-y-0.5 font-bold">
                       <div className="flex items-center gap-1 text-slate-600">
                         <UserCheck className="w-3 h-3" />
-                        <span>{dayRecords.length} موظفين</span>
+                        <span>{new Set(daySegs.map(s => s.userId)).size} موظفين</span>
                       </div>
                       <div className="font-mono text-[10px] text-blue-700 font-black">
                         {totalHours.toFixed(1)} ساعة
@@ -753,8 +927,8 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       )}
 
-      {/* SHIFT DETAILS MODAL (نافذة تفاصيل الشفت التفاعلية) */}
-      {selectedShiftForDetail && (
+      {/* SHIFT DETAILS MODAL */}
+      {selectedSegmentForDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -763,12 +937,12 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">{selectedShiftForDetail.userName}</h3>
-                  <span className="text-xs text-slate-500 font-mono">كود: {selectedShiftForDetail.employeeCode}</span>
+                  <h3 className="text-base font-black text-slate-900">{selectedSegmentForDetail.userName}</h3>
+                  <span className="text-xs text-slate-500 font-mono">كود: {selectedSegmentForDetail.employeeCode}</span>
                 </div>
               </div>
               <button
-                onClick={() => setSelectedShiftForDetail(null)}
+                onClick={() => setSelectedSegmentForDetail(null)}
                 className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer"
               >
                 ✕
@@ -776,48 +950,67 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             </div>
 
             <div className="space-y-3 text-xs font-semibold">
+              {/* Overnight Badge Alert */}
+              {selectedSegmentForDetail.isOvernight && (
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-900 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Moon className="w-4 h-4 text-indigo-600" />
+                    <span>وردية ليلية متداخلة في يومين (Overnight Shift)</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-700">
+                    {selectedSegmentForDetail.overnightPart === 'START'
+                      ? `الجزء الأول: من بداية الحضور (${formatTime12h(selectedSegmentForDetail.originalCheckIn)}) حتى منتصف الليل (12:00 ص).`
+                      : `الجزء الثاني: من منتصف الليل (12:00 ص) حتى وقت الانصراف (${formatTime12h(selectedSegmentForDetail.originalCheckOut || '06:00')}).`}
+                  </p>
+                </div>
+              )}
+
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">التاريخ:</span>
-                  <span className="font-bold text-slate-900 font-mono">{selectedShiftForDetail.date}</span>
+                  <span className="text-slate-500">تاريخ هذا اليوم:</span>
+                  <span className="font-bold text-slate-900 font-mono">{selectedSegmentForDetail.date}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">وقت الحضور:</span>
-                  <span className="font-bold text-emerald-700 font-mono">{formatTime12h(selectedShiftForDetail.checkInTime)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500">وقت الانصراف:</span>
-                  <span className="font-bold text-rose-700 font-mono">
-                    {selectedShiftForDetail.checkOutTime ? formatTime12h(selectedShiftForDetail.checkOutTime) : 'جاري العمل الآن 🟢'}
+                  <span className="text-slate-500">أوقات الساعات في هذا اليوم:</span>
+                  <span className="font-bold text-blue-700 font-mono">
+                    {selectedSegmentForDetail.startTime === '00:00' ? '12:00 ص' : formatTime12h(selectedSegmentForDetail.startTime)} ➔ {selectedSegmentForDetail.endTime === '24:00' ? '12:00 ص' : formatTime12h(selectedSegmentForDetail.endTime)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">مدة الشفت:</span>
-                  <span className="font-black text-slate-900 font-sans">{formatHoursText(selectedShiftForDetail.workHours)}</span>
+                  <span className="text-slate-500">ساعات الدوام المنسوبة لهذا اليوم:</span>
+                  <span className="font-black text-slate-900 font-sans">{formatHoursText(selectedSegmentForDetail.segmentHours)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">الأجر المحتسب:</span>
-                  <span className="font-black text-emerald-700 font-mono">{selectedShiftForDetail.earnedCost} د.ل</span>
+                  <span className="text-slate-500">المستحق المالي المنسوب لهذا اليوم:</span>
+                  <span className="font-black text-emerald-700 font-mono">{selectedSegmentForDetail.segmentEarned} د.ل</span>
                 </div>
+                {selectedSegmentForDetail.isOvernight && (
+                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                    <span>إجمالي كامل الشفت المتداخل:</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {formatHoursText(selectedSegmentForDetail.originalRecord.workHours || 0)} ({selectedSegmentForDetail.originalRecord.earnedCost} د.ل)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* GPS status */}
               <div className={`p-3 rounded-2xl border flex items-center gap-2.5 ${
-                selectedShiftForDetail.isOutsideGps
+                selectedSegmentForDetail.isOutsideGps
                   ? 'bg-amber-50 border-amber-200 text-amber-900'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-900'
               }`}>
-                {selectedShiftForDetail.isOutsideGps ? (
+                {selectedSegmentForDetail.isOutsideGps ? (
                   <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
                 ) : (
                   <MapPin className="w-5 h-5 text-emerald-600 shrink-0" />
                 )}
                 <div>
                   <p className="font-bold">
-                    {selectedShiftForDetail.isOutsideGps ? '⚠️ تسجيل خارج نطاق الصيدلية' : '🟢 تسجيل من داخل نطاق الصيدلية'}
+                    {selectedSegmentForDetail.isOutsideGps ? '⚠️ تسجيل خارج نطاق الصيدلية' : '🟢 تسجيل من داخل نطاق الصيدلية'}
                   </p>
                   <p className="text-[11px] opacity-80">
-                    {selectedShiftForDetail.isOutsideGps ? 'تم تسجيل الدخول أو الخروج من مسافة تزيد عن 200م' : 'ضمن نطاق الـ 200م المحدد للصيدلية'}
+                    {selectedSegmentForDetail.isOutsideGps ? 'تم تسجيل الدخول أو الخروج من مسافة تزيد عن 200م' : 'ضمن نطاق الـ 200م المحدد للصيدلية'}
                   </p>
                 </div>
               </div>
@@ -826,7 +1019,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setSelectedShiftForDetail(null)}
+                onClick={() => setSelectedSegmentForDetail(null)}
                 className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs flex items-center justify-center cursor-pointer transition-all"
               >
                 إغلاق
