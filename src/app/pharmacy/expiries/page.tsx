@@ -18,7 +18,7 @@ export default function PharmacyExpiriesPage() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
-  const fetchExpiries = async () => {
+  const fetchExpiries = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -33,17 +33,17 @@ export default function PharmacyExpiriesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, search]);
 
   useEffect(() => {
     fetchExpiries();
-  }, [filter, search]);
+  }, [fetchExpiries]);
 
   const totalAtRiskCost = items.reduce((sum, item) => sum + item.stockOnHand * item.costPrice, 0);
 
   const generateWhatsAppReturnsText = () => {
     let text = `*كشف مرتجعات أدوية قريبة الانتهاء* 📦⏳\n`;
-    text += `التاريخ: ${new Date().toLocaleDateString('ar-LY')}\n`;
+    text += `التاريخ: ${new Date().toLocaleDateString('ar-LY-u-nu-latn')}\n`;
     text += `عدد الأصناف: ${items.length}\n`;
     text += `------------------------------------\n`;
     items.forEach((item, idx) => {

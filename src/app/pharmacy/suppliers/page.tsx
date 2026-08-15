@@ -15,7 +15,7 @@ export default function PharmacySuppliersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -29,11 +29,11 @@ export default function PharmacySuppliersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   useEffect(() => {
     fetchSuppliers();
-  }, [search]);
+  }, [fetchSuppliers]);
 
   return (
     <div className="space-y-6">

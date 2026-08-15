@@ -191,7 +191,7 @@ export default function EmployeeDashboard() {
     } catch {
       router.push('/login');
     }
-  }, []);
+  }, [router]);
 
   const userRecords  = user ? records.filter((r) => r.userId === user.id) : [];
   const activeRecord = userRecords.find((r) => !r.checkOutTime) || null;

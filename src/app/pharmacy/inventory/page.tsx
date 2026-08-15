@@ -31,7 +31,7 @@ export default function PharmacyInventoryPage() {
   const [maxStock, setMaxStock] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchProducts = async () => {
+  const fetchProducts = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -53,11 +53,11 @@ export default function PharmacyInventoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search, filter, category]);
 
   useEffect(() => {
     fetchProducts();
-  }, [page, search, filter, category]);
+  }, [fetchProducts]);
 
   const openAdjust = (p: any) => {
     setAdjustingProduct(p);

@@ -60,7 +60,7 @@ export default function PharmacyShortagesPage() {
 
   const activeStudyDays = studyMode === 'presets' ? studyPeriod : calculatedCustomDays;
 
-  const fetchShortages = async () => {
+  const fetchShortages = React.useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -87,11 +87,11 @@ export default function PharmacyShortagesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, categoryFilter, branchFilter, coverageDays, studyMode, fromDate, toDate, calculatedCustomDays, studyPeriod]);
 
   useEffect(() => {
     fetchShortages();
-  }, [search, categoryFilter, branchFilter, studyMode, studyPeriod, fromDate, toDate, coverageDays]);
+  }, [fetchShortages]);
 
   // Cart Management
   const toggleCartItem = (item: any) => {

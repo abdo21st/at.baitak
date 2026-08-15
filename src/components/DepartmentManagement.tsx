@@ -32,7 +32,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   const [commissionTypeInput, setCommissionTypeInput] = useState<'SALES' | 'PURCHASES'>('SALES');
   const [commissionRateInput, setCommissionRateInput] = useState('');
 
-  const fetchDepartments = async () => {
+  const fetchDepartments = React.useCallback(async () => {
     try {
       const res = await fetch('/api/departments');
       const data = await res.json();
@@ -43,11 +43,11 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [onDepartmentsChange]);
 
   useEffect(() => {
     fetchDepartments();
-  }, []);
+  }, [fetchDepartments]);
 
   // 1. Add Department
   const handleAddDepartment = async (e: React.FormEvent) => {
