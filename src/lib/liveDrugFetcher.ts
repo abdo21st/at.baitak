@@ -7,6 +7,9 @@ export interface LiveDrugInfo {
   substanceName?: string;
   genericName?: string;
   productType?: string;
+  dosageForm?: string;
+  pharmClass?: string[];
+  activeIngredients?: Array<{ name: string; strength?: string }>;
   molecularFormula?: string;
   molecularWeight?: string;
   iupacName?: string;
@@ -20,6 +23,7 @@ export interface LiveDrugInfo {
   storageAndHandling?: string;
   drugInteractions?: string;
   pharmacokinetics?: string;
+  rxcui?: string[];
 }
 
 /**
@@ -52,12 +56,36 @@ function cleanSectionText(arr?: string[], maxLen = 350): string | undefined {
 }
 
 /**
- * Fetches official drug data from OpenFDA in real-time with authenticated API key
+ * Fetches official drug label data from OpenFDA (/drug/label.json) in real-time
  */
-async function fetchOpenFDA(query: string): Promise<any | null> {
+async function fetchOpenFDALabel(query: string): Promise<any | null> {
   try {
     const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
     const url = `https://api.fda.gov/drug/label.json?api_key=${apiKey}&search=(openfda.substance_name:"${encodeURIComponent(query)}"+OR+openfda.brand_name:"${encodeURIComponent(query)}"+OR+active_ingredient:"${encodeURIComponent(query)}"+OR+openfda.generic_name:"${encodeURIComponent(query)}")&limit=1`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      return data.results[0];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Fetches official NDC pharmacological classification from OpenFDA (/drug/ndc.json) in real-time
+ */
+async function fetchOpenFDANDC(query: string): Promise<any | null> {
+  try {
+    const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
+    const url = `https://api.fda.gov/drug/ndc.json?api_key=${apiKey}&search=(generic_name:"${encodeURIComponent(query)}"+OR+brand_name:"${encodeURIComponent(query)}"+OR+active_ingredients.name:"${encodeURIComponent(query)}")&limit=1`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
 
@@ -96,7 +124,7 @@ async function fetchPubChem(query: string): Promise<any | null> {
 }
 
 /**
- * Real-time Live Drug Data Fetcher & Clinical Synthesizer
+ * Real-time Live Drug Data Fetcher & Clinical Synthesizer (FDA Labels + NDC Classification + PubChem)
  */
 export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promise<ClinicalCapsuleData & { liveInfo: LiveDrugInfo }> {
   // 1. Generate base expert capsule
@@ -112,28 +140,33 @@ export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promi
 
   const primaryToken = searchTokens[0];
 
-  // 2. Fetch live data from OpenFDA & PubChem in parallel
-  const [fdaResult, pubChemResult] = await Promise.allSettled([
-    fetchOpenFDA(primaryToken),
+  // 2. Fetch live data from OpenFDA Label, OpenFDA NDC & PubChem concurrently
+  const [fdaLabelResult, fdaNdcResult, pubChemResult] = await Promise.allSettled([
+    fetchOpenFDALabel(primaryToken),
+    fetchOpenFDANDC(primaryToken),
     fetchPubChem(primaryToken)
   ]);
 
-  const fdaData = fdaResult.status === 'fulfilled' ? fdaResult.value : null;
+  const fdaData = fdaLabelResult.status === 'fulfilled' ? fdaLabelResult.value : null;
+  const ndcData = fdaNdcResult.status === 'fulfilled' ? fdaNdcResult.value : null;
   const pubChemData = pubChemResult.status === 'fulfilled' ? pubChemResult.value : null;
 
-  const isLiveSuccess = Boolean(fdaData || pubChemData);
+  const isLiveSuccess = Boolean(fdaData || ndcData || pubChemData);
 
   const liveInfo: LiveDrugInfo = {
-    source: fdaData
-      ? 'OpenFDA (U.S. FDA Drug Label) & DrugBank Database'
+    source: (fdaData || ndcData)
+      ? 'OpenFDA (FDA Directory & Drug Label) & DrugBank Database'
       : pubChemData
       ? 'PubChem (NIH) & DrugBank Database'
       : 'DrugBank Clinical Expert Database',
     isLive: isLiveSuccess,
-    brandName: fdaData?.openfda?.brand_name?.[0],
-    substanceName: fdaData?.openfda?.substance_name?.[0],
-    genericName: fdaData?.openfda?.generic_name?.[0],
-    productType: fdaData?.openfda?.product_type?.[0],
+    brandName: fdaData?.openfda?.brand_name?.[0] || ndcData?.brand_name,
+    substanceName: fdaData?.openfda?.substance_name?.[0] || ndcData?.generic_name,
+    genericName: fdaData?.openfda?.generic_name?.[0] || ndcData?.generic_name,
+    productType: fdaData?.openfda?.product_type?.[0] || ndcData?.product_type,
+    dosageForm: ndcData?.dosage_form,
+    pharmClass: ndcData?.pharm_class,
+    activeIngredients: ndcData?.active_ingredients,
     molecularFormula: pubChemData?.MolecularFormula,
     molecularWeight: pubChemData?.MolecularWeight,
     iupacName: pubChemData?.IUPACName,
@@ -146,11 +179,15 @@ export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promi
     pregnancyWarning: cleanSectionText(fdaData?.pregnancy_or_breast_feeding),
     storageAndHandling: cleanSectionText(fdaData?.storage_and_handling),
     drugInteractions: cleanSectionText(fdaData?.drug_interactions),
-    pharmacokinetics: cleanSectionText(fdaData?.pharmacokinetics || fdaData?.clinical_pharmacology)
+    pharmacokinetics: cleanSectionText(fdaData?.pharmacokinetics || fdaData?.clinical_pharmacology),
+    rxcui: fdaData?.openfda?.rxcui || ndcData?.openfda?.rxcui
   };
 
   // 3. Synthesize live FDA data into the clinical capsule
   let enhancedMechanism = baseCapsule.mechanismAndPk;
+  if (liveInfo.pharmClass && liveInfo.pharmClass.length > 0) {
+    enhancedMechanism += `\n• *التصنيف والآلية الدوائية المعتمدة لدى FDA (Pharm Class):* ${liveInfo.pharmClass.join(' • ')}`;
+  }
   if (liveInfo.molecularFormula && liveInfo.molecularWeight) {
     enhancedMechanism += ` [الصيغة الجزيئية: ${liveInfo.molecularFormula} • الكتلة: ${liveInfo.molecularWeight} g/mol]`;
   }
@@ -160,6 +197,10 @@ export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promi
 
   // Update Dosage & Timing if OpenFDA returned specific instructions
   let enhancedUsageTiming = baseCapsule.usageTiming;
+  if (liveInfo.activeIngredients && liveInfo.activeIngredients.length > 0) {
+    const ingText = liveInfo.activeIngredients.map((i) => `${i.name} (${i.strength || ''})`).join(', ');
+    enhancedUsageTiming = `• *المادة الفعالة والعيار:* ${ingText}\n• ${enhancedUsageTiming}`;
+  }
   if (liveInfo.dosageAndAdmin) {
     enhancedUsageTiming = `${enhancedUsageTiming}\n• *إرشادات الجرعة وفق النشرة الرسمية:* ${liveInfo.dosageAndAdmin}`;
   }
