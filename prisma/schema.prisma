@@ -204,6 +204,7 @@ model PharmacyProduct {
   costPrice        Float    @default(0.0)
   sellPrice        Float    @default(0.0)
   totalSoldQty     Float    @default(0.0)
+  inStockDays      Float    @default(30.0) // عدد الأيام التي كان فيها المخزون متوفراً لقياس سرعة السحب الحقيقية
   expiryDate       String?
   supplierId       Int?
   supplierName     String?
