@@ -9,12 +9,13 @@ import {
   UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
   Briefcase, MapPin, Settings, ShieldAlert, Navigation, MessageSquare, 
   Send, Check, Bell, PanelRightClose, PanelRightOpen, Menu, Sparkles, 
-  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText, Zap, Package, Printer
+  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText, Zap, Package, Printer, Pill
 } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 import RateRulesManagement from '@/components/RateRulesManagement';
 import BroadcastModal from '@/components/BroadcastModal';
+import ClinicalCapsuleModal from '@/components/ClinicalCapsuleModal';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
@@ -26,8 +27,9 @@ export default function AdminDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Broadcast Modal State
+  // Broadcast & Clinical Modal States
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
+  const [isClinicalModalOpen, setIsClinicalModalOpen] = useState(false);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
@@ -770,6 +772,25 @@ export default function AdminDashboard() {
             )}
           </button>
 
+          {/* Clinical Drug Capsule Button */}
+          <button
+            onClick={() => { setIsClinicalModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-teal-600/20 border-teal-500/40 text-teal-300 hover:bg-teal-600 hover:text-white shadow-sm`}
+            title="الكبسولة الدوائية والتدريب السريري الذكي للموظفين"
+          >
+            <Pill className="w-5 h-5 shrink-0 text-teal-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">الكبسولة الدوائية والتدريب</span>
+                <span className="px-2 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold">
+                  سريري 💊
+                </span>
+              </>
+            )}
+          </button>
+
           {/* Pharmacy Portal Link */}
           <button
             onClick={() => router.push('/pharmacy')}
@@ -855,6 +876,15 @@ export default function AdminDashboard() {
 
             {/* Quick Actions & Metrics Badge */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsClinicalModalOpen(true)}
+                className="h-10 px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="الكبسولة الدوائية والتدريب السريري للموظفين"
+              >
+                <Pill className="w-3.5 h-3.5" />
+                <span>الكبسولة الدوائية 💊</span>
+              </button>
+
               <button
                 onClick={() => setIsBroadcastModalOpen(true)}
                 className="h-10 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
@@ -2142,6 +2172,14 @@ export default function AdminDashboard() {
       <BroadcastModal
         isOpen={isBroadcastModalOpen}
         onClose={() => setIsBroadcastModalOpen(false)}
+        employees={users}
+        departments={departments}
+      />
+
+      {/* Clinical Drug Capsule & Staff Training Modal */}
+      <ClinicalCapsuleModal
+        isOpen={isClinicalModalOpen}
+        onClose={() => setIsClinicalModalOpen(false)}
         employees={users}
         departments={departments}
       />
