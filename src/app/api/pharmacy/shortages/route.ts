@@ -81,9 +81,27 @@ export async function GET(req: NextRequest) {
       const maxStockLevel = Number(item.maxStockLevel) || 0;
       const totalSoldQty = Number(item.totalSoldQty) || 0;
 
-      // حساب سرعة السحب اليومية الفعلية بناءً على الأيام المتوفرة
-      const inStockDays = Math.max(1, Number(item.inStockDays) || studyPeriodDays);
-      const velocity = calculateInStockVelocity(totalSoldQty, inStockDays);
+      // جلب مبيعات الفترة المحددة بدقة
+      let periodSoldQty = 0;
+      if (studyPeriodDays <= 30) {
+        periodSoldQty = Number(item.sold30Days) || 0;
+      } else if (studyPeriodDays <= 60) {
+        periodSoldQty = Number(item.sold60Days) || 0;
+      } else if (studyPeriodDays <= 90) {
+        periodSoldQty = Number(item.sold90Days) || 0;
+      } else {
+        periodSoldQty = Number(item.sold180Days) || 0;
+      }
+
+      // حساب سرعة السحب اليومية الحقيقية (Real Daily Velocity)
+      let velocity = 0;
+      if (periodSoldQty > 0) {
+        velocity = Number((periodSoldQty / studyPeriodDays).toFixed(2));
+      } else if (totalSoldQty > 0) {
+        // إذا لم يُبع الصنف مؤخراً، نحتسب متوسطاً تاريخياً واقعياً معتدلاً
+        velocity = Number((Math.min(0.1, totalSoldQty / 365)).toFixed(2));
+      }
+
       const doi = calculateDaysOfInventory(stockOnHand, velocity);
 
       // حساب الوحدات ومعامل التحويل للطلب بالوحدة الكبرى

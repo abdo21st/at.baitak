@@ -206,6 +206,10 @@ model PharmacyProduct {
   costPrice        Float    @default(0.0)
   sellPrice        Float    @default(0.0)
   totalSoldQty     Float    @default(0.0)
+  sold30Days       Float    @default(0.0) // مبيعات آخر 30 يوماً
+  sold60Days       Float    @default(0.0) // مبيعات آخر 60 يوماً
+  sold90Days       Float    @default(0.0) // مبيعات آخر 90 يوماً
+  sold180Days      Float    @default(0.0) // مبيعات آخر 180 يوماً
   inStockDays      Float    @default(30.0) // عدد الأيام التي كان فيها المخزون متوفراً لقياس سرعة السحب الحقيقية
   inventoryUnit    String?  @default("قطعة") // الوحدة الصغرى للمخزون
   orderUnit        String?  @default("عبوة") // الوحدة الكبرى لطلب الشراء

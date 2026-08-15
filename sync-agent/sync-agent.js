@@ -252,8 +252,22 @@ async function performSync(forceFullSync = false) {
       )`;
     }
 
-    // 1. قراءة الأصناف مع وحدات القياس ومعاملات التحويل
+    // 1. قراءة الأصناف مع فترات المبيعات الحقيقية (30، 60، 90، 180 يوماً) ووحدات القياس
     const stockQuery = `
+      DECLARE @maxDate DATETIME = (SELECT MAX(SalesInvoiceDate) FROM SALES.Data_SalesInvoices);
+
+      WITH RecentSales AS (
+        SELECT 
+          sii.ProductID_FK,
+          SUM(CASE WHEN si.SalesInvoiceDate >= DATEADD(day, -30, @maxDate) THEN sii.QYT * ISNULL(sii.UnitBaseQYT, 1) ELSE 0 END) AS sold30Days,
+          SUM(CASE WHEN si.SalesInvoiceDate >= DATEADD(day, -60, @maxDate) THEN sii.QYT * ISNULL(sii.UnitBaseQYT, 1) ELSE 0 END) AS sold60Days,
+          SUM(CASE WHEN si.SalesInvoiceDate >= DATEADD(day, -90, @maxDate) THEN sii.QYT * ISNULL(sii.UnitBaseQYT, 1) ELSE 0 END) AS sold90Days,
+          SUM(CASE WHEN si.SalesInvoiceDate >= DATEADD(day, -180, @maxDate) THEN sii.QYT * ISNULL(sii.UnitBaseQYT, 1) ELSE 0 END) AS sold180Days
+        FROM SALES.Data_SalesInvoiceItems sii
+        JOIN SALES.Data_SalesInvoices si ON sii.SalesInvoiceID_FK = si.SalesInvoiceID_PK
+        WHERE si.SalesInvoiceDate >= DATEADD(day, -180, @maxDate)
+        GROUP BY sii.ProductID_FK
+      )
       SELECT 
         p.ProductID_PK AS id,
         p.ProductCode AS code,
@@ -271,6 +285,10 @@ async function performSync(forceFullSync = false) {
         s.SupplierName AS supplierName,
         g.ProductGroupDescription AS groupName,
         ISNULL(p.TotalSoldQYT, 0) AS totalSoldQty,
+        ISNULL(rs.sold30Days, 0) AS sold30Days,
+        ISNULL(rs.sold60Days, 0) AS sold60Days,
+        ISNULL(rs.sold90Days, 0) AS sold90Days,
+        ISNULL(rs.sold180Days, 0) AS sold180Days,
         CONVERT(VARCHAR(10), p.LastSalesTransactionDate, 120) AS lastSalesDate,
         (
           SELECT TOP 1 CONVERT(VARCHAR(10), pi.ExpiryDate, 120) 
@@ -279,6 +297,7 @@ async function performSync(forceFullSync = false) {
           ORDER BY pi.ExpiryDate ASC
         ) AS expiryDate
       FROM Inventory.Data_Products p
+      LEFT JOIN RecentSales rs ON p.ProductID_PK = rs.ProductID_FK
       LEFT JOIN Inventory.Data_ProductUOMs uom ON p.ProductID_PK = uom.ProductID_FK AND uom.UomID_FK = p.DefaultSellUomID_FK
       LEFT JOIN Inventory.RefUOMs iu ON p.DefaultInventoryUomID_FK = iu.UOMID_PK
       LEFT JOIN Inventory.RefUOMs ou ON p.DefaultOrderUomID_FK = ou.UOMID_PK
