@@ -20,10 +20,16 @@ import {
   Building2,
   Sparkles,
   ArrowRightLeft,
-  Clock
+  Clock,
+  Download,
+  Send,
+  Loader2,
+  CheckCircle2,
+  FileText
 } from 'lucide-react';
 
 import PrintReportLayout from '@/components/PrintReportLayout';
+import { generatePurchaseOrderPdf } from '@/lib/pdfEngine';
 
 export default function PharmacyShortagesPage() {
   const [shortages, setShortages] = useState<any[]>([]);
@@ -31,6 +37,11 @@ export default function PharmacyShortagesPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
+
+  // PDF Generation State
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfActionStatus, setPdfActionStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [recipientPhone, setRecipientPhone] = useState('');
 
   // نمط دراسة حركة المخزون (فترات سريعة أو نطاق زمني مخصص)
   const [studyMode, setStudyMode] = useState<'presets' | 'custom'>('presets');
@@ -145,6 +156,102 @@ export default function PharmacyShortagesPage() {
     (sum, i) => sum + (Number(i.suggestedOrderPackages || 1) * (Number(i.purchaseUnitCost) || (Number(i.costPrice) * (Number(i.packSize) || 1)))),
     0
   );
+
+  const getOrderPdfData = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const orderNo = `PO-${today.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    return {
+      orderNumber: orderNo,
+      orderDate: today,
+      supplierName: 'السادة / مندوب التوريد والشركات المحترمين',
+      items: cartItemsList.map(({ item, requestedQty }) => {
+        const packSize = item.packSize || 1;
+        const unitPrice = Number(item.purchaseUnitCost) || (Number(item.costPrice) * packSize);
+        return {
+          code: item.code,
+          name: item.name,
+          currentStock: item.stockOnHand,
+          requestedQty,
+          unitPrice,
+          totalPrice: requestedQty * unitPrice
+        };
+      }),
+      totalAmount: totalCartEstimatedCost,
+      notes: `فترة دراسة حركة المخزون: [ ${studyMode === 'custom' ? `من ${fromDate} إلى ${toDate}` : `آخر ${studyPeriod} يوماً`} ] - تغطية مستهدفة: ${coverageDays} يوماً`
+    };
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const pdf = await generatePurchaseOrderPdf(getOrderPdfData());
+      pdf.download();
+      setPdfActionStatus({ type: 'success', message: 'تم تحميل ملف الـ PDF بنجاح! 📄' });
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'فشل إنشاء ملف الـ PDF' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const handleSharePdfWhatsApp = async () => {
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const pdf = await generatePurchaseOrderPdf(getOrderPdfData());
+      const shared = await pdf.shareViaWebShare();
+      if (shared) {
+        setPdfActionStatus({ type: 'success', message: 'تم فتح تطبيق واتساب لمشاركة ملف الـ PDF بنجاح! 🟢' });
+      }
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'فشل مشاركة ملف الـ PDF' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const handleSendPdfToWhatsAppDirect = async () => {
+    const targetPhone = recipientPhone.trim();
+
+    if (!targetPhone) {
+      setPdfActionStatus({ type: 'error', message: 'يُرجى إدخال رقم هاتف المستلم (واتساب) للإرسال المباشر' });
+      return;
+    }
+
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const orderData = getOrderPdfData();
+      const pdf = await generatePurchaseOrderPdf(orderData);
+
+      const res = await fetch('/api/pharmacy/send-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: targetPhone,
+          pdfBase64: pdf.base64,
+          fileName: pdf.fileName,
+          orderNumber: orderData.orderNumber,
+          supplierName: orderData.supplierName,
+          itemsCount: cartItemsList.length,
+          totalAmount: totalCartEstimatedCost
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setPdfActionStatus({ type: 'success', message: `تم إرسال مستند الـ PDF عبر واتساب إلى (${targetPhone}) بنجاح! 📄🟢` });
+      } else {
+        setPdfActionStatus({ type: 'error', message: data.error || 'فشل الإرسال عبر واتساب' });
+      }
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'حدث خطأ أثناء الإرسال' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
 
   const generateWhatsAppOrderText = () => {
     const nowStr = new Date().toISOString().split('T')[0];
@@ -647,24 +754,70 @@ export default function PharmacyShortagesPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            {/* Status Feedback Alert */}
+            {pdfActionStatus && (
+              <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                pdfActionStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}>
+                {pdfActionStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+                <span>{pdfActionStatus.message}</span>
+              </div>
+            )}
+
+            {/* Direct Phone Input for WhatsApp API */}
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+              <label className="block text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                <span>رقم هاتف المورد / المستلم (واتساب):</span>
+                <span className="text-[10px] text-slate-400">مثال: 0912345678 أو 218912345678</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  placeholder="أدخل رقم واتساب المورد للإرسال المباشر..."
+                  className="flex-1 h-11 bg-white border border-slate-200 rounded-xl px-3 text-xs font-mono font-bold focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={handleSendPdfToWhatsAppDirect}
+                  disabled={isPdfLoading}
+                  className="px-4 h-11 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                >
+                  {isPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span>إرسال PDF مباشر</span>
+                </button>
+              </div>
+            </div>
+
+            {/* PDF & Share Action Buttons */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <button
+                onClick={handleSharePdfWhatsApp}
+                disabled={isPdfLoading}
+                className="h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+              >
+                {isPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                <span>مشاركة PDF عبر واتساب</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isPdfLoading}
+                className="h-11 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-md flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>تحميل مستند PDF</span>
+              </button>
+
               <a
                 href={`https://wa.me/?text=${generateWhatsAppOrderText()}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl shadow-md flex items-center justify-center gap-2 text-xs transition-all"
+                className="h-11 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold rounded-xl flex items-center justify-center gap-2 text-xs transition-all"
               >
-                <Share2 className="w-4 h-4" />
-                <span>إرسال عبر واتساب</span>
+                <FileText className="w-4 h-4 text-slate-600" />
+                <span>إرسال نصي سريع</span>
               </a>
-
-              <button
-                onClick={() => window.print()}
-                className="h-11 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold rounded-xl flex items-center justify-center gap-2 text-xs transition-all cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة أمر الشراء</span>
-              </button>
             </div>
           </div>
         </div>

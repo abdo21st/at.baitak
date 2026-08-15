@@ -8,10 +8,16 @@ import {
   Share2,
   Trash2,
   Search,
-  FileText
+  FileText,
+  Download,
+  Send,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 import PrintReportLayout from '@/components/PrintReportLayout';
+import { generatePurchaseOrderPdf } from '@/lib/pdfEngine';
 
 export default function PharmacyPurchaseOrdersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -22,6 +28,11 @@ export default function PharmacyPurchaseOrdersPage() {
   const [items, setItems] = useState<any[]>([]);
   const [searchProd, setSearchProd] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
+
+  // PDF Generation State
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfActionStatus, setPdfActionStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [customPhone, setCustomPhone] = useState('');
 
   const fetchSuppliers = async () => {
     try {
@@ -89,6 +100,99 @@ export default function PharmacyPurchaseOrdersPage() {
 
   const totalEstimated = items.reduce((sum, i) => sum + i.estimatedTotal, 0);
 
+  const getPdfData = () => {
+    return {
+      orderNumber: `PO-${orderDate.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
+      orderDate,
+      supplierName: selectedSupplier || 'السادة / المورد المحترم',
+      items: items.map((i) => {
+        const packSize = i.packSize || 1;
+        const unitPrice = i.estimatedUnitCost || 0;
+        return {
+          code: i.productCode,
+          name: i.productName,
+          currentStock: i.currentStock,
+          requestedQty: i.requestedQty,
+          unitPrice,
+          totalPrice: i.estimatedTotal
+        };
+      }),
+      notes: orderNotes,
+      totalAmount: totalEstimated
+    };
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const pdf = await generatePurchaseOrderPdf(getPdfData());
+      pdf.download();
+      setPdfActionStatus({ type: 'success', message: 'تم تنزيل مستند الـ PDF بنجاح! 📄' });
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'فشل إنشاء ملف الـ PDF' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const handleSharePdfWhatsApp = async () => {
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const pdf = await generatePurchaseOrderPdf(getPdfData());
+      const shared = await pdf.shareViaWebShare();
+      if (shared) {
+        setPdfActionStatus({ type: 'success', message: 'تم فتح تطبيق واتساب لمشاركة ملف الـ PDF بنجاح! 🟢' });
+      }
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'فشل مشاركة ملف الـ PDF' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  const handleSendPdfToWhatsAppDirect = async () => {
+    const targetPhone = customPhone.trim();
+
+    if (!targetPhone) {
+      setPdfActionStatus({ type: 'error', message: 'يُرجى إدخال رقم هاتف المستلم (واتساب) للإرسال المباشر' });
+      return;
+    }
+
+    try {
+      setIsPdfLoading(true);
+      setPdfActionStatus(null);
+      const orderData = getPdfData();
+      const pdf = await generatePurchaseOrderPdf(orderData);
+
+      const res = await fetch('/api/pharmacy/send-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: targetPhone,
+          pdfBase64: pdf.base64,
+          fileName: pdf.fileName,
+          orderNumber: orderData.orderNumber,
+          supplierName: orderData.supplierName,
+          itemsCount: items.length,
+          totalAmount: totalEstimated
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setPdfActionStatus({ type: 'success', message: `تم إرسال أمر الشراء كملف PDF إلى واتساب (${targetPhone}) بنجاح! 📄🟢` });
+      } else {
+        setPdfActionStatus({ type: 'error', message: data.error || 'فشل الإرسال عبر واتساب' });
+      }
+    } catch (err: any) {
+      setPdfActionStatus({ type: 'error', message: err.message || 'حدث خطأ أثناء الإرسال' });
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
   const generateWhatsAppPOText = () => {
     let text = `*أمر شراء وتوريد أدوية رسمي* 📄🌿\n`;
     text += `إلى: *${selectedSupplier || 'الشركة الموردة'}*\n`;
@@ -116,6 +220,16 @@ export default function PharmacyPurchaseOrdersPage() {
 
   return (
     <div className="space-y-6 font-cairo">
+      {/* Status Feedback Alert */}
+      {pdfActionStatus && (
+        <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 no-print ${
+          pdfActionStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+        }`}>
+          {pdfActionStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />}
+          <span>{pdfActionStatus.message}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -123,29 +237,37 @@ export default function PharmacyPurchaseOrdersPage() {
             أوامر وطلبيات الشراء والتوريد
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            تجهيز وطباعة ومشاركة طلبيات الشراء للشركات والمندوبين
+            تجهيز وتوليد ملفات PDF ومشاركتها عبر واتساب للشركات والمندوبين
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {items.length > 0 && (
             <>
-              <a
-                href={`https://wa.me/?text=${generateWhatsAppPOText()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              <button
+                onClick={handleSharePdfWhatsApp}
+                disabled={isPdfLoading}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
-                <Share2 className="w-4 h-4" />
-                <span>إرسال واتساب</span>
-              </a>
+                {isPdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                <span>مشاركة PDF عبر واتساب</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isPdfLoading}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>تحميل PDF</span>
+              </button>
 
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة أمر الشراء (A4)</span>
+                <span>طباعة (A4)</span>
               </button>
             </>
           )}
