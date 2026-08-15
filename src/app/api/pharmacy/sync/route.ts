@@ -14,21 +14,46 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { products, suppliers, timestamp } = body;
+    const { action, branchCode: rawBranchCode, branchName: rawBranchName, products, suppliers, timestamp } = body;
+
+    const branchCode = String(rawBranchCode || 'MAIN_BRANCH').trim();
+    const branchName = String(rawBranchName || 'الفرع الرئيسي').trim();
+
+    // 1. Handling Data Reset / Purge
+    if (action === 'RESET_DATA' || action === 'PURGE_BRANCH') {
+      const deleteFilter = branchCode === 'ALL' ? {} : { branchCode };
+      const deletedProducts = await prisma.pharmacyProduct.deleteMany({ where: deleteFilter });
+      const deletedSuppliers = await prisma.pharmacySupplier.deleteMany({ where: deleteFilter });
+
+      return NextResponse.json({
+        success: true,
+        message: `تم تنظيف وتصفير بيانات المزامنة بنجاح (${deletedProducts.count} صنف، ${deletedSuppliers.count} مورد)`,
+        deletedProductsCount: deletedProducts.count,
+        deletedSuppliersCount: deletedSuppliers.count,
+        branchCode
+      });
+    }
 
     let updatedProductsCount = 0;
     let updatedSuppliersCount = 0;
 
-    // 1. Bulk Upsert Products
+    // 2. Bulk / Incremental Upsert Products
     if (products && Array.isArray(products) && products.length > 0) {
       for (const item of products) {
         if (!item.code || !item.name) continue;
 
         const aiInfo = classifyProduct(item.name);
+        const pCode = String(item.code);
 
         await prisma.pharmacyProduct.upsert({
-          where: { productCode: String(item.code) },
+          where: {
+            productCode_branchCode: {
+              productCode: pCode,
+              branchCode
+            }
+          },
           update: {
+            branchName,
             productName: item.name,
             stockOnHand: Number(item.stockOnHand) || 0,
             minStockLevel: Number(item.minStockLevel) || 0,
@@ -51,7 +76,9 @@ export async function POST(req: NextRequest) {
             lastSyncedAt: new Date()
           },
           create: {
-            productCode: String(item.code),
+            branchCode,
+            branchName,
+            productCode: pCode,
             productName: item.name,
             stockOnHand: Number(item.stockOnHand) || 0,
             minStockLevel: Number(item.minStockLevel) || 0,
@@ -78,14 +105,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Bulk Upsert Suppliers
+    // 3. Bulk / Incremental Upsert Suppliers
     if (suppliers && Array.isArray(suppliers) && suppliers.length > 0) {
       for (const s of suppliers) {
         if (!s.id || !s.name) continue;
+        const supId = Number(s.id);
 
         await prisma.pharmacySupplier.upsert({
-          where: { supplierIdPk: Number(s.id) },
+          where: {
+            supplierIdPk_branchCode: {
+              supplierIdPk: supId,
+              branchCode
+            }
+          },
           update: {
+            branchName,
             name: s.name,
             code: s.code || null,
             phone: s.phone || null,
@@ -97,7 +131,9 @@ export async function POST(req: NextRequest) {
             lastSyncedAt: new Date()
           },
           create: {
-            supplierIdPk: Number(s.id),
+            branchCode,
+            branchName,
+            supplierIdPk: supId,
             name: s.name,
             code: s.code || null,
             phone: s.phone || null,
@@ -113,7 +149,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Update Sync Timestamp in Settings
+    // 4. Update Sync Timestamp in Settings
     await prisma.pharmacySettings.upsert({
       where: { id: 'default' },
       update: { lastSyncTimestamp: new Date() },
@@ -122,7 +158,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'تمت المزامنة وحفظ البيانات في قاعدة بيانات السيرفر بنجاح',
+      message: `تمت المزامنة لفرع (${branchName}) وحفظ البيانات بنجاح`,
+      branchCode,
+      branchName,
       updatedProductsCount,
       updatedSuppliersCount,
       syncedAt: new Date().toISOString()

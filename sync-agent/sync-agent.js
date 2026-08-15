@@ -1,6 +1,9 @@
 /**
  * وكيل المزامنة الصيدلاني المتقدم مع واجهة تحكم بصرية GUI
- * يعمل كخادم ويب محلي خفيف على http://localhost:4040
+ * يدعم:
+ * 1. عزل وتحديد مصدر البيانات (Branch / Source Isolation)
+ * 2. المزامنة التفاضلية الذكية الفائقة لنقل المتغيرات فقط (Delta / Incremental Sync)
+ * 3. خيار تنظيف وتصفير بيانات السيرفر السحابي (Cloud Data Purge & Factory Reset)
  */
 
 const http = require('http');
@@ -11,6 +14,7 @@ const { exec } = require('child_process');
 
 const PORT = process.env.GUI_PORT || 4040;
 const ENV_FILE = path.join(__dirname, '.env');
+const STATE_FILE = path.join(__dirname, '.sync-state.json');
 
 // Memory Config
 let config = {
@@ -19,11 +23,34 @@ let config = {
   MSSQL_DATABASE: 'InfinityPharmacyDB',
   MSSQL_USER: 'sa',
   MSSQL_PASSWORD: '123',
+  BRANCH_CODE: 'MAIN_BRANCH',
+  BRANCH_NAME: 'الفرع الرئيسي',
   CLOUD_API_URL: 'https://at.baitak.mtapp.ly/api/pharmacy/sync',
   SYNC_API_KEY: 'PHARMACY_SYNC_KEY_2026',
   SYNC_INTERVAL_SEC: '60',
   AUTO_SYNC: 'true'
 };
+
+// Sync State (Persistent Last Sync Timestamp)
+let syncState = {
+  lastSyncTimestamp: null,
+  totalSyncedProducts: 0,
+  totalSyncedSuppliers: 0
+};
+
+function loadSyncState() {
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      syncState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    } catch {}
+  }
+}
+
+function saveSyncState() {
+  try {
+    fs.writeFileSync(STATE_FILE, JSON.stringify(syncState, null, 2), 'utf8');
+  } catch {}
+}
 
 // Logs & Stats
 const logs = [];
@@ -34,6 +61,7 @@ let lastSyncStats = {
   productsCount: 0,
   suppliersCount: 0,
   status: 'IDLE',
+  isIncremental: false,
   error: null
 };
 
@@ -99,7 +127,6 @@ function getDbConfig(customConfig) {
     }
   };
 
-  // If server contains backslash instance name, let mssql parse it
   if (cfg.server.includes('\\')) {
     delete cfg.port;
   }
@@ -151,8 +178,42 @@ async function testDbConnection(customConfig) {
   }
 }
 
-// Perform Full Sync
-async function performSync() {
+// Purge Cloud Data Action
+async function purgeCloudData(branchToPurge) {
+  try {
+    addLog(`🧹 جاري إرسال طلب تصفير بيانات السيرفر لفرع (${branchToPurge || config.BRANCH_CODE})...`, 'warn');
+    const res = await fetch(config.CLOUD_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sync-api-key': config.SYNC_API_KEY
+      },
+      body: JSON.stringify({
+        action: 'RESET_DATA',
+        branchCode: branchToPurge || config.BRANCH_CODE
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      syncState.lastSyncTimestamp = null;
+      syncState.totalSyncedProducts = 0;
+      syncState.totalSyncedSuppliers = 0;
+      saveSyncState();
+      addLog(`✅ تم تصفير بيانات السيرفر بنجاح (${data.deletedProductsCount || 0} صنف محذوف)`, 'success');
+      return { success: true, message: data.message };
+    } else {
+      addLog(`❌ فشل التصفير من السيرفر: ${data.error}`, 'error');
+      return { success: false, error: data.error };
+    }
+  } catch (e) {
+    addLog(`❌ خطأ في الاتصال بالسيرفر أثناء التصفير: ${e.message}`, 'error');
+    return { success: false, error: e.message };
+  }
+}
+
+// Perform Full or Incremental Sync
+async function performSync(forceFullSync = false) {
   if (isSyncing) {
     addLog('جولة المزامنة جارية بالفعل...', 'warn');
     return;
@@ -160,10 +221,36 @@ async function performSync() {
 
   isSyncing = true;
   lastSyncStats.status = 'SYNCING';
-  addLog('🔄 بدء جولة المزامنة ونقل البيانات للسيرفر السحابي...', 'info');
+
+  const isIncremental = !forceFullSync && Boolean(syncState.lastSyncTimestamp);
+  lastSyncStats.isIncremental = isIncremental;
+
+  if (isIncremental) {
+    addLog(`⚡ بدء مزامنة تفاضلية سريعة للمتغيرات فقط (منذ ${syncState.lastSyncTimestamp})...`, 'info');
+  } else {
+    addLog(`🔄 بدء مزامنة كاملة شاملة لكافة الأصناف والموردين لفرع (${config.BRANCH_NAME})...`, 'info');
+  }
+
+  const currentRunStart = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
   try {
     const db = await getDbConnection();
+
+    // بناء شرط المزامنة التفاضلية
+    let stockDeltaCondition = '';
+    let suppliersDeltaCondition = '';
+
+    if (isIncremental && syncState.lastSyncTimestamp) {
+      stockDeltaCondition = `AND (
+        p.ModifiedDate >= '${syncState.lastSyncTimestamp}' OR 
+        p.CreatedDate >= '${syncState.lastSyncTimestamp}' OR 
+        p.LastSalesTransactionDate >= '${syncState.lastSyncTimestamp}'
+      )`;
+      suppliersDeltaCondition = `AND (
+        s.ModifiedDate >= '${syncState.lastSyncTimestamp}' OR 
+        s.CreatedDate >= '${syncState.lastSyncTimestamp}'
+      )`;
+    }
 
     // 1. قراءة الأصناف
     const stockQuery = `
@@ -192,6 +279,7 @@ async function performSync() {
       LEFT JOIN Purchase.Data_Suppliers s ON p.MainSupplierID_FK = s.SupplierID_PK
       LEFT JOIN Inventory.RefProductGroups g ON p.ProductGroupID_FK = g.ProductGroupID_PK
       WHERE p.IsInActive = 0
+      ${stockDeltaCondition}
     `;
     const stockResult = await db.request().query(stockQuery);
     const products = stockResult.recordset;
@@ -210,11 +298,20 @@ async function performSync() {
         (SELECT ISNULL(SUM(pi.InvoiceNetTotal), 0) FROM Purchase.Data_PurchaseInvoices pi WHERE pi.SupplierID_FK = s.SupplierID_PK) AS totalPurchasesAmount
       FROM Purchase.Data_Suppliers s
       WHERE s.IsActiveAccount = 1
+      ${suppliersDeltaCondition}
     `;
     const suppliersResult = await db.request().query(suppliersQuery);
     const suppliers = suppliersResult.recordset;
 
-    addLog(`تم جلب ${products.length} صنف و ${suppliers.length} مورد من قاعدة البيانات المحلية. جاري الرفع...`, 'info');
+    if (products.length === 0 && suppliers.length === 0 && isIncremental) {
+      addLog('⚡ لا توجد مبيعات أو تعديلات جديدة في قاعدة البيانات (النظام متطابق 100%).', 'info');
+      syncState.lastSyncTimestamp = currentRunStart;
+      saveSyncState();
+      lastSyncStats.status = 'SUCCESS';
+      return;
+    }
+
+    addLog(`تم اكتشاف [${products.length} صنف معدل/مباع] و [${suppliers.length} مورد] لفرع (${config.BRANCH_NAME}). جاري الرفع...`, 'info');
 
     // 3. إرسال الموردين
     if (suppliers.length > 0) {
@@ -225,7 +322,12 @@ async function performSync() {
             'Content-Type': 'application/json',
             'x-sync-api-key': config.SYNC_API_KEY
           },
-          body: JSON.stringify({ timestamp: new Date().toISOString(), suppliers })
+          body: JSON.stringify({
+            timestamp: new Date().toISOString(),
+            branchCode: config.BRANCH_CODE,
+            branchName: config.BRANCH_NAME,
+            suppliers
+          })
         });
         const supData = await supRes.json();
         if (supData.success) {
@@ -251,7 +353,12 @@ async function performSync() {
           'Content-Type': 'application/json',
           'x-sync-api-key': config.SYNC_API_KEY
         },
-        body: JSON.stringify({ timestamp: new Date().toISOString(), products: batch })
+        body: JSON.stringify({
+          timestamp: new Date().toISOString(),
+          branchCode: config.BRANCH_CODE,
+          branchName: config.BRANCH_NAME,
+          products: batch
+        })
       });
 
       const resText = await response.text();
@@ -265,21 +372,34 @@ async function performSync() {
 
       if (resData.success) {
         totalSynced += batch.length;
-        addLog(`📤 الدفعة [${batchNum}/${totalBatches}]: تم نقل ${totalSynced} من ${products.length} صنف بنجاح.`, 'info');
+        if (totalBatches > 1) {
+          addLog(`📤 الدفعة [${batchNum}/${totalBatches}]: تم نقل ${totalSynced} من ${products.length} صنف بنجاح.`, 'info');
+        }
       } else {
         addLog(`تحذير في الدفعة [${batchNum}/${totalBatches}]: ${resData.error}`, 'warn');
       }
     }
+
+    // Update Persistent State
+    syncState.lastSyncTimestamp = currentRunStart;
+    if (!isIncremental) {
+      syncState.totalSyncedProducts = totalSynced;
+      syncState.totalSyncedSuppliers = suppliers.length;
+    } else {
+      syncState.totalSyncedProducts = (syncState.totalSyncedProducts || 0) + totalSynced;
+    }
+    saveSyncState();
 
     lastSyncStats = {
       timestamp: new Date().toLocaleTimeString('ar-LY') + ' - ' + new Date().toLocaleDateString('ar-LY'),
       productsCount: totalSynced,
       suppliersCount: suppliers.length,
       status: 'SUCCESS',
+      isIncremental,
       error: null
     };
 
-    addLog(`🟢 اكتملت المزامنة بنجاح! تم نقل ${totalSynced} صنفاً و ${suppliers.length} مورداً للسيرفر السحابي.`, 'success');
+    addLog(`🟢 اكتملت المزامنة بنجاح لفرع (${config.BRANCH_NAME})! تم تحديث ${totalSynced} صنفاً في السيرفر السحابي.`, 'success');
   } catch (err) {
     lastSyncStats = {
       ...lastSyncStats,
@@ -302,7 +422,7 @@ function setupAutoSync() {
   if (config.AUTO_SYNC === 'true') {
     addLog(`تم تفعيل المزامنة التلقائية كل ${intervalSec} ثانية ⏱️`, 'info');
     autoSyncTimer = setInterval(() => {
-      performSync();
+      performSync(false); // incremental by default
     }, intervalSec * 1000);
   } else {
     addLog('المزامنة التلقائية متوقفة حالياً ⏸️', 'warn');
@@ -315,18 +435,17 @@ const HTML_PAGE = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>وكيل المزامنة الصيدلاني | صيدلية بيتك</title>
+  <title>وكيل المزامنة الصيدلاني المتقدم | صيدلية بيتك</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
     body { background: #0f172a; color: #f8fafc; padding: 24px 16px; min-height: 100vh; }
     .container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
     .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); }
     .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
-    .header-title { display: flex; items-center; gap: 12px; }
+    .header-title { display: flex; align-items: center; gap: 12px; }
     .logo-badge { width: 48px; height: 48px; border-radius: 16px; background: #059669; display: flex; align-items: center; justify-content: center; color: white; font-weight: 900; font-size: 20px; }
     .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 12px; font-size: 12px; font-weight: 800; }
     .status-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
@@ -341,14 +460,14 @@ const HTML_PAGE = `<!DOCTYPE html>
     .btn-primary:hover { background: #059669; }
     .btn-secondary { background: #3b82f6; color: white; }
     .btn-secondary:hover { background: #2563eb; }
-    .btn-dark { background: #334155; color: #f8fafc; }
-    .btn-dark:hover { background: #475569; }
+    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background: #ef4444; color: white; }
     .btn-outline { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
     .btn-outline:hover { background: #334155; color: white; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
     .stat-box { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 14px; }
     .stat-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; display: flex; align-items: center; justify-content: center; font-weight: 900; }
-    .stat-val { font-size: 20px; font-weight: 900; font-family: monospace; color: #f8fafc; }
+    .stat-val { font-size: 18px; font-weight: 900; font-family: monospace; color: #f8fafc; }
     .stat-label { font-size: 11px; font-weight: 700; color: #64748b; }
     .logs-box { background: #090d16; border: 1px solid #1e293b; border-radius: 16px; padding: 14px; height: 260px; overflow-y: auto; font-family: monospace; font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
     .log-item { display: flex; gap: 10px; line-height: 1.5; }
@@ -378,19 +497,23 @@ const HTML_PAGE = `<!DOCTYPE html>
         <div class="header-title">
           <div class="logo-badge">🌿</div>
           <div>
-            <h1 style="font-size: 18px; font-weight: 900; color: #f8fafc;">وكيل المزامنة السحابي لمنظومة الصيدلية</h1>
-            <p style="font-size: 11px; font-weight: 600; color: #94a3b8;">نقل الأصناف، الأرصدة، النواقص، والموردين من قاعدة البيانات المحلية إلى السيرفر السحابي</p>
+            <h1 style="font-size: 18px; font-weight: 900; color: #f8fafc;">وكيل المزامنة الصيدلاني السحابي المتقدم</h1>
+            <p style="font-size: 11px; font-weight: 600; color: #94a3b8;">دعم عزل الفروع ومصادر البيانات المتعددة • المزامنة التفاضلية الفائقة للمتغيرات • التصفير الشامل</p>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
           <div id="statusIndicator" class="status-badge status-active">
             <span style="width: 8px; height: 8px; border-radius: 50%; background: #34d399;"></span>
             <span>جاهز للمزامنة</span>
           </div>
 
-          <button id="btnSyncNow" onclick="triggerSyncNow()" class="btn btn-primary">
-            <span>⚡ مزامنة فورية الآن</span>
+          <button id="btnDeltaSync" onclick="triggerSync(false)" class="btn btn-secondary">
+            <span>⚡ مزامنة المتغيرات</span>
+          </button>
+
+          <button id="btnFullSync" onclick="triggerSync(true)" class="btn btn-primary">
+            <span>🔄 مزامنة كاملة</span>
           </button>
         </div>
       </div>
@@ -398,31 +521,31 @@ const HTML_PAGE = `<!DOCTYPE html>
       <!-- Quick Metrics -->
       <div class="stats-grid" style="margin-top: 20px;">
         <div class="stat-box">
-          <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">📦</div>
+          <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">🏢</div>
+          <div>
+            <div id="statBranch" class="stat-val" style="font-size: 14px; font-family: 'Cairo';">الفرع الرئيسي</div>
+            <div class="stat-label">مصدر البيانات المحدد</div>
+          </div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">📦</div>
           <div>
             <div id="statProducts" class="stat-val">0</div>
-            <div class="stat-label">الأصناف المنقولة للسيرفر</div>
+            <div class="stat-label">الأصناف المحدثة في السيرفر</div>
           </div>
         </div>
 
         <div class="stat-box">
-          <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">🏢</div>
+          <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">⏱️</div>
           <div>
-            <div id="statSuppliers" class="stat-val">0</div>
-            <div class="stat-label">الموردون المعتمدون</div>
-          </div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">⏱️</div>
-          <div>
-            <div id="statLastSync" class="stat-val" style="font-size: 13px; font-family: 'Cairo';">لم تبدأ بعد</div>
+            <div id="statLastSync" class="stat-val" style="font-size: 12px; font-family: 'Cairo';">لم تبدأ بعد</div>
             <div class="stat-label">آخر مزامنة ناجحة</div>
           </div>
         </div>
 
         <div class="stat-box">
-          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">🔄</div>
+          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">⚡</div>
           <div>
             <div id="statInterval" class="stat-val">60 ثانية</div>
             <div class="stat-label">تكرار المزامنة التلقائية</div>
@@ -441,6 +564,17 @@ const HTML_PAGE = `<!DOCTYPE html>
         </h2>
 
         <form id="dbForm" onsubmit="event.preventDefault();">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>كود الفرع / المعرف (Branch Code)</label>
+              <input type="text" id="BRANCH_CODE" class="form-input" dir="ltr" placeholder="MAIN_BRANCH">
+            </div>
+            <div class="form-group">
+              <label>اسم الفرع أو المنظومة (Branch Name)</label>
+              <input type="text" id="BRANCH_NAME" class="form-input" placeholder="الفرع الرئيسي">
+            </div>
+          </div>
+
           <div class="form-group">
             <label>عنوان خادم SQL Server أو الـ IP (Server / Host)</label>
             <input type="text" id="MSSQL_SERVER" class="form-input" dir="ltr" placeholder="127.0.0.1 أو .\\SQLEXPRESS">
@@ -478,10 +612,10 @@ const HTML_PAGE = `<!DOCTYPE html>
         </form>
       </div>
 
-      <!-- Cloud Target Portal Config -->
+      <!-- Cloud Target Portal Config & Purge Actions -->
       <div class="card">
         <h2 style="font-size: 15px; font-weight: 900; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-          <span>☁️ إعدادات السيرفر السحابي المستهدف (Cloud Target)</span>
+          <span>☁️ إعدادات السيرفر السحابي والتحكم بالبيانات</span>
         </h2>
 
         <form id="cloudForm" onsubmit="event.preventDefault();">
@@ -497,7 +631,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div class="form-group">
-              <label>فترة المزامنة (بالثواني)</label>
+              <label>فترة المزامنة التلقائية (بالثواني)</label>
               <input type="number" id="SYNC_INTERVAL_SEC" min="10" max="3600" class="form-input" dir="ltr" placeholder="60">
             </div>
 
@@ -513,9 +647,13 @@ const HTML_PAGE = `<!DOCTYPE html>
             </div>
           </div>
 
-          <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button type="button" onclick="saveAllSettings()" class="btn btn-primary" style="flex: 1;">
-              <span>💾 حفظ الإعدادات وتطبيقها فوراً</span>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px;">
+            <button type="button" onclick="saveAllSettings()" class="btn btn-primary">
+              <span>💾 حفظ الإعدادات</span>
+            </button>
+
+            <button type="button" onclick="purgeCloud()" class="btn btn-danger" title="حذف وتصفير بيانات هذا الفرع في السيرفر السحابي للبدء من جديد">
+              <span>🧹 تصفير السيرفر</span>
             </button>
           </div>
 
@@ -552,6 +690,8 @@ const HTML_PAGE = `<!DOCTYPE html>
         const res = await fetch('/api/config');
         const data = await res.json();
         if (data.config) {
+          document.getElementById('BRANCH_CODE').value = data.config.BRANCH_CODE || 'MAIN_BRANCH';
+          document.getElementById('BRANCH_NAME').value = data.config.BRANCH_NAME || 'الفرع الرئيسي';
           document.getElementById('MSSQL_SERVER').value = data.config.MSSQL_SERVER || '127.0.0.1';
           document.getElementById('MSSQL_PORT').value = data.config.MSSQL_PORT || '1433';
           document.getElementById('MSSQL_DATABASE').value = data.config.MSSQL_DATABASE || 'InfinityPharmacyDB';
@@ -630,6 +770,8 @@ const HTML_PAGE = `<!DOCTYPE html>
       alert.style.display = 'none';
 
       const payload = {
+        BRANCH_CODE: document.getElementById('BRANCH_CODE').value,
+        BRANCH_NAME: document.getElementById('BRANCH_NAME').value,
         MSSQL_SERVER: document.getElementById('MSSQL_SERVER').value,
         MSSQL_PORT: document.getElementById('MSSQL_PORT').value,
         MSSQL_DATABASE: document.getElementById('MSSQL_DATABASE').value,
@@ -651,7 +793,7 @@ const HTML_PAGE = `<!DOCTYPE html>
         alert.style.display = 'block';
         if (data.success) {
           alert.className = 'alert-box alert-success';
-          alert.textContent = '✅ تم حفظ الإعدادات وتحديث جدول المزامنة بنجاح!';
+          alert.textContent = '✅ تم حفظ الإعدادات وتطبيقها بنجاح!';
         } else {
           alert.className = 'alert-box alert-error';
           alert.textContent = '❌ خطأ في الحفظ: ' + data.error;
@@ -663,20 +805,44 @@ const HTML_PAGE = `<!DOCTYPE html>
       }
     }
 
-    async function triggerSyncNow() {
-      const btn = document.getElementById('btnSyncNow');
+    async function triggerSync(fullSync) {
+      const btn = fullSync ? document.getElementById('btnFullSync') : document.getElementById('btnDeltaSync');
       btn.disabled = true;
+      const originalText = btn.innerHTML;
       btn.innerHTML = '<span>جاري المزامنة... ⏳</span>';
 
       try {
-        await fetch('/api/sync-now', { method: 'POST' });
+        await fetch('/api/sync-now', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fullSync })
+        });
       } catch (e) {
         console.error('Trigger sync error:', e);
       } finally {
         setTimeout(() => {
           btn.disabled = false;
-          btn.innerHTML = '<span>⚡ مزامنة فورية الآن</span>';
-        }, 2000);
+          btn.innerHTML = originalText;
+        }, 1500);
+      }
+    }
+
+    async function purgeCloud() {
+      const branchName = document.getElementById('BRANCH_NAME').value || 'هذا الفرع';
+      if (!confirm('⚠️ تحذير: هل أنت متأكد من تصفير وحذف كافة بيانات المخزون والأصناف في السيرفر السحابي الخاصة بـ (' + branchName + ')؟ للبدء من جديد؟')) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/purge-cloud', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ ' + data.message);
+        } else {
+          alert('❌ خطأ: ' + data.error);
+        }
+      } catch (e) {
+        alert('❌ خطأ في الاتصال');
       }
     }
 
@@ -686,9 +852,9 @@ const HTML_PAGE = `<!DOCTYPE html>
         const data = await res.json();
 
         // Update stats
-        document.getElementById('statProducts').textContent = data.lastSyncStats?.productsCount || 0;
-        document.getElementById('statSuppliers').textContent = data.lastSyncStats?.suppliersCount || 0;
-        document.getElementById('statLastSync').textContent = data.lastSyncStats?.timestamp || 'لم تبدأ بعد';
+        document.getElementById('statBranch').textContent = data.config?.BRANCH_NAME || 'الفرع الرئيسي';
+        document.getElementById('statProducts').textContent = data.syncState?.totalSyncedProducts || data.lastSyncStats?.productsCount || 0;
+        document.getElementById('statLastSync').textContent = data.lastSyncStats?.timestamp || (data.syncState?.lastSyncTimestamp || 'لم تبدأ بعد');
         document.getElementById('statInterval').textContent = (data.config?.SYNC_INTERVAL_SEC || 60) + ' ثانية';
 
         // Update Status indicator
@@ -801,9 +967,26 @@ const server = http.createServer(async (req, res) => {
 
   // Route: POST /api/sync-now
   if (url.pathname === '/api/sync-now' && req.method === 'POST') {
-    performSync(); // trigger async
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      let fullSync = false;
+      try {
+        const parsed = JSON.parse(body || '{}');
+        fullSync = Boolean(parsed.fullSync);
+      } catch {}
+      performSync(fullSync);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: fullSync ? 'بدأت المزامنة الكاملة' : 'بدأت المزامنة التفاضلية' }));
+    });
+    return;
+  }
+
+  // Route: POST /api/purge-cloud
+  if (url.pathname === '/api/purge-cloud' && req.method === 'POST') {
+    const result = await purgeCloudData();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: 'بدأت عملية المزامنة الآن' }));
+    res.end(JSON.stringify(result));
     return;
   }
 
@@ -813,6 +996,7 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       success: true,
       config,
+      syncState,
       isSyncing,
       lastSyncStats,
       logs: logs.slice(0, 50)
@@ -835,6 +1019,7 @@ const server = http.createServer(async (req, res) => {
 
 // Start Everything
 loadEnv();
+loadSyncState();
 
 server.listen(PORT, () => {
   console.log('================================================================');

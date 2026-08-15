@@ -15,8 +15,16 @@ export async function GET(req: NextRequest) {
     // the "below min stock" condition (Prisma can't compare two columns directly).
     // Shortage = stockOnHand <= 0 OR (stockOnHand > 0 AND minStockLevel > 0 AND stockOnHand < minStockLevel)
 
+    const branch = searchParams.get('branch');
+
     let categoryFilter = '';
     let searchFilter = '';
+    let branchFilter = '';
+
+    if (branch && branch !== 'all' && branch !== 'ALL') {
+      const safeBranch = branch.replace(/'/g, "''");
+      branchFilter = `AND "branchCode" = '${safeBranch}'`;
+    }
 
     // Build raw SQL conditions safely (category and search are validated, not user-injectable SQL)
     if (category && category !== 'all') {
@@ -33,14 +41,14 @@ export async function GET(req: NextRequest) {
       )`;
     }
 
-    // BUG FIX 3: Remove dead query (shortageItems) that was never used — was wasted DB round-trip
-    // Use queryRawUnsafe only (with safe category and search conditions)
+    // Shortage = stockOnHand <= 0 OR (stockOnHand > 0 AND minStockLevel > 0 AND stockOnHand < minStockLevel)
     const rawQuery = `
       SELECT * FROM "PharmacyProduct"
       WHERE (
         "stockOnHand" <= 0 OR
         ("stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel")
       )
+      ${branchFilter}
       ${categoryFilter}
       ${searchFilter}
       ORDER BY "stockOnHand" ASC, "totalSoldQty" DESC

@@ -12,8 +12,15 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '25', 10);
 
+    const branch = searchParams.get('branch');
+
     // Build WHERE conditions
     const conditions: string[] = [];
+
+    if (branch && branch !== 'all' && branch !== 'ALL') {
+      const safeBranch = branch.replace(/'/g, "''");
+      conditions.push(`"branchCode" = '${safeBranch}'`);
+    }
 
     if (search.trim()) {
       const safeTerm = search.trim().replace(/'/g, "''");
