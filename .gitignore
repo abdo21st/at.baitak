@@ -35,3 +35,9 @@ next-env.d.ts
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Build artifacts & blobs
+scratch/
+sync-agent/dist/
+*.blob
+*.exe
