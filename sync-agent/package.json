@@ -1,0 +1,12 @@
+{
+  "name": "pharmacy-infinity-sync-agent",
+  "version": "1.0.0",
+  "description": "Local background sync agent for Infinity SQL Server database to Cloud Portal",
+  "main": "sync-agent.js",
+  "scripts": {
+    "start": "node sync-agent.js"
+  },
+  "dependencies": {
+    "mssql": "^11.0.1"
+  }
+}
