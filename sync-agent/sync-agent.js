@@ -252,7 +252,7 @@ async function performSync(forceFullSync = false) {
       )`;
     }
 
-    // 1. قراءة الأصناف
+    // 1. قراءة الأصناف مع وحدات القياس ومعاملات التحويل
     const stockQuery = `
       SELECT 
         p.ProductID_PK AS id,
@@ -263,6 +263,10 @@ async function performSync(forceFullSync = false) {
         p.MaxStockLevel AS maxStockLevel,
         ISNULL(uom.UomCost, 0) AS costPrice,
         ISNULL(uom.UomPrice1, 0) AS sellPrice,
+        ISNULL(iu.UOMName, N'قطعة') AS inventoryUnit,
+        ISNULL(ou.UOMName, N'عبوة') AS orderUnit,
+        ISNULL(puom.BaseUnitQYT, 1) AS packSize,
+        ISNULL(puom.UomPurchaseCost, ISNULL(uom.UomCost, 0)) AS purchaseUnitCost,
         p.MainSupplierID_FK AS supplierId,
         s.SupplierName AS supplierName,
         g.ProductGroupDescription AS groupName,
@@ -276,6 +280,9 @@ async function performSync(forceFullSync = false) {
         ) AS expiryDate
       FROM Inventory.Data_Products p
       LEFT JOIN Inventory.Data_ProductUOMs uom ON p.ProductID_PK = uom.ProductID_FK AND uom.UomID_FK = p.DefaultSellUomID_FK
+      LEFT JOIN Inventory.RefUOMs iu ON p.DefaultInventoryUomID_FK = iu.UOMID_PK
+      LEFT JOIN Inventory.RefUOMs ou ON p.DefaultOrderUomID_FK = ou.UOMID_PK
+      LEFT JOIN Inventory.Data_ProductUOMs puom ON p.ProductID_PK = puom.ProductID_FK AND puom.UomID_FK = p.DefaultOrderUomID_FK
       LEFT JOIN Purchase.Data_Suppliers s ON p.MainSupplierID_FK = s.SupplierID_PK
       LEFT JOIN Inventory.RefProductGroups g ON p.ProductGroupID_FK = g.ProductGroupID_PK
       WHERE p.IsInActive = 0

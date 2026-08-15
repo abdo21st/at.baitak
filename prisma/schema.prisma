@@ -207,6 +207,10 @@ model PharmacyProduct {
   sellPrice        Float    @default(0.0)
   totalSoldQty     Float    @default(0.0)
   inStockDays      Float    @default(30.0) // عدد الأيام التي كان فيها المخزون متوفراً لقياس سرعة السحب الحقيقية
+  inventoryUnit    String?  @default("قطعة") // الوحدة الصغرى للمخزون
+  orderUnit        String?  @default("عبوة") // الوحدة الكبرى لطلب الشراء
+  packSize         Float    @default(1.0) // معامل التحويل (كم وحدة صغرى داخل الوحدة الكبرى)
+  purchaseUnitCost Float    @default(0.0) // تكلفة شراء الوحدة الكبرى
   expiryDate       String?
   supplierId       Int?
   supplierName     String?

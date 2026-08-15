@@ -72,25 +72,38 @@ export async function GET(req: NextRequest) {
     });
 
     const now = new Date();
+    const targetCoverageDays = parseInt(searchParams.get('coverageDays') || '30', 10);
+    const studyPeriodDays = parseInt(searchParams.get('studyPeriod') || '30', 10);
 
     const enriched = items.map((item: any) => {
-      const totalSoldQty = Number(item.totalSoldQty) || 0;
       const stockOnHand = Number(item.stockOnHand) || 0;
       const minStockLevel = Number(item.minStockLevel) || 0;
       const maxStockLevel = Number(item.maxStockLevel) || 0;
+      const totalSoldQty = Number(item.totalSoldQty) || 0;
 
-      // BUG FIX 4: Use inStockDays from DB (days the item had stock) not a hardcoded 30
-      // This implements the user's requirement: only measure velocity during in-stock periods
-      const inStockDays = Math.max(1, Number(item.inStockDays) || 30);
+      // حساب سرعة السحب اليومية الفعلية بناءً على الأيام المتوفرة
+      const inStockDays = Math.max(1, Number(item.inStockDays) || studyPeriodDays);
       const velocity = calculateInStockVelocity(totalSoldQty, inStockDays);
       const doi = calculateDaysOfInventory(stockOnHand, velocity);
 
-      // BUG FIX 5: suggestedOrderQty must never be negative (if stockOnHand > maxStockLevel)
-      // Suggested order qty: aim to fill to maxStockLevel, or 2x min, or 10 at minimum
-      const baseQty = maxStockLevel > 0
-        ? maxStockLevel - stockOnHand
-        : (minStockLevel > 0 ? minStockLevel * 2 - stockOnHand : 10);
-      const suggestedOrderQty = Math.max(10, Math.round(Math.max(0, baseQty)));
+      // حساب الوحدات ومعامل التحويل للطلب بالوحدة الكبرى
+      const inventoryUnit = item.inventoryUnit || 'قطعة';
+      const orderUnit = item.orderUnit || 'عبوة';
+      const packSize = Math.max(1, Number(item.packSize) || 1.0);
+      const costPrice = Number(item.costPrice) || 0;
+      const purchaseUnitCost = Number(item.purchaseUnitCost) || (costPrice * packSize);
+
+      // معادلة الكمية المطلوبة بالوحدات الصغرى لتغطية الفترة المحددة
+      const targetDemand = velocity * targetCoverageDays;
+      const neededSmallUnits = Math.max(0, targetDemand - stockOnHand);
+
+      // تحويل الوحدات المطلوبة إلى وحدات شراء كبرى (Packages)
+      let suggestedOrderPackages = Math.ceil(neededSmallUnits / packSize);
+      if (suggestedOrderPackages <= 0 && stockOnHand <= 0) {
+        suggestedOrderPackages = 1; // حد أدنى عبوة واحدة في حال النفاذ التام
+      }
+      const suggestedTotalSmallUnits = suggestedOrderPackages * packSize;
+      const estimatedOrderCost = suggestedOrderPackages * purchaseUnitCost;
 
       // Generic risk: find near-expiry alternative with same active ingredient
       let genericRisk = null;
@@ -110,7 +123,7 @@ export async function GET(req: NextRequest) {
             substituteStock: match.stockOnHand,
             substituteExpiryDate: match.expiryDate,
             substituteDaysRemaining: daysLeft,
-            recommendationMessage: `تنبيه بدائل: رصيد (${match.stockOnHand}) علبة من [${match.productName}] ينتهي خلال ${daysLeft} يوماً – تصريفه أولاً قبل طلب هذا الصنف!`
+            recommendationMessage: `تنبيه بدائل: رصيد (${match.stockOnHand}) من [${match.productName}] ينتهي خلال ${daysLeft} يوماً – يفضل تصريفه أولاً!`
           };
         }
       }
@@ -125,11 +138,20 @@ export async function GET(req: NextRequest) {
         productId: item.id,
         code: item.productCode,
         name: item.productName,
+        branchCode: item.branchCode || 'MAIN_BRANCH',
+        branchName: item.branchName || 'الفرع الرئيسي',
         stockOnHand,
         minStockLevel,
         maxStockLevel,
-        suggestedOrderQty,
-        costPrice: Number(item.costPrice) || 0,
+        inventoryUnit,
+        orderUnit,
+        packSize,
+        purchaseUnitCost,
+        suggestedOrderPackages,
+        suggestedTotalSmallUnits,
+        suggestedOrderQty: suggestedOrderPackages,
+        estimatedOrderCost,
+        costPrice,
         sellPrice: Number(item.sellPrice) || 0,
         totalSoldQty,
         supplierName: item.supplierName,
