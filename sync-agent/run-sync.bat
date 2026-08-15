@@ -1,10 +1,11 @@
 @echo off
-title Pharmacy Infinity Cloud Realtime Sync Agent
+title وكيل مزامنة صيدلية بيتك مع السيرفر السحابي
 color 0A
-echo ========================================================
-echo   Starting Pharmacy Infinity Cloud Realtime Sync Agent...
-echo   Target: https://at.baitak.mtapp.ly/api/pharmacy/sync
-echo ========================================================
+chcp 65001 >nul
+echo ===================================================================
+echo   🌿 تشغيل وكيل المزامنة الصيدلاني لمنظومة إنفينيتي السحابية
+echo   🌐 جاري تشغيل الواجهة البصرية على: http://localhost:4040
+echo ===================================================================
 cd /d %~dp0
 node sync-agent.js
 pause
