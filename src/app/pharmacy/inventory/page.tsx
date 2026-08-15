@@ -136,7 +136,7 @@ export default function PharmacyInventoryPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-12 gap-3">
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-12 gap-3 no-print">
         <div className="sm:col-span-5 relative">
           <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
           <input

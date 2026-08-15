@@ -228,7 +228,7 @@ export default function PharmacyShortagesPage() {
       </div>
 
       {/* Control Panel: Study Period (Presets vs Custom Range) & Target Coverage */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4 no-print">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
           {/* Study Period Window (7 cols) */}
@@ -571,7 +571,7 @@ export default function PharmacyShortagesPage() {
 
       {/* Cart Modal */}
       {isOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 no-print">
           <div className="bg-white w-full max-w-2xl rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>

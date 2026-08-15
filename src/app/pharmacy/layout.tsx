@@ -173,7 +173,7 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:mr-64 min-h-screen flex flex-col transition-all">
+      <div className="flex-1 lg:mr-64 min-h-screen flex flex-col transition-all print:mr-0 print:m-0 print:p-0 print:w-full print:block">
         {/* Top Navbar */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 lg:px-8 py-3 flex items-center justify-between no-print">
           <div className="flex items-center gap-3">
@@ -208,7 +208,7 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto print:max-w-full print:w-full print:p-0 print:m-0 print:block">
           {children}
         </main>
       </div>
