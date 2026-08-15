@@ -8,12 +8,13 @@ import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
   Play, Square, Zap, User as UserIcon, Lock,
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
-  MapPin, Navigation, Bell, ShieldAlert, Edit3, X
+  MapPin, Navigation, Bell, ShieldAlert, Edit3, X, Printer
 } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { registerServiceWorker, requestNotificationPermission, startGeofenceWatcher } from '@/lib/pwa-notifications';
+import PrintReportLayout from '@/components/PrintReportLayout';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -466,20 +467,24 @@ export default function EmployeeDashboard() {
         <table className="w-full text-right text-xs">
           <thead>
             <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th className="py-3.5 px-4 hidden print:table-cell text-center w-10">#</th>
               <SortHeader title="التاريخ" sortKey="date" sortConfig={sortConfig} onRequestSort={requestSort} />
               <SortHeader title="وقت الحضور" sortKey="checkInTime" sortConfig={sortConfig} onRequestSort={requestSort} />
               <SortHeader title="وقت الانصراف" sortKey="checkOutTime" sortConfig={sortConfig} onRequestSort={requestSort} />
               <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
               <SortHeader title="قيمة الساعات" sortKey="earnedCost" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
               <SortHeader title="توثيق المدير" sortKey="isVerified" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
-              <th className="py-3.5 px-4 font-bold text-center">تعديل الساعات</th>
+              <th className="py-3.5 px-4 font-bold text-center no-print">تعديل الساعات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-mono">
             {sortedRows.length === 0
-              ? <tr><td colSpan={7} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
-              : sortedRows.map((r) => (
+              ? <tr><td colSpan={8} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
+              : sortedRows.map((r, idx) => (
                 <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3.5 px-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                    {idx + 1}
+                  </td>
                   <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
                   <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
                   <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
@@ -513,11 +518,11 @@ export default function EmployeeDashboard() {
                   </td>
                   <td className="py-3.5 px-4 text-center font-sans">
                     {r.isVerified
-                      ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold"><CheckCircle2 className="w-3.5 h-3.5" />موثّق</span>
-                      : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold"><AlertCircle className="w-3.5 h-3.5" />بانتظار التوثيق</span>
+                      ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold print:border-none print:p-0"><CheckCircle2 className="w-3.5 h-3.5 print:hidden" />موثّق</span>
+                      : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold print:border-none print:p-0"><AlertCircle className="w-3.5 h-3.5 print:hidden" />بانتظار التوثيق</span>
                     }
                   </td>
-                  <td className="py-3.5 px-4 text-center font-sans">
+                  <td className="py-3.5 px-4 text-center font-sans no-print">
                     {r.isVerified ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-bold">
                         <Lock className="w-3 h-3 text-slate-400" />
@@ -883,29 +888,74 @@ export default function EmployeeDashboard() {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><Calendar className="w-5 h-5 text-blue-600" />جدول ساعات عمل الشهر الحالي</h2>
-            <AttendanceTable rows={userRecords} />
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4 print:border-none print:p-0">
+            <div className="flex items-center justify-between no-print">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                جدول ساعات عمل الشهر الحالي
+              </h2>
+
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة كشف الساعات (A4)</span>
+              </button>
+            </div>
+
+            <PrintReportLayout
+              systemName="نظام حضورك لإدارة الحضور والرواتب"
+              reportTitle="كشف حساب ساعات العمل والدوام الشهري للموظف"
+              reportSubtitle={`الموظف: ${user.name} | كود الموظف: ${user.employeeCode} | الوظيفة: ${user.jobRoles?.[0]?.title || 'موظف'}`}
+              periodText={`كشف ساعات شهر: ${new Date().toISOString().slice(0, 7)}`}
+              metaDetails={[
+                { label: 'ساعات العمل الفعلية', value: formatHoursText(totalMonthlyHours) },
+                { label: 'أيام الحضور', value: `${uniqueAttendedDaysCount} يوم` }
+              ]}
+              summaryCards={[
+                { label: 'إجمالي ساعات العمل', value: formatHoursText(totalMonthlyHours) },
+                { label: 'إجمالي الأجر المستحق', value: totalMonthlyEarned, unit: 'د.ل' }
+              ]}
+            >
+              <AttendanceTable rows={userRecords} />
+            </PrintReportLayout>
           </div>
         </>)}
 
         {/* TAB: الأشهر السابقة */}
         {activeTab === 'history' && (
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-md space-y-5">
-            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2"><History className="w-5 h-5 text-blue-600" />سجل الأشهر السابقة</h2>
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-md space-y-5 print:border-none print:p-0">
+            <div className="flex items-center justify-between no-print">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <History className="w-5 h-5 text-blue-600" />
+                سجل الأشهر السابقة
+              </h2>
+
+              {selectedMonth && (
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة كشف الشهر (A4)</span>
+                </button>
+              )}
+            </div>
+
             {historyLoading ? (
               <div className="py-10 text-center text-slate-400">جاري تحميل السجلات...</div>
             ) : monthOptions.length === 0 ? (
               <div className="py-10 text-center text-slate-400">لا توجد سجلات سابقة.</div>
             ) : (<>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 no-print">
                 <label className="text-slate-700 font-black text-sm whitespace-nowrap">اختر الشهر:</label>
                 <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="flex-1 bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-900 font-mono text-center text-base font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm">
                   {monthOptions.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
                 </select>
               </div>
               {selectedMonth && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 no-print">
                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-center gap-3">
                     <Clock className="w-6 h-6 text-blue-600 shrink-0" />
                     <div>
@@ -922,7 +972,19 @@ export default function EmployeeDashboard() {
                   </div>
                 </div>
               )}
-              <AttendanceTable rows={historyRecords} />
+
+              <PrintReportLayout
+                systemName="نظام حضورك لإدارة الحضور والرواتب"
+                reportTitle="كشف حساب ساعات العمل والدوام الشهري للموظف"
+                reportSubtitle={`الموظف: ${user.name} | كود الموظف: ${user.employeeCode} | الوظيفة: ${user.jobRoles?.[0]?.title || 'موظف'}`}
+                periodText={`كشف ساعات شهر: ${selectedMonth ? monthLabel(selectedMonth) : ''}`}
+                summaryCards={[
+                  { label: 'إجمالي ساعات العمل', value: formatHoursText(historyHours) },
+                  { label: 'إجمالي الأجر المستحق', value: historyEarned, unit: 'د.ل' }
+                ]}
+              >
+                <AttendanceTable rows={historyRecords} />
+              </PrintReportLayout>
             </>)}
           </div>
         )}

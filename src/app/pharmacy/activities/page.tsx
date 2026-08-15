@@ -7,8 +7,10 @@ import {
   ClipboardList,
   Coins,
   RefreshCw,
-  Plus
+  Plus,
+  Printer
 } from 'lucide-react';
+import PrintReportLayout from '@/components/PrintReportLayout';
 
 export default function PharmacyActivitiesPage() {
   const [trips, setTrips] = useState<any[]>([]);
@@ -120,9 +122,9 @@ export default function PharmacyActivitiesPage() {
   const totalCommissions = trips.reduce((sum, t) => sum + (Number(t.commissionEarned) || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-cairo">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Activity className="w-5 h-5 text-indigo-600" />
@@ -134,6 +136,14 @@ export default function PharmacyActivitiesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>طباعة التقرير (A4)</span>
+          </button>
+
           <button
             onClick={() => setIsNewTripOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
@@ -150,7 +160,7 @@ export default function PharmacyActivitiesPage() {
             <span>توثيق جلسة جرد</span>
           </button>
 
-          <button onClick={fetchActivities} className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all">
+          <button onClick={fetchActivities} className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
@@ -197,61 +207,75 @@ export default function PharmacyActivitiesPage() {
         </div>
       </div>
 
-      {/* Lists Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <Truck className="w-4 h-4 text-indigo-600" />
-            سجل جولات مسؤول المشتريات
-          </h3>
-          <div className="space-y-3">
-            {trips.map((t) => (
-              <div key={t.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900">{t.officerName} • <span className="font-mono text-slate-400 font-normal">{t.date}</span></span>
-                  <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">{t.startTime} - {t.endTime || 'مباشر'}</span>
+      {/* Lists Grid & Print Report Container */}
+      <PrintReportLayout
+        systemName="منظومة إدارة المشتريات والمخزون الصيدلاني 🌿"
+        reportTitle="سجل أنشطة وعمليات المشتريات والجرد"
+        reportSubtitle="توثيق جولات التوريد الميدانية واحتساب العمولات وجلسات الجرد والمطابقة"
+        metaDetails={[
+          { label: 'جولات الشراء', value: `${trips.length} جولة` },
+          { label: 'جلسات الجرد', value: `${audits.length} جلسة` }
+        ]}
+        summaryCards={[
+          { label: 'إجمالي المشتريات الموثقة', value: totalTripsAmount.toFixed(2), unit: 'د.ل' },
+          { label: 'إجمالي العمولات المكتسبة', value: totalCommissions.toFixed(2), unit: 'د.ل' }
+        ]}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 print:border-none print:p-0">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <Truck className="w-4 h-4 text-indigo-600" />
+              سجل جولات مسؤول المشتريات ({trips.length})
+            </h3>
+            <div className="space-y-3">
+              {trips.map((t, idx) => (
+                <div key={t.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs print:border print:bg-white print:p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900">#{idx + 1} - {t.officerName} • <span className="font-mono text-slate-400 font-normal">{t.date}</span></span>
+                    <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px] print:border-none">{t.startTime} - {t.endTime || 'مباشر'}</span>
+                  </div>
+                  {t.notes && <p className="text-[11px] text-slate-500 bg-white p-2 rounded-xl border border-slate-100">{t.notes}</p>}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 font-mono">
+                    <span className="text-slate-500">مشتريات: <strong className="text-slate-900">{Number(t.totalInvoicesAmount).toFixed(2)} د.ل</strong></span>
+                    <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded print:border-none">عمولة: +{Number(t.commissionEarned).toFixed(2)} د.ل</span>
+                  </div>
                 </div>
-                {t.notes && <p className="text-[11px] text-slate-500 bg-white p-2 rounded-xl border border-slate-100">{t.notes}</p>}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200 font-mono">
-                  <span className="text-slate-500">مشتريات: <strong className="text-slate-900">{Number(t.totalInvoicesAmount).toFixed(2)} د.ل</strong></span>
-                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">عمولة: +{Number(t.commissionEarned).toFixed(2)} د.ل</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
-          <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-emerald-600" />
-            سجل جلسات جرد ومطابقة مسؤول المخزون
-          </h3>
-          <div className="space-y-3">
-            {audits.map((a) => (
-              <div key={a.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900">{a.officerName} • <span className="font-mono text-slate-400 font-normal">{a.date}</span></span>
-                  <span className="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">{a.sectionAudited}</span>
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 print:border-none print:p-0">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <ClipboardList className="w-4 h-4 text-emerald-600" />
+              سجل جلسات جرد ومطابقة مسؤول المخزون ({audits.length})
+            </h3>
+            <div className="space-y-3">
+              {audits.map((a, idx) => (
+                <div key={a.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs print:border print:bg-white print:p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900">#{idx + 1} - {a.officerName} • <span className="font-mono text-slate-400 font-normal">{a.date}</span></span>
+                    <span className="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px] print:border-none">{a.sectionAudited}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 py-1 text-center font-mono">
+                    <div className="p-2 rounded-xl bg-white border border-slate-200">
+                      <div className="text-[10px] text-slate-400">المفحوص</div>
+                      <div className="font-black text-slate-900">{a.totalItemsChecked}</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-200">
+                      <div className="text-[10px] text-emerald-700">مطابق</div>
+                      <div className="font-black text-emerald-800">{a.matchedCount}</div>
+                    </div>
+                    <div className="p-2 rounded-xl bg-rose-50/60 border border-rose-200">
+                      <div className="text-[10px] text-rose-700">عجز</div>
+                      <div className="font-black text-rose-800">{a.discrepancyCount}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 py-1 text-center font-mono">
-                  <div className="p-2 rounded-xl bg-white border border-slate-200">
-                    <div className="text-[10px] text-slate-400">المفحوص</div>
-                    <div className="font-black text-slate-900">{a.totalItemsChecked}</div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-200">
-                    <div className="text-[10px] text-emerald-700">مطابق</div>
-                    <div className="font-black text-emerald-800">{a.matchedCount}</div>
-                  </div>
-                  <div className="p-2 rounded-xl bg-rose-50/60 border border-rose-200">
-                    <div className="text-[10px] text-rose-700">عجز</div>
-                    <div className="font-black text-rose-800">{a.discrepancyCount}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </PrintReportLayout>
 
       {/* New Trip Modal */}
       {isNewTripOpen && (

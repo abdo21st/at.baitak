@@ -23,6 +23,8 @@ import {
   Clock
 } from 'lucide-react';
 
+import PrintReportLayout from '@/components/PrintReportLayout';
+
 export default function PharmacyShortagesPage() {
   const [shortages, setShortages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +141,11 @@ export default function PharmacyShortagesPage() {
     0
   );
 
+  const totalAllShortagesEstimatedCost = shortages.reduce(
+    (sum, i) => sum + (Number(i.suggestedOrderPackages || 1) * (Number(i.purchaseUnitCost) || (Number(i.costPrice) * (Number(i.packSize) || 1)))),
+    0
+  );
+
   const generateWhatsAppOrderText = () => {
     const nowStr = new Date().toISOString().split('T')[0];
     let text = `*طلب شراء وتوريد أدوية ونواقص للصيدلية* 📦🌿\n`;
@@ -167,9 +174,9 @@ export default function PharmacyShortagesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-cairo">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center gap-1 border border-indigo-200">
@@ -187,6 +194,16 @@ export default function PharmacyShortagesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {shortages.length > 0 && (
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>طباعة كشف النواقص (A4)</span>
+            </button>
+          )}
+
           {cartItemsList.length > 0 && (
             <button
               onClick={() => setIsOrderModalOpen(true)}
@@ -404,133 +421,153 @@ export default function PharmacyShortagesPage() {
         </div>
       </div>
 
-      {/* Shortages Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحليل حركة المخزون للفترة المحددة...</div>
-        ) : shortages.length === 0 ? (
-          <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد نواقص تطابق معايير البحث والتغطية المحددة!</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
-                  <th className="py-3.5 pr-4 text-center w-12">تحديد</th>
-                  <th className="py-3.5 pr-2">اسم الدواء / التصنيف</th>
-                  <th className="py-3.5 text-center">الرصيد الفعلي</th>
-                  <th className="py-3.5 text-center">سرعة السحب اليومية</th>
-                  <th className="py-3.5 text-center">المقترح للشراء (وحدة كبرى)</th>
-                  <th className="py-3.5 text-center">تكلفة الشراء</th>
-                  <th className="py-3.5 text-center">إجمالي القيمة المقترحة</th>
-                  <th className="py-3.5 text-left pl-4">الشركة والملاحظات الذكية</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {shortages.map((item) => {
-                  const isSelected = !!cart[item.productId];
-                  const hasGenericRisk = item.genericRisk?.hasNearExpirySubstitute;
-                  const packSize = item.packSize || 1;
-                  const orderUnit = item.orderUnit || 'عبوة';
-                  const invUnit = item.inventoryUnit || 'قطعة';
+      {/* Shortages Table & Print Report Container */}
+      <PrintReportLayout
+        systemName="منظومة إدارة المشتريات والمخزون الصيدلاني 🌿"
+        reportTitle="تقرير النواقص وأمر الشراء المقترح"
+        reportSubtitle="تحليل حركة المخزون وسرعة السحب وتغطية الطلبية الدورية"
+        periodText={studyMode === 'custom' ? `فترة دراسة حركة المخزون: من ${fromDate} إلى ${toDate} (${calculatedCustomDays} يوم) - التغطية المطلوبة: ${coverageDays} يوم` : `فترة دراسة حركة المخزون: آخر ${studyPeriod} يوماً - التغطية المطلوبة: ${coverageDays} يوم`}
+        metaDetails={[
+          { label: 'عدد الأصناف الناقصة', value: shortages.length },
+          { label: 'فترة التغطية المستهدفة', value: `${coverageDays} يوم` },
+          { label: 'الأصناف المحددة للطلب', value: cartItemsList.length > 0 ? cartItemsList.length : 'الكل' }
+        ]}
+        summaryCards={[
+          { label: 'إجمالي الأصناف الناقصة', value: shortages.length, unit: 'صنف' },
+          { label: 'قيمة الطلبية المقترحة', value: (totalCartEstimatedCost > 0 ? totalCartEstimatedCost : totalAllShortagesEstimatedCost).toFixed(2), unit: 'د.ل' }
+        ]}
+      >
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden print:border-none print:rounded-none">
+          {loading ? (
+            <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحليل حركة المخزون للفترة المحددة...</div>
+          ) : shortages.length === 0 ? (
+            <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد نواقص تطابق معايير البحث والتغطية المحددة!</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
+                    <th className="py-3.5 pr-4 text-center w-12 no-print">تحديد</th>
+                    <th className="py-3.5 pr-4 hidden print:table-cell text-center w-10">#</th>
+                    <th className="py-3.5 pr-2">اسم الدواء / التصنيف</th>
+                    <th className="py-3.5 text-center">الرصيد الفعلي</th>
+                    <th className="py-3.5 text-center">سرعة السحب</th>
+                    <th className="py-3.5 text-center">المقترح للشراء</th>
+                    <th className="py-3.5 text-center">تكلفة الشراء</th>
+                    <th className="py-3.5 text-center">إجمالي القيمة</th>
+                    <th className="py-3.5 text-left pl-4">الشركة الموردة</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {shortages.map((item, idx) => {
+                    const isSelected = !!cart[item.productId];
+                    const hasGenericRisk = item.genericRisk?.hasNearExpirySubstitute;
+                    const packSize = item.packSize || 1;
+                    const orderUnit = item.orderUnit || 'عبوة';
+                    const invUnit = item.inventoryUnit || 'قطعة';
 
-                  return (
-                    <tr
-                      key={item.productId}
-                      onClick={() => toggleCartItem(item)}
-                      className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-emerald-50/60 font-bold' : ''
-                      } ${hasGenericRisk ? 'bg-amber-50/30' : ''}`}
-                    >
-                      <td className="py-3.5 text-center pr-4" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => toggleCartItem(item)} className="text-slate-400 hover:text-emerald-600">
-                          {isSelected ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4" />}
-                        </button>
-                      </td>
-                      <td className="py-3.5 pr-2">
-                        <div className="flex items-start gap-2">
-                          <span className={`w-2 h-2 rounded-full mt-1.5 ${item.stockOnHand <= 0 ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                          <div>
-                            <div className="font-black text-slate-900 flex items-center gap-1.5">
-                              <span>{item.name}</span>
-                              {item.strength && (
-                                <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-mono">
-                                  {item.strength}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="text-[10px] text-slate-500 font-medium flex flex-wrap items-center gap-2 mt-0.5">
-                              <span className="font-mono text-slate-400">كود: {item.code}</span>
-                              {item.subCategory && <span className="bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded">{item.subCategory}</span>}
-                              {packSize > 1 && (
-                                <span className="bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded font-mono text-[9px]">
-                                  1 {orderUnit} = {packSize} {invUnit}
-                                </span>
-                              )}
-                              {item.activeIngredient && (
-                                <span className="text-slate-600 font-mono text-[9px] bg-slate-50 border border-slate-200 px-1 rounded">
-                                  {item.activeIngredient}
-                                </span>
-                              )}
-                            </div>
-
-                            {hasGenericRisk && (
-                              <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-900 font-bold flex items-center gap-1">
-                                <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                <span>{item.genericRisk.recommendationMessage}</span>
+                    return (
+                      <tr
+                        key={item.productId}
+                        onClick={() => toggleCartItem(item)}
+                        className={`hover:bg-slate-50/80 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-emerald-50/60 font-bold' : ''
+                        } ${hasGenericRisk ? 'bg-amber-50/30' : ''}`}
+                      >
+                        <td className="py-3.5 text-center pr-4 no-print" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => toggleCartItem(item)} className="text-slate-400 hover:text-emerald-600">
+                            {isSelected ? <CheckSquare className="w-4 h-4 text-emerald-600" /> : <Square className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="py-3.5 text-center pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3.5 pr-2">
+                          <div className="flex items-start gap-2">
+                            <span className={`w-2 h-2 rounded-full mt-1.5 no-print ${item.stockOnHand <= 0 ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                            <div>
+                              <div className="font-black text-slate-900 flex items-center gap-1.5">
+                                <span>{item.name}</span>
+                                {item.strength && (
+                                  <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-mono">
+                                    {item.strength}
+                                  </span>
+                                )}
                               </div>
+
+                              <div className="text-[10px] text-slate-500 font-medium flex flex-wrap items-center gap-2 mt-0.5">
+                                <span className="font-mono text-slate-400">كود: {item.code}</span>
+                                {item.subCategory && <span className="bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded">{item.subCategory}</span>}
+                                {packSize > 1 && (
+                                  <span className="bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded font-mono text-[9px]">
+                                    1 {orderUnit} = {packSize} {invUnit}
+                                  </span>
+                                )}
+                                {item.activeIngredient && (
+                                  <span className="text-slate-600 font-mono text-[9px] bg-slate-50 border border-slate-200 px-1 rounded">
+                                    {item.activeIngredient}
+                                  </span>
+                                )}
+                              </div>
+
+                              {hasGenericRisk && (
+                                <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-900 font-bold flex items-center gap-1 no-print">
+                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  <span>{item.genericRisk.recommendationMessage}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono font-black">
+                          <div className="flex flex-col items-center">
+                            <span className={`px-2 py-0.5 rounded-md ${item.stockOnHand <= 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                              {item.stockOnHand}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-normal mt-0.5">{invUnit}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-xs">
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {Number(item.trueDailyVelocity || 0).toFixed(2)}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-normal mt-0.5">{invUnit}/يوم</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono font-black text-emerald-700">
+                          <div className="flex flex-col items-center">
+                            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-lg text-xs print:border-none print:p-0">
+                              +{item.suggestedOrderPackages} {orderUnit}
+                            </span>
+                            {packSize > 1 && (
+                              <span className="text-[10px] text-slate-500 font-normal mt-0.5">
+                                ({item.suggestedTotalSmallUnits} {invUnit})
+                              </span>
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-black">
-                        <div className="flex flex-col items-center">
-                          <span className={`px-2 py-0.5 rounded-md ${item.stockOnHand <= 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                            {item.stockOnHand}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-normal mt-0.5">{invUnit}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono text-xs">
-                        <div className="flex flex-col items-center">
-                          <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
-                            {Number(item.trueDailyVelocity || 0).toFixed(2)}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-normal mt-0.5">{invUnit}/يوم</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-black text-emerald-700">
-                        <div className="flex flex-col items-center">
-                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-lg text-sm">
-                            +{item.suggestedOrderPackages} {orderUnit}
-                          </span>
-                          {packSize > 1 && (
-                            <span className="text-[10px] text-slate-500 font-normal mt-0.5">
-                              ({item.suggestedTotalSmallUnits} {invUnit})
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono text-slate-700">
-                        <div className="flex flex-col items-center">
-                          <span>{Number(item.purchaseUnitCost || item.costPrice).toFixed(2)} د.ل</span>
-                          <span className="text-[10px] text-slate-400 font-normal">لكل {orderUnit}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-bold text-slate-900">
-                        {Number(item.estimatedOrderCost || (item.suggestedOrderPackages * (item.purchaseUnitCost || item.costPrice))).toFixed(2)} د.ل
-                      </td>
-                      <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">
-                        {item.supplierName || 'غير محدد'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-700">
+                          <div className="flex flex-col items-center">
+                            <span>{Number(item.purchaseUnitCost || item.costPrice).toFixed(2)} د.ل</span>
+                            <span className="text-[9px] text-slate-400 font-normal">لكل {orderUnit}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono font-bold text-slate-900">
+                          {Number(item.estimatedOrderCost || (item.suggestedOrderPackages * (item.purchaseUnitCost || item.costPrice))).toFixed(2)} د.ل
+                        </td>
+                        <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">
+                          {item.supplierName || 'غير محدد'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </PrintReportLayout>
 
       {/* Cart Modal */}
       {isOrderModalOpen && (

@@ -8,8 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Edit3
+  Edit3,
+  Printer
 } from 'lucide-react';
+import PrintReportLayout from '@/components/PrintReportLayout';
 
 export default function PharmacyInventoryPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -98,9 +100,9 @@ export default function PharmacyInventoryPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-cairo">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Package className="w-5 h-5 text-cyan-600" />
@@ -111,15 +113,26 @@ export default function PharmacyInventoryPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setPage(1);
-            fetchProducts();
-          }}
-          className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>طباعة كشف الجرد (A4)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setPage(1);
+              fetchProducts();
+            }}
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
+            title="تحديث القائمة"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -173,92 +186,111 @@ export default function PharmacyInventoryPage() {
         </div>
       </div>
 
-      {/* Products Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحميل دليل الأدوية...</div>
-        ) : products.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-500 font-bold">لم يتم العثور على أدوية مطابقة للبحث!</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
-                  <th className="py-3.5 pr-4">اسم الدواء والمواصفات</th>
-                  <th className="py-3.5 text-center">الكود</th>
-                  <th className="py-3.5 text-center">الرصيد الفعلي</th>
-                  <th className="py-3.5 text-center">حد الأمان</th>
-                  <th className="py-3.5 text-center">سعر التكلفة</th>
-                  <th className="py-3.5 text-center">سعر البيع</th>
-                  <th className="py-3.5 text-center">الصلاحية</th>
-                  <th className="py-3.5 text-left pl-4">الشركة</th>
-                  <th className="py-3.5 text-center w-16">تسوية</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {products.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 pr-4">
-                      <div className="font-bold text-slate-900">{item.name}</div>
-                      {item.activeIngredient && (
-                        <div className="text-[10px] text-slate-400 font-mono">{item.activeIngredient}</div>
-                      )}
-                    </td>
-                    <td className="py-3.5 text-center font-mono text-slate-500">{item.code}</td>
-                    <td className="py-3.5 text-center font-mono font-black">
-                      <span
-                        className={`px-2.5 py-0.5 rounded-lg ${
-                          item.stockOnHand <= 0
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : item.stockOnHand <= item.minStockLevel
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}
-                      >
-                        {item.stockOnHand}
-                      </span>
-                    </td>
-                    <td className="py-3.5 text-center font-mono text-slate-500">{item.minStockLevel}</td>
-                    <td className="py-3.5 text-center font-mono text-slate-700 font-bold">{Number(item.costPrice).toFixed(2)} د.ل</td>
-                    <td className="py-3.5 text-center font-mono text-slate-500">{Number(item.sellPrice).toFixed(2)} د.ل</td>
-                    <td className="py-3.5 text-center font-mono text-[11px] text-slate-600">{item.expiryDate || '—'}</td>
-                    <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500">{item.supplierName || 'غير محدد'}</td>
-                    <td className="py-3.5 text-center">
-                      <button
-                        onClick={() => openAdjust(item)}
-                        className="p-1.5 bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 rounded-lg transition-colors"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+      {/* Products Table & Print Report Container */}
+      <PrintReportLayout
+        systemName="منظومة إدارة المشتريات والمخزون الصيدلاني 🌿"
+        reportTitle="كشف جرد المخزون الصيدلاني والأرصدة"
+        reportSubtitle="بيان حالة توفر الأصناف المسجلة وحدود الأمان والأسعار المعتمدة"
+        metaDetails={[
+          { label: 'إجمالي الأصناف بالدليل', value: totalCount },
+          { label: 'حالة الفلترة', value: filter === 'all' ? 'كافة الأصناف' : filter === 'inStock' ? 'المتوفرة' : filter === 'outOfStock' ? 'المنعدمة' : 'منخفضة الرصيد' },
+          { label: 'التصنيف', value: category === 'all' ? 'جميع التصنيفات' : category }
+        ]}
+        summaryCards={[
+          { label: 'إجمالي الأصناف', value: totalCount, unit: 'صنف' },
+          { label: 'الصفحة الحالية', value: `${page} / ${totalPages || 1}` }
+        ]}
+      >
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden print:border-none print:rounded-none">
+          {loading ? (
+            <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحميل دليل الأدوية...</div>
+          ) : products.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-500 font-bold">لم يتم العثور على أدوية مطابقة للبحث!</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
+                    <th className="py-3.5 pr-4 hidden print:table-cell text-center w-10">#</th>
+                    <th className="py-3.5 pr-4">اسم الدواء والمواصفات</th>
+                    <th className="py-3.5 text-center">الكود</th>
+                    <th className="py-3.5 text-center">الرصيد الفعلي</th>
+                    <th className="py-3.5 text-center">حد الأمان</th>
+                    <th className="py-3.5 text-center">سعر التكلفة</th>
+                    <th className="py-3.5 text-center">سعر البيع</th>
+                    <th className="py-3.5 text-center">الصلاحية</th>
+                    <th className="py-3.5 text-left pl-4">الشركة الموردة</th>
+                    <th className="py-3.5 text-center w-16 no-print">تسوية</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {products.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                        {(page - 1) * 25 + idx + 1}
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        <div className="font-bold text-slate-900">{item.name}</div>
+                        {item.activeIngredient && (
+                          <div className="text-[10px] text-slate-400 font-mono">{item.activeIngredient}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 text-center font-mono text-slate-500">{item.code}</td>
+                      <td className="py-3.5 text-center font-mono font-black">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-lg print:border-none print:p-0 ${
+                            item.stockOnHand <= 0
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : item.stockOnHand <= item.minStockLevel
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
+                          {item.stockOnHand}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-center font-mono text-slate-500">{item.minStockLevel}</td>
+                      <td className="py-3.5 text-center font-mono text-slate-700 font-bold">{Number(item.costPrice).toFixed(2)} د.ل</td>
+                      <td className="py-3.5 text-center font-mono text-slate-500">{Number(item.sellPrice).toFixed(2)} د.ل</td>
+                      <td className="py-3.5 text-center font-mono text-[11px] text-slate-600">{item.expiryDate || '—'}</td>
+                      <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500">{item.supplierName || 'غير محدد'}</td>
+                      <td className="py-3.5 text-center no-print">
+                        <button
+                          onClick={() => openAdjust(item)}
+                          className="p-1.5 bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {/* Pagination */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1 || loading}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 rounded-xl transition-all"
-          >
-            <ChevronRight className="w-4 h-4" />
-            <span>السابقة</span>
-          </button>
-          <span className="font-mono">صفحة {page} من {totalPages || 1}</span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 rounded-xl transition-all"
-          >
-            <span>التالية</span>
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+          {/* Pagination */}
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 no-print">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 rounded-xl transition-all cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span>السابقة</span>
+            </button>
+            <span className="font-mono">صفحة {page} من {totalPages || 1}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || loading}
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 rounded-xl transition-all cursor-pointer"
+            >
+              <span>التالية</span>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      </PrintReportLayout>
 
       {/* Adjust Modal */}
       {adjustingProduct && (

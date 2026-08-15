@@ -11,6 +11,8 @@ import {
   FileText
 } from 'lucide-react';
 
+import PrintReportLayout from '@/components/PrintReportLayout';
+
 export default function PharmacyPurchaseOrdersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState('');
@@ -96,12 +98,12 @@ export default function PharmacyPurchaseOrdersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-cairo">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-emerald-600" />
-            أوامر وطلبيات الشراء الرسمية
+            أوامر وطلبيات الشراء والتوريد
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             تجهيز وطباعة ومشاركة طلبيات الشراء للشركات والمندوبين
@@ -115,7 +117,7 @@ export default function PharmacyPurchaseOrdersPage() {
                 href={`https://wa.me/?text=${generateWhatsAppPOText()}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 <span>إرسال واتساب</span>
@@ -123,10 +125,10 @@ export default function PharmacyPurchaseOrdersPage() {
 
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة أمر الشراء</span>
+                <span>طباعة أمر الشراء (A4)</span>
               </button>
             </>
           )}
@@ -155,7 +157,7 @@ export default function PharmacyPurchaseOrdersPage() {
               value={selectedSupplier}
               onChange={(e) => setSelectedSupplier(e.target.value)}
               placeholder="اسم الشركة أو المندوب"
-              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-bold"
+              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-bold text-slate-900"
             />
           </div>
 
@@ -165,7 +167,7 @@ export default function PharmacyPurchaseOrdersPage() {
               type="date"
               value={orderDate}
               onChange={(e) => setOrderDate(e.target.value)}
-              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-mono font-bold text-center"
+              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-mono font-bold text-center text-slate-900"
             />
           </div>
 
@@ -175,7 +177,7 @@ export default function PharmacyPurchaseOrdersPage() {
               type="text"
               value={orderNotes}
               onChange={(e) => setOrderNotes(e.target.value)}
-              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-bold"
+              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 font-bold text-slate-900"
             />
           </div>
         </div>
@@ -190,7 +192,7 @@ export default function PharmacyPurchaseOrdersPage() {
               value={searchProd}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="ابحث بالاسم أو الكود لإضافة الدواء للطلبية..."
-              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-3 text-xs font-bold"
+              className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-3 text-xs font-bold text-slate-900"
             />
           </div>
 
@@ -211,83 +213,73 @@ export default function PharmacyPurchaseOrdersPage() {
         </div>
       </div>
 
-      {/* Printable Document */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs print-card space-y-4">
-        <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-black text-slate-900">أمر شراء أدوية ومستلزمات صيدلانية</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              المورد: <span className="font-bold text-slate-900">{selectedSupplier || 'مورد عام'}</span> • التاريخ: <span className="font-mono">{orderDate}</span>
-            </p>
-          </div>
-          <div className="text-left text-xs font-mono font-bold text-slate-500">
-            PO-{orderDate.replace(/-/g, '')}
-          </div>
-        </div>
-
-        {items.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400 font-bold">
-            لم تقم بإضافة أي أصناف للطلبية بعد.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold">
-                  <th className="py-3 pr-3">#</th>
-                  <th className="py-3 pr-2">اسم الدواء</th>
-                  <th className="py-3 text-center">الكود</th>
-                  <th className="py-3 text-center">الكمية المطلوبة</th>
-                  <th className="py-3 text-center">سعر التكلفة المقدر</th>
-                  <th className="py-3 text-center">الإجمالي</th>
-                  <th className="py-3 text-left pl-3 no-print">حذف</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item, idx) => (
-                  <tr key={item.productId} className="hover:bg-slate-50">
-                    <td className="py-3 pr-3 font-mono font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-3 pr-2 font-bold text-slate-900">{item.productName}</td>
-                    <td className="py-3 text-center font-mono text-slate-500">{item.productCode}</td>
-                    <td className="py-3 text-center">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.requestedQty}
-                        onChange={(e) => updateItemQty(item.productId, parseInt(e.target.value, 10) || 1)}
-                        className="w-16 h-8 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono font-black text-slate-900"
-                      />
-                    </td>
-                    <td className="py-3 text-center font-mono text-slate-600">{item.estimatedUnitCost.toFixed(2)} د.ل</td>
-                    <td className="py-3 text-center font-mono font-bold text-emerald-700">{item.estimatedTotal.toFixed(2)} د.ل</td>
-                    <td className="py-3 text-left pl-3 no-print">
-                      <button onClick={() => removeItem(item.productId)} className="p-1 text-rose-500 hover:text-rose-700">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+      {/* Printable Document Container */}
+      <PrintReportLayout
+        systemName="منظومة إدارة المشتريات والمخزون الصيدلاني 🌿"
+        reportTitle="أمر شراء وتوريد أدوية ومستلزمات صيدلانية"
+        reportSubtitle={`رقم الأمر: PO-${orderDate.replace(/-/g, '')} | الملاحظات: ${orderNotes}`}
+        metaDetails={[
+          { label: 'الشركة / المورد', value: selectedSupplier || 'مورد عام / غير محدد' },
+          { label: 'تاريخ الطلب', value: orderDate },
+          { label: 'عدد الأصناف', value: items.length }
+        ]}
+        summaryCards={[
+          { label: 'إجمالي الأصناف المطلوبة', value: items.length, unit: 'صنف' },
+          { label: 'إجمالي القيمة التقديرية', value: totalEstimated.toFixed(2), unit: 'د.ل' }
+        ]}
+      >
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4 print:border-none print:p-0">
+          {items.length === 0 ? (
+            <div className="p-12 text-center text-xs text-slate-400 font-bold">
+              لم تقم بإضافة أي أصناف للطلبية بعد.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold">
+                    <th className="py-3 pr-3 text-center w-10">#</th>
+                    <th className="py-3 pr-2">اسم الدواء والمواصفات</th>
+                    <th className="py-3 text-center">الكود</th>
+                    <th className="py-3 text-center">الكمية المطلوبة</th>
+                    <th className="py-3 text-center">سعر التكلفة المقدر</th>
+                    <th className="py-3 text-center">الإجمالي</th>
+                    <th className="py-3 text-left pl-3 no-print">حذف</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {items.length > 0 && (
-          <div className="pt-4 border-t border-slate-200 space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-900 text-white text-xs">
-              <span className="font-bold text-slate-300">إجمالي القيمة التقديرية لأمر الشراء ({items.length} صنف):</span>
-              <span className="font-mono font-black text-base text-emerald-400">
-                {totalEstimated.toFixed(2)} د.ل
-              </span>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map((item, idx) => (
+                    <tr key={item.productId} className="hover:bg-slate-50">
+                      <td className="py-3 pr-3 font-mono font-bold text-slate-400 text-center">{idx + 1}</td>
+                      <td className="py-3 pr-2 font-bold text-slate-900">{item.productName}</td>
+                      <td className="py-3 text-center font-mono text-slate-500">{item.productCode}</td>
+                      <td className="py-3 text-center">
+                        <span className="hidden print:inline-block font-mono font-black text-sm">
+                          {item.requestedQty}
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.requestedQty}
+                          onChange={(e) => updateItemQty(item.productId, parseInt(e.target.value, 10) || 1)}
+                          className="w-16 h-8 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono font-black text-slate-900 no-print"
+                        />
+                      </td>
+                      <td className="py-3 text-center font-mono text-slate-600">{item.estimatedUnitCost.toFixed(2)} د.ل</td>
+                      <td className="py-3 text-center font-mono font-bold text-emerald-700">{item.estimatedTotal.toFixed(2)} د.ل</td>
+                      <td className="py-3 text-left pl-3 no-print">
+                        <button onClick={() => removeItem(item.productId)} className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-
-            <div className="grid grid-cols-2 gap-8 pt-8 text-xs font-bold text-slate-700">
-              <div>توقيع مسؤول المشتريات: __________________</div>
-              <div className="text-left">اعتماد الإدارة / الصيدلي: __________________</div>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </PrintReportLayout>
     </div>
   );
 }

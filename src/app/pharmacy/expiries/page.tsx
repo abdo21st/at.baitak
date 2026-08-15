@@ -10,6 +10,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+import PrintReportLayout from '@/components/PrintReportLayout';
+
 export default function PharmacyExpiriesPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,9 +56,9 @@ export default function PharmacyExpiriesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-cairo">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Calendar className="w-5 h-5 text-rose-600" />
@@ -67,14 +69,14 @@ export default function PharmacyExpiriesPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 no-print">
+        <div className="flex items-center gap-2">
           {items.length > 0 && (
             <>
               <a
                 href={`https://wa.me/?text=${generateWhatsAppReturnsText()}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 <span>واتساب المرتجعات</span>
@@ -82,15 +84,15 @@ export default function PharmacyExpiriesPage() {
 
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة الكشف</span>
+                <span>طباعة كشف المرتجعات (A4)</span>
               </button>
             </>
           )}
 
-          <button onClick={fetchExpiries} className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all">
+          <button onClick={fetchExpiries} className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
@@ -106,7 +108,8 @@ export default function PharmacyExpiriesPage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="ابحث باسم الدواء أو الكود..."
             className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-3 text-xs text-slate-900 font-bold focus:outline-none focus:border-rose-500"
-          />
+          >
+          </input>
         </div>
 
         <div className="sm:col-span-4">
@@ -125,7 +128,7 @@ export default function PharmacyExpiriesPage() {
       </div>
 
       {/* Summary Cost Bar */}
-      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-rose-950 via-slate-900 to-slate-900 text-white text-xs border border-rose-900/50">
+      <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-rose-950 via-slate-900 to-slate-900 text-white text-xs border border-rose-900/50 no-print">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-rose-400" />
           <span>إجمالي القيمة المالية المهددة في هذه القائمة (سعر التكلفة):</span>
@@ -135,59 +138,77 @@ export default function PharmacyExpiriesPage() {
         </span>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري فحص تواريخ الصلاحية...</div>
-        ) : items.length === 0 ? (
-          <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد أدوية مهددة بالانتهاء ضمن الفلتر!</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
-                  <th className="py-3.5 pr-4">اسم الدواء</th>
-                  <th className="py-3.5 text-center">الكود</th>
-                  <th className="py-3.5 text-center">تاريخ الصلاحية</th>
-                  <th className="py-3.5 text-center">المدة المتبقية</th>
-                  <th className="py-3.5 text-center">الكمية على الرف</th>
-                  <th className="py-3.5 text-center">سعر التكلفة</th>
-                  <th className="py-3.5 text-center">إجمالي القيمة</th>
-                  <th className="py-3.5 text-left pl-4">الشركة / المورد</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
-                  <tr key={`${item.productId}-${item.expiryDate}`} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 pr-4 font-bold text-slate-900">{item.productName}</td>
-                    <td className="py-3.5 text-center font-mono text-slate-500">{item.productCode}</td>
-                    <td className="py-3.5 text-center font-mono font-bold text-slate-800">{item.expiryDate}</td>
-                    <td className="py-3.5 text-center font-mono">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                          item.status === 'EXPIRED'
-                            ? 'bg-rose-100 text-rose-800 font-black'
-                            : item.status === 'CRITICAL_30'
-                            ? 'bg-amber-100 text-amber-800'
-                            : item.status === 'WARNING_90'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {item.daysRemaining <= 0 ? 'منتهي الصلاحية' : `${item.daysRemaining} يوم`}
-                      </span>
-                    </td>
-                    <td className="py-3.5 text-center font-mono font-black text-slate-900">{item.stockOnHand}</td>
-                    <td className="py-3.5 text-center font-mono text-slate-600">{Number(item.costPrice).toFixed(2)} د.ل</td>
-                    <td className="py-3.5 text-center font-mono font-bold text-rose-700">{(item.stockOnHand * item.costPrice).toFixed(2)} د.ل</td>
-                    <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">{item.supplierName || 'غير محدد'}</td>
+      {/* Table & Print Report Container */}
+      <PrintReportLayout
+        systemName="منظومة إدارة المشتريات والمخزون الصيدلاني 🌿"
+        reportTitle="كشف رادار مراقبة الصلاحيات ومرتجعات الأدوية"
+        reportSubtitle="حصر الأدوية قريبة الانتهاء والمنتهية الصلاحية للتصريف والاسترجاع من الموردين"
+        metaDetails={[
+          { label: 'عدد الأصناف المعروضة', value: items.length },
+          { label: 'معيار الفلترة', value: filter === 'all' ? 'أقل من 6 أشهر' : filter === 'expired' ? 'منتهية الصلاحية' : `خلال ${filter}` }
+        ]}
+        summaryCards={[
+          { label: 'عدد الأصناف المهددة', value: items.length, unit: 'صنف' },
+          { label: 'إجمالي قيمة المخاطرة التقديرية', value: totalAtRiskCost.toFixed(2), unit: 'د.ل' }
+        ]}
+      >
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden print:border-none print:rounded-none">
+          {loading ? (
+            <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري فحص تواريخ الصلاحية...</div>
+          ) : items.length === 0 ? (
+            <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد أدوية مهددة بالانتهاء ضمن الفلتر!</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
+                    <th className="py-3.5 pr-4 hidden print:table-cell text-center w-10">#</th>
+                    <th className="py-3.5 pr-4">اسم الدواء</th>
+                    <th className="py-3.5 text-center">الكود</th>
+                    <th className="py-3.5 text-center">تاريخ الصلاحية</th>
+                    <th className="py-3.5 text-center">المدة المتبقية</th>
+                    <th className="py-3.5 text-center">الكمية على الرف</th>
+                    <th className="py-3.5 text-center">سعر التكلفة</th>
+                    <th className="py-3.5 text-center">إجمالي القيمة</th>
+                    <th className="py-3.5 text-left pl-4">الشركة / المورد</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map((item, idx) => (
+                    <tr key={`${item.productId}-${item.expiryDate}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                        {idx + 1}
+                      </td>
+                      <td className="py-3.5 pr-4 font-bold text-slate-900">{item.productName}</td>
+                      <td className="py-3.5 text-center font-mono text-slate-500">{item.productCode}</td>
+                      <td className="py-3.5 text-center font-mono font-bold text-slate-800">{item.expiryDate}</td>
+                      <td className="py-3.5 text-center font-mono">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold print:border-none print:p-0 ${
+                            item.status === 'EXPIRED'
+                              ? 'bg-rose-100 text-rose-800 font-black'
+                              : item.status === 'CRITICAL_30'
+                              ? 'bg-amber-100 text-amber-800'
+                              : item.status === 'WARNING_90'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {item.daysRemaining <= 0 ? 'منتهي الصلاحية' : `${item.daysRemaining} يوم`}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-center font-mono font-black text-slate-900">{item.stockOnHand}</td>
+                      <td className="py-3.5 text-center font-mono text-slate-600">{Number(item.costPrice).toFixed(2)} د.ل</td>
+                      <td className="py-3.5 text-center font-mono font-bold text-rose-700">{(item.stockOnHand * item.costPrice).toFixed(2)} د.ل</td>
+                      <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">{item.supplierName || 'غير محدد'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </PrintReportLayout>
     </div>
   );
 }
