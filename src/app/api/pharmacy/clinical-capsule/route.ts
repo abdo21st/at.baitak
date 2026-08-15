@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateClinicalCapsule } from '@/lib/clinicalKnowledge';
+import { fetchLiveDrugCapsule } from '@/lib/liveDrugFetcher';
 import { sendDirectWhatsApp, triggerN8nWebhook, formatLibyanPhone } from '@/lib/n8n';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action = 'generate', product, message, targetType = 'all', departmentId, employeeIds = [] } = body;
+    const { action = 'generate', product, message, targetType = 'all', departmentId, employeeIds = [], live = true } = body;
 
-    // Action 1: Generate Clinical Capsule
+    // Action 1: Generate Clinical Capsule (with real-time live drug web lookup)
     if (action === 'generate') {
       if (!product || !product.name) {
         return NextResponse.json({ success: false, error: 'بيانات المنتج مطلوبة' }, { status: 400 });
       }
-      const capsule = generateClinicalCapsule(product);
+      const capsule = live ? await fetchLiveDrugCapsule(product) : generateClinicalCapsule(product);
       return NextResponse.json({ success: true, capsule });
     }
 
