@@ -14,6 +14,7 @@ import {
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
 import RateRulesManagement from '@/components/RateRulesManagement';
+import BroadcastModal from '@/components/BroadcastModal';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
@@ -24,6 +25,9 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Broadcast Modal State
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
@@ -747,6 +751,25 @@ export default function AdminDashboard() {
             )}
           </button>
 
+          {/* WhatsApp Broadcast Center Button */}
+          <button
+            onClick={() => { setIsBroadcastModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600 hover:text-white shadow-sm`}
+            title="إرسال رسائل جماعية للواتساب"
+          >
+            <Send className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">رسائل جماعية للموظفين</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
+                  واتساب 📢
+                </span>
+              </>
+            )}
+          </button>
+
           {/* Pharmacy Portal Link */}
           <button
             onClick={() => router.push('/pharmacy')}
@@ -830,8 +853,17 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Quick Metrics Badge */}
+            {/* Quick Actions & Metrics Badge */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsBroadcastModalOpen(true)}
+                className="h-10 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="إرسال رسائل جماعية للواتساب"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>إرسال واتساب للموظفين 📢</span>
+              </button>
+
               <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span className="text-slate-600 font-sans">السجلات:</span>
@@ -2105,6 +2137,14 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* WhatsApp Broadcast Center Modal */}
+      <BroadcastModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        employees={users}
+        departments={departments}
+      />
     </div>
   );
 }
