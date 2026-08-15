@@ -277,10 +277,30 @@ async function performSync(forceFullSync = false) {
         p.MaxStockLevel AS maxStockLevel,
         ISNULL(uom.UomCost, 0) AS costPrice,
         ISNULL(uom.UomPrice1, 0) AS sellPrice,
-        ISNULL(iu.UOMName, N'قطعة') AS inventoryUnit,
-        ISNULL(ou.UOMName, N'عبوة') AS orderUnit,
-        ISNULL(puom.BaseUnitQYT, 1) AS packSize,
-        ISNULL(puom.UomPurchaseCost, ISNULL(uom.UomCost, 0)) AS purchaseUnitCost,
+        COALESCE(
+          iu.UOMName,
+          (SELECT TOP 1 r.UOMName FROM Inventory.Data_ProductUOMs du JOIN Inventory.RefUOMs r ON du.UomID_FK = r.UOMID_PK WHERE du.ProductID_FK = p.ProductID_PK ORDER BY du.BaseUnitQYT ASC),
+          uom_r.UOMName,
+          N'قطعة'
+        ) AS inventoryUnit,
+        COALESCE(
+          ou.UOMName,
+          (SELECT TOP 1 r.UOMName FROM Inventory.Data_ProductUOMs du JOIN Inventory.RefUOMs r ON du.UomID_FK = r.UOMID_PK WHERE du.ProductID_FK = p.ProductID_PK ORDER BY du.BaseUnitQYT DESC),
+          iu.UOMName,
+          uom_r.UOMName,
+          N'عبوة'
+        ) AS orderUnit,
+        COALESCE(
+          puom.BaseUnitQYT,
+          (SELECT TOP 1 du.BaseUnitQYT FROM Inventory.Data_ProductUOMs du WHERE du.ProductID_FK = p.ProductID_PK ORDER BY du.BaseUnitQYT DESC),
+          1.0
+        ) AS packSize,
+        COALESCE(
+          puom.UomPurchaseCost,
+          (SELECT TOP 1 du.UomPurchaseCost FROM Inventory.Data_ProductUOMs du WHERE du.ProductID_FK = p.ProductID_PK ORDER BY du.BaseUnitQYT DESC),
+          uom.UomCost,
+          0
+        ) AS purchaseUnitCost,
         p.MainSupplierID_FK AS supplierId,
         s.SupplierName AS supplierName,
         g.ProductGroupDescription AS groupName,
@@ -299,6 +319,7 @@ async function performSync(forceFullSync = false) {
       FROM Inventory.Data_Products p
       LEFT JOIN RecentSales rs ON p.ProductID_PK = rs.ProductID_FK
       LEFT JOIN Inventory.Data_ProductUOMs uom ON p.ProductID_PK = uom.ProductID_FK AND uom.UomID_FK = p.DefaultSellUomID_FK
+      LEFT JOIN Inventory.RefUOMs uom_r ON uom.UomID_FK = uom_r.UOMID_PK
       LEFT JOIN Inventory.RefUOMs iu ON p.DefaultInventoryUomID_FK = iu.UOMID_PK
       LEFT JOIN Inventory.RefUOMs ou ON p.DefaultOrderUomID_FK = ou.UOMID_PK
       LEFT JOIN Inventory.Data_ProductUOMs puom ON p.ProductID_PK = puom.ProductID_FK AND puom.UomID_FK = p.DefaultOrderUomID_FK
