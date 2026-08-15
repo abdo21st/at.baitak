@@ -9,7 +9,7 @@ import {
   UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
   Briefcase, MapPin, Settings, ShieldAlert, Navigation, MessageSquare, 
   Send, Check, Bell, PanelRightClose, PanelRightOpen, Menu, Sparkles, 
-  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText, Zap
+  RefreshCw, ChevronLeft, ChevronRight, Phone, CheckCircle, AlertTriangle, FileText, Zap, Package
 } from 'lucide-react';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import DepartmentManagement from '@/components/DepartmentManagement';
@@ -738,6 +738,25 @@ export default function AdminDashboard() {
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Pharmacy Portal Link */}
+          <button
+            onClick={() => router.push('/pharmacy')}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-emerald-950/60 border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/80 hover:text-white hover:border-emerald-500`}
+            title="منظومة المشتريات والمخزون الصيدلاني"
+          >
+            <Package className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">المشتريات والمخزون</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30">
+                  صيدلية 🌿
                 </span>
               </>
             )}

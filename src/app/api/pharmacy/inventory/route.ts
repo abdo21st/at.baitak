@@ -12,33 +12,44 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '25', 10);
 
-    const where: any = {};
+    // Build WHERE conditions
+    const conditions: string[] = [];
 
     if (search.trim()) {
-      where.OR = [
-        { productName: { contains: search, mode: 'insensitive' } },
-        { productCode: { contains: search, mode: 'insensitive' } },
-        { activeIngredient: { contains: search, mode: 'insensitive' } }
-      ];
+      const safeTerm = search.trim().replace(/'/g, "''");
+      conditions.push(`(
+        LOWER("productName") LIKE LOWER('%${safeTerm}%') OR
+        LOWER("productCode") LIKE LOWER('%${safeTerm}%') OR
+        LOWER(COALESCE("activeIngredient", '')) LIKE LOWER('%${safeTerm}%')
+      )`);
     }
 
-    if (filter === 'inStock') where.stockOnHand = { gt: 0 };
-    else if (filter === 'outOfStock') where.stockOnHand = { lte: 0 };
-    else if (filter === 'lowStock') where.AND = [{ stockOnHand: { gt: 0 } }];
+    // BUG FIX: lowStock filter now correctly uses stockOnHand < minStockLevel (column comparison)
+    if (filter === 'inStock') {
+      conditions.push('"stockOnHand" > 0');
+    } else if (filter === 'outOfStock') {
+      conditions.push('"stockOnHand" <= 0');
+    } else if (filter === 'lowStock') {
+      conditions.push('"stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel"');
+    }
 
     if (category && category !== 'all') {
-      where.category = category;
+      const safeCategory = category.replace(/'/g, "''");
+      conditions.push(`"category" = '${safeCategory}'`);
     }
 
-    const totalCount = await prisma.pharmacyProduct.count({ where });
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+      `SELECT COUNT(*)::bigint as count FROM "PharmacyProduct" ${whereClause}`
+    );
+    const totalCount = Number(countResult[0].count);
     const totalPages = Math.ceil(totalCount / pageSize);
 
-    const products = await prisma.pharmacyProduct.findMany({
-      where,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      orderBy: { productName: 'asc' }
-    });
+    const offset = (page - 1) * pageSize;
+    const products = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM "PharmacyProduct" ${whereClause} ORDER BY "productName" ASC LIMIT ${pageSize} OFFSET ${offset}`
+    );
 
     return NextResponse.json({
       success: true,
@@ -46,15 +57,15 @@ export async function GET(req: NextRequest) {
       page,
       pageSize,
       totalPages,
-      products: products.map((p) => ({
+      products: products.map((p: any) => ({
         id: p.id,
         code: p.productCode,
         name: p.productName,
-        stockOnHand: p.stockOnHand,
-        minStockLevel: p.minStockLevel,
-        maxStockLevel: p.maxStockLevel,
-        costPrice: p.costPrice,
-        sellPrice: p.sellPrice,
+        stockOnHand: Number(p.stockOnHand),
+        minStockLevel: Number(p.minStockLevel),
+        maxStockLevel: Number(p.maxStockLevel),
+        costPrice: Number(p.costPrice),
+        sellPrice: Number(p.sellPrice),
         expiryDate: p.expiryDate,
         supplierName: p.supplierName,
         category: p.category,
@@ -75,13 +86,26 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { productId, newStock, minStock, maxStock } = body;
 
-    if (!productId) return NextResponse.json({ success: false, error: 'معرف الصنف مطلوب' }, { status: 400 });
+    if (!productId) {
+      return NextResponse.json({ success: false, error: 'معرف الصنف مطلوب' }, { status: 400 });
+    }
+
+    const newStockVal = Number(newStock);
+    const minStockVal = Number(minStock) || 0;
+
+    // Validate: min stock can't exceed actual stock
+    if (minStockVal > newStockVal && newStockVal > 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'حد الأمان الأدنى لا يمكن أن يتجاوز الرصيد الفعلي'
+      }, { status: 400 });
+    }
 
     const updated = await prisma.pharmacyProduct.update({
       where: { id: Number(productId) },
       data: {
-        stockOnHand: Number(newStock) || 0,
-        minStockLevel: Number(minStock) || 0,
+        stockOnHand: newStockVal || 0,
+        minStockLevel: minStockVal,
         maxStockLevel: Number(maxStock) || 0
       }
     });

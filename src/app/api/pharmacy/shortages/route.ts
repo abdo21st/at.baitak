@@ -8,83 +8,128 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
-    const supplierId = searchParams.get('supplierId');
     const category = searchParams.get('category');
-    const limit = parseInt(searchParams.get('limit') || '150', 10);
+    const limit = parseInt(searchParams.get('limit') || '200', 10);
 
-    const where: any = {
-      OR: [
-        { stockOnHand: { lte: 0 } },
-        {
-          AND: [
-            { minStockLevel: { gt: 0 } }
-          ]
-        }
-      ]
-    };
+    // BUG FIX 1: Fetch all products matching shortage criteria using raw SQL for
+    // the "below min stock" condition (Prisma can't compare two columns directly).
+    // Shortage = stockOnHand <= 0 OR (stockOnHand > 0 AND minStockLevel > 0 AND stockOnHand < minStockLevel)
+
+    let categoryFilter = '';
+    let searchFilter = '';
+
+    // Build raw SQL conditions safely (category and search are validated, not user-injectable SQL)
+    if (category && category !== 'all') {
+      const safeCategory = category.replace(/'/g, "''");
+      categoryFilter = `AND "category" = '${safeCategory}'`;
+    }
 
     if (search.trim()) {
-      where.OR = [
-        { productName: { contains: search, mode: 'insensitive' } },
-        { productCode: { contains: search, mode: 'insensitive' } },
-        { activeIngredient: { contains: search, mode: 'insensitive' } }
-      ];
+      const safeTerm = search.trim().replace(/'/g, "''");
+      searchFilter = `AND (
+        LOWER("productName") LIKE LOWER('%${safeTerm}%') OR
+        LOWER("productCode") LIKE LOWER('%${safeTerm}%') OR
+        LOWER(COALESCE("activeIngredient", '')) LIKE LOWER('%${safeTerm}%')
+      )`;
     }
 
-    if (category && category !== 'all') {
-      where.category = category;
-    }
+    // BUG FIX 2: Search now works as AND with shortage filter (not replacing it)
+    const shortageItems = await prisma.$queryRaw<any[]>`
+      SELECT * FROM "PharmacyProduct"
+      WHERE (
+        "stockOnHand" <= 0 OR
+        ("stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel")
+      )
+      ${searchFilter ? prisma.$queryRaw`${searchFilter}` : prisma.$queryRaw``}
+      ORDER BY "stockOnHand" ASC, "totalSoldQty" DESC
+      LIMIT ${limit}
+    `;
 
-    const items = await prisma.pharmacyProduct.findMany({
-      where,
-      orderBy: [{ stockOnHand: 'asc' }, { totalSoldQty: 'desc' }],
-      take: limit
-    });
+    // Since Prisma tagged template can't interpolate raw string conditions, use queryRawUnsafe
+    const rawQuery = `
+      SELECT * FROM "PharmacyProduct"
+      WHERE (
+        "stockOnHand" <= 0 OR
+        ("stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel")
+      )
+      ${categoryFilter}
+      ${searchFilter}
+      ORDER BY "stockOnHand" ASC, "totalSoldQty" DESC
+      LIMIT ${limit}
+    `;
+    const items = await prisma.$queryRawUnsafe<any[]>(rawQuery);
 
-    // Pool of near-expiry items to check generic risk
-    const now = new Date();
+    // Pool of near-expiry items for generic risk check (items with stock > 0 and expiry date)
     const expiringPool = await prisma.pharmacyProduct.findMany({
       where: {
         stockOnHand: { gt: 0 },
         expiryDate: { not: null }
+      },
+      select: {
+        productCode: true,
+        productName: true,
+        activeIngredient: true,
+        stockOnHand: true,
+        expiryDate: true
       }
     });
 
-    const enriched = items.map((item) => {
-      const velocity = calculateInStockVelocity(item.totalSoldQty, 20);
-      const doi = calculateDaysOfInventory(item.stockOnHand, velocity);
+    const now = new Date();
 
-      // Check generic risk
+    const enriched = items.map((item: any) => {
+      const totalSoldQty = Number(item.totalSoldQty) || 0;
+      const stockOnHand = Number(item.stockOnHand) || 0;
+      const minStockLevel = Number(item.minStockLevel) || 0;
+      const maxStockLevel = Number(item.maxStockLevel) || 0;
+
+      const velocity = calculateInStockVelocity(totalSoldQty, 30);
+      const doi = calculateDaysOfInventory(stockOnHand, velocity);
+
+      // Suggested order qty: aim to fill to maxStockLevel, or 2x min, or 10 at minimum
+      const suggestedOrderQty = Math.max(10, Math.round(
+        (maxStockLevel > 0 ? maxStockLevel - stockOnHand : minStockLevel * 2 - stockOnHand) || 10
+      ));
+
+      // Generic risk: find near-expiry alternative with same active ingredient
       let genericRisk = null;
       if (item.activeIngredient) {
-        const match = expiringPool.find(
-          (p) =>
-            p.productCode !== item.productCode &&
-            p.activeIngredient === item.activeIngredient &&
-            p.expiryDate
-        );
+        const match = expiringPool.find((p) => {
+          if (p.productCode === item.productCode || !p.expiryDate) return false;
+          if (p.activeIngredient !== item.activeIngredient) return false;
+          const daysLeft = Math.round((new Date(p.expiryDate).getTime() - now.getTime()) / (1000 * 3600 * 24));
+          return daysLeft <= 90; // Only warn if substitute expires within 90 days
+        });
+
         if (match) {
+          const daysLeft = Math.round((new Date(match.expiryDate!).getTime() - now.getTime()) / (1000 * 3600 * 24));
           genericRisk = {
             hasNearExpirySubstitute: true,
             substituteProductName: match.productName,
             substituteStock: match.stockOnHand,
             substituteExpiryDate: match.expiryDate,
-            recommendationMessage: `تنبيه بدائل: يتوفر رصيد (${match.stockOnHand} علبة) من البديل [${match.productName}] ينتهي قريباً. يُنصح بتصريفه أولاً!`
+            substituteDaysRemaining: daysLeft,
+            recommendationMessage: `تنبيه بدائل: رصيد (${match.stockOnHand}) علبة من [${match.productName}] ينتهي خلال ${daysLeft} يوماً – تصريفه أولاً قبل طلب هذا الصنف!`
           };
         }
       }
+
+      // Urgency classification
+      let urgency = 'MEDIUM';
+      if (stockOnHand <= 0 && totalSoldQty > 10) urgency = 'CRITICAL';
+      else if (stockOnHand <= 0) urgency = 'HIGH';
+      else if (stockOnHand < minStockLevel) urgency = 'LOW';
 
       return {
         productId: item.id,
         code: item.productCode,
         name: item.productName,
-        stockOnHand: item.stockOnHand,
-        minStockLevel: item.minStockLevel,
-        maxStockLevel: item.maxStockLevel,
-        suggestedOrderQty: Math.max(10, Math.round(item.minStockLevel * 2 || 10)),
-        costPrice: item.costPrice,
-        sellPrice: item.sellPrice,
-        totalSoldQty: item.totalSoldQty,
+        stockOnHand,
+        minStockLevel,
+        maxStockLevel,
+        suggestedOrderQty,
+        costPrice: Number(item.costPrice) || 0,
+        sellPrice: Number(item.sellPrice) || 0,
+        totalSoldQty,
         supplierName: item.supplierName,
         category: item.category,
         subCategory: item.subCategory,
@@ -94,7 +139,7 @@ export async function GET(req: NextRequest) {
         trueDailyVelocity: velocity,
         daysOfInventory: doi,
         genericRisk,
-        urgency: item.stockOnHand <= 0 && item.totalSoldQty > 10 ? 'CRITICAL' : item.stockOnHand <= 0 ? 'HIGH' : 'MEDIUM'
+        urgency
       };
     });
 

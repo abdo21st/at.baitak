@@ -7,17 +7,30 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const totalProductsCount = await prisma.pharmacyProduct.count();
-    const outOfStockCount = await prisma.pharmacyProduct.count({ where: { stockOnHand: { lte: 0 } } });
-    const belowMinStockCount = await prisma.pharmacyProduct.count({
-      where: {
-        stockOnHand: { gt: 0 },
-        minStockLevel: { gt: 0 }
-      }
+    const outOfStockCount = await prisma.pharmacyProduct.count({
+      where: { stockOnHand: { lte: 0 } }
     });
+
+    // BUG FIX: belowMinStockCount must check stockOnHand < minStockLevel
+    // Prisma doesn't support column-to-column comparison, use raw SQL
+    const belowMinResult = await prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(*)::bigint as count FROM "PharmacyProduct"
+      WHERE "stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel"
+    `;
+    const belowMinStockCount = Number(belowMinResult[0].count);
+
     const totalSuppliersCount = await prisma.pharmacySupplier.count();
 
-    // Aggregates
-    const products = await prisma.pharmacyProduct.findMany();
+    // Aggregates - only load needed columns for performance
+    const products = await prisma.pharmacyProduct.findMany({
+      select: {
+        stockOnHand: true,
+        costPrice: true,
+        sellPrice: true,
+        expiryDate: true
+      }
+    });
+
     let totalInventoryValueCost = 0;
     let totalInventoryValueSell = 0;
     let expiredCount = 0;
@@ -44,11 +57,9 @@ export async function GET() {
       }
     }
 
-    // Top Shortages
+    // Top Shortages (out-of-stock only, sorted by sales velocity)
     const topShortagesRaw = await prisma.pharmacyProduct.findMany({
-      where: {
-        OR: [{ stockOnHand: { lte: 0 } }]
-      },
+      where: { stockOnHand: { lte: 0 } },
       orderBy: { totalSoldQty: 'desc' },
       take: 10
     });
@@ -60,13 +71,13 @@ export async function GET() {
       stockOnHand: item.stockOnHand,
       minStockLevel: item.minStockLevel,
       maxStockLevel: item.maxStockLevel,
-      suggestedOrderQty: Math.max(10, Math.round(item.minStockLevel * 2 || 10)),
+      suggestedOrderQty: Math.max(10, Math.round((item.maxStockLevel || item.minStockLevel * 2) || 10)),
       costPrice: item.costPrice,
       sellPrice: item.sellPrice,
       supplierName: item.supplierName,
       totalSoldQty: item.totalSoldQty,
-      trueDailyVelocity: calculateInStockVelocity(item.totalSoldQty, 20),
-      urgency: item.stockOnHand <= 0 && item.totalSoldQty > 10 ? 'CRITICAL' : 'HIGH'
+      trueDailyVelocity: calculateInStockVelocity(item.totalSoldQty, 30),
+      urgency: item.totalSoldQty > 10 ? 'CRITICAL' : 'HIGH'
     }));
 
     // Settings

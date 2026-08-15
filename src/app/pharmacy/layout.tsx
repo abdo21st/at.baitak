@@ -13,11 +13,11 @@ import {
   Building2,
   Activity,
   ArrowRight,
-  Sparkles,
   Menu,
   X,
   UserCheck
 } from 'lucide-react';
+
 
 export default function PharmacyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
