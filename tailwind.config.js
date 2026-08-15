@@ -31,7 +31,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        cairo: ['var(--font-cairo)', 'sans-serif'],
+        dubai: ['Dubai', 'var(--font-dubai)', 'sans-serif'],
+        cairo: ['Dubai', 'var(--font-dubai)', 'sans-serif'],
       },
       gridTemplateColumns: {
         '24': 'repeat(24, minmax(0, 1fr))',

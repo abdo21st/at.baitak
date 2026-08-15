@@ -1,14 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Cairo } from 'next/font/google';
 import './globals.css';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
-
-const cairo = Cairo({
-  subsets: ['arabic', 'latin'],
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
-  display: 'swap',
-  variable: '--font-cairo',
-});
 
 export const metadata: Metadata = {
   title: 'حضورك | HodoorK - صيدلية بيتك',
@@ -35,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar" dir="rtl" className={cairo.variable}>
+    <html lang="ar" dir="rtl">
       <head>
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/favicon.png" type="image/png" />
@@ -44,8 +36,9 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
       </head>
-      <body className={`${cairo.className} bg-slate-50 text-slate-900 font-cairo antialiased min-h-screen`}>
+      <body className="bg-slate-50 text-slate-900 font-dubai antialiased min-h-screen">
         {children}
         <PwaInstallPrompt />
       </body>
