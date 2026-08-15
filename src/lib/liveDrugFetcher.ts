@@ -52,11 +52,12 @@ function cleanSectionText(arr?: string[], maxLen = 350): string | undefined {
 }
 
 /**
- * Fetches official drug data from OpenFDA in real-time
+ * Fetches official drug data from OpenFDA in real-time with authenticated API key
  */
 async function fetchOpenFDA(query: string): Promise<any | null> {
   try {
-    const url = `https://api.fda.gov/drug/label.json?search=(openfda.substance_name:"${encodeURIComponent(query)}"+OR+openfda.brand_name:"${encodeURIComponent(query)}"+OR+active_ingredient:"${encodeURIComponent(query)}"+OR+openfda.generic_name:"${encodeURIComponent(query)}")&limit=1`;
+    const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
+    const url = `https://api.fda.gov/drug/label.json?api_key=${apiKey}&search=(openfda.substance_name:"${encodeURIComponent(query)}"+OR+openfda.brand_name:"${encodeURIComponent(query)}"+OR+active_ingredient:"${encodeURIComponent(query)}"+OR+openfda.generic_name:"${encodeURIComponent(query)}")&limit=1`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
 
