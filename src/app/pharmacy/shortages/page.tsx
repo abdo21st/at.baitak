@@ -18,7 +18,9 @@ import {
   Calendar,
   Layers,
   Building2,
-  Sparkles
+  Sparkles,
+  ArrowRightLeft,
+  Clock
 } from 'lucide-react';
 
 export default function PharmacyShortagesPage() {
@@ -28,13 +30,33 @@ export default function PharmacyShortagesPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [branchFilter, setBranchFilter] = useState('all');
 
-  // فترات الدراسة والتغطية (Study Period & Target Coverage Days)
+  // نمط دراسة حركة المخزون (فترات سريعة أو نطاق زمني مخصص)
+  const [studyMode, setStudyMode] = useState<'presets' | 'custom'>('presets');
   const [studyPeriod, setStudyPeriod] = useState<number>(30);
+
+  // التواريخ المخصصة
+  const todayStr = new Date().toISOString().split('T')[0];
+  const defaultFromStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [fromDate, setFromDate] = useState<string>(defaultFromStr);
+  const [toDate, setToDate] = useState<string>(todayStr);
+
+  // الفترة المطلوبة للتوفير (Target Coverage Days)
   const [coverageDays, setCoverageDays] = useState<number>(30);
 
   // Selected Items for Purchase Order Cart
   const [cart, setCart] = useState<{ [productId: number]: { item: any; requestedQty: number } }>({});
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+
+  // احتساب عدد أيام الدراسة الفعلية
+  const calculatedCustomDays = React.useMemo(() => {
+    if (!fromDate || !toDate) return 30;
+    const fromTime = new Date(fromDate).getTime();
+    const toTime = new Date(toDate).getTime();
+    if (isNaN(fromTime) || isNaN(toTime) || toTime < fromTime) return 1;
+    return Math.max(1, Math.round((toTime - fromTime) / (1000 * 3600 * 24)));
+  }, [fromDate, toDate]);
+
+  const activeStudyDays = studyMode === 'presets' ? studyPeriod : calculatedCustomDays;
 
   const fetchShortages = async () => {
     try {
@@ -43,8 +65,15 @@ export default function PharmacyShortagesPage() {
       if (search) params.set('search', search);
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
       if (branchFilter !== 'all') params.set('branch', branchFilter);
-      params.set('studyPeriod', String(studyPeriod));
       params.set('coverageDays', String(coverageDays));
+
+      if (studyMode === 'custom') {
+        params.set('fromDate', fromDate);
+        params.set('toDate', toDate);
+        params.set('studyPeriod', String(calculatedCustomDays));
+      } else {
+        params.set('studyPeriod', String(studyPeriod));
+      }
 
       const res = await fetch(`/api/pharmacy/shortages?${params.toString()}`);
       const data = await res.json();
@@ -60,7 +89,7 @@ export default function PharmacyShortagesPage() {
 
   useEffect(() => {
     fetchShortages();
-  }, [search, categoryFilter, branchFilter, studyPeriod, coverageDays]);
+  }, [search, categoryFilter, branchFilter, studyMode, studyPeriod, fromDate, toDate, coverageDays]);
 
   // Cart Management
   const toggleCartItem = (item: any) => {
@@ -114,6 +143,7 @@ export default function PharmacyShortagesPage() {
     const nowStr = new Date().toISOString().split('T')[0];
     let text = `*طلب شراء وتوريد أدوية ونواقص للصيدلية* 📦🌿\n`;
     text += `التاريخ: ${nowStr}\n`;
+    text += `فترة دراسة حركة المخزون: [ ${studyMode === 'custom' ? `من ${fromDate} إلى ${toDate} (${calculatedCustomDays} يوم)` : `آخر ${studyPeriod} يوماً`} ]\n`;
     text += `الفترة المستهدفة للتغطية: [ ${coverageDays} يوماً ]\n`;
     text += `عدد الأصناف المطلوبة: ${cartItemsList.length}\n`;
     text += `------------------------------------\n`;
@@ -144,7 +174,7 @@ export default function PharmacyShortagesPage() {
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center gap-1 border border-indigo-200">
               <Bot className="w-3 h-3 text-indigo-600" />
-              محرك حساب النواقص بالوحدات الكبرى والتغطية الزمنية
+              محرك حساب النواقص بالوحدات الكبرى والنطاق الزمني المرن
             </span>
           </div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -152,7 +182,7 @@ export default function PharmacyShortagesPage() {
             إدارة النواقص وتوليد طلبيات الشراء
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            تحديد فترة دراسة حركة المخزون، وتحديد فترة التغطية المطلوبة مع التحويل التلقائي للوحدات الكبرى
+            تحديد حركة المخزون بالتاريخ (من تاريخ إلى تاريخ) وتحديد فترة التغطية المطلوبة بدقة
           </p>
         </div>
 
@@ -172,7 +202,7 @@ export default function PharmacyShortagesPage() {
 
           <button
             onClick={fetchShortages}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all"
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
             title="تحديث البيانات"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -180,61 +210,118 @@ export default function PharmacyShortagesPage() {
         </div>
       </div>
 
-      {/* Control Panel: Study Period & Target Coverage Periods */}
+      {/* Control Panel: Study Period (Presets vs Custom Range) & Target Coverage */}
       <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           
-          {/* Study Period Window */}
-          <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+          {/* Study Period Window (7 cols) */}
+          <div className="lg:col-span-7 p-4 rounded-2xl bg-blue-50/50 border border-blue-100 flex flex-col justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-black text-blue-900 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-blue-600" />
-                <span>فترة دراسة حركة المخزون (تحليل المبيعات):</span>
+                <span>فترة دراسة حركة المخزون:</span>
               </label>
-              <span className="text-[11px] font-mono font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200">
-                آخر {studyPeriod} يوماً
-              </span>
-            </div>
-            <p className="text-[10px] text-blue-700/80">
-              تحديد الفترة الزمنية السابقة لقياس سرعة السحب اليومية الحقيقية (Velocity) لكل صنف
-            </p>
-            <div className="flex items-center gap-1.5 mt-1">
-              {[15, 30, 60, 90, 180].map((days) => (
+
+              {/* Mode Toggle: Presets vs Custom Date Range */}
+              <div className="flex items-center bg-blue-100/80 p-0.5 rounded-xl text-[11px] font-bold">
                 <button
-                  key={days}
-                  onClick={() => setStudyPeriod(days)}
-                  className={`flex-1 py-1.5 text-xs font-black rounded-xl transition-all ${
-                    studyPeriod === days
+                  onClick={() => setStudyMode('presets')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    studyMode === 'presets'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-white text-blue-800 border border-blue-200 hover:bg-blue-100'
+                      : 'text-blue-700 hover:text-blue-900'
                   }`}
                 >
-                  {days} يوم
+                  فترات سريعة
                 </button>
-              ))}
+                <button
+                  onClick={() => setStudyMode('custom')}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    studyMode === 'custom'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-blue-700 hover:text-blue-900'
+                  }`}
+                >
+                  تحديد بالتواريخ (من - إلى)
+                </button>
+              </div>
             </div>
+
+            {studyMode === 'presets' ? (
+              <div className="space-y-2">
+                <p className="text-[10px] text-blue-700/80">
+                  اختر نافذة التحليل السريعة لقياس سرعة السحب اليومية (Velocity):
+                </p>
+                <div className="flex items-center gap-1.5">
+                  {[15, 30, 60, 90, 180].map((days) => (
+                    <button
+                      key={days}
+                      onClick={() => setStudyPeriod(days)}
+                      className={`flex-1 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                        studyPeriod === days
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white text-blue-800 border border-blue-200 hover:bg-blue-100'
+                      }`}
+                    >
+                      {days} يوم
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-blue-800 block mb-1">من تاريخ:</label>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="w-full h-9 bg-white border border-blue-200 rounded-xl px-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-blue-800 block mb-1">إلى تاريخ:</label>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="w-full h-9 bg-white border border-blue-200 rounded-xl px-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-blue-700/80">
+                    يتم قياس المبيعات الفعلية خلال هذا النطاق الزمني بدقة.
+                  </span>
+                  <span className="text-[11px] font-bold font-mono text-blue-800 bg-white px-2 py-0.5 rounded-md border border-blue-200">
+                    المدة: {calculatedCustomDays} يوماً
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Target Coverage Days */}
-          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col gap-2">
+          {/* Target Coverage Days (5 cols) */}
+          <div className="lg:col-span-5 p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col justify-between gap-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>الفترة المطلوبة للتوفير (تغطية الطلبية القادمة):</span>
+                <span>الفترة المطلوبة للتوفير والتغطية:</span>
               </label>
               <span className="text-[11px] font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
                 يكفي {coverageDays} يوماً
               </span>
             </div>
             <p className="text-[10px] text-emerald-700/80">
-              كم يوماً تريد أن يكفيك المخزون بعد الشراء؟ يتم حساب الكمية المقترحة وفق هذه الفترة
+              كم يوماً تريد أن يكفيك المخزون بعد الشراء؟
             </p>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="flex items-center gap-1.5">
               {[10, 15, 30, 45, 60, 90].map((days) => (
                 <button
                   key={days}
                   onClick={() => setCoverageDays(days)}
-                  className={`flex-1 py-1.5 text-xs font-black rounded-xl transition-all ${
+                  className={`flex-1 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
                     coverageDays === days
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
@@ -307,15 +394,20 @@ export default function PharmacyShortagesPage() {
         <div className="flex items-center gap-2">
           <span>تم العثور على</span>
           <span className="font-mono text-slate-900 font-black">{shortages.length}</span>
-          <span>صنف يحتاج للشراء لتغطية</span>
-          <span className="font-mono text-emerald-700 font-black">({coverageDays} يوم)</span>
+          <span>صنف يحتاج للتوريد (دراسة:</span>
+          <span className="font-mono text-blue-700 font-black">
+            {studyMode === 'custom' ? `${calculatedCustomDays} يوم [من ${fromDate} إلى ${toDate}]` : `${studyPeriod} يوم`}
+          </span>
+          <span>- تغطية:</span>
+          <span className="font-mono text-emerald-700 font-black">{coverageDays} يوم</span>
+          <span>)</span>
         </div>
       </div>
 
       {/* Shortages Table */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحليل المخزون وحساب المقترحات...</div>
+          <div className="p-12 text-center text-xs text-slate-400 font-bold">جاري تحليل حركة المخزون للفترة المحددة...</div>
         ) : shortages.length === 0 ? (
           <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد نواقص تطابق معايير البحث والتغطية المحددة!</div>
         ) : (
@@ -451,7 +543,7 @@ export default function PharmacyShortagesPage() {
                   تجهيز ومراجعة طلبية الشراء ({cartItemsList.length} صنف)
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  فترة التغطية المستهدفة: {coverageDays} يوماً | محسوبة بالوحدة الكبرى
+                  فترة التغطية المستهدفة: {coverageDays} يوماً | دراسة: {studyMode === 'custom' ? `من ${fromDate} إلى ${toDate}` : `آخر ${studyPeriod} يوماً`}
                 </p>
               </div>
               <button onClick={() => setIsOrderModalOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer text-lg">✕</button>

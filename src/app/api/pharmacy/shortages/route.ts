@@ -73,7 +73,17 @@ export async function GET(req: NextRequest) {
 
     const now = new Date();
     const targetCoverageDays = parseInt(searchParams.get('coverageDays') || '30', 10);
-    const studyPeriodDays = parseInt(searchParams.get('studyPeriod') || '30', 10);
+    const fromDateParam = searchParams.get('fromDate');
+    const toDateParam = searchParams.get('toDate');
+
+    let studyPeriodDays = parseInt(searchParams.get('studyPeriod') || '30', 10);
+    if (fromDateParam && toDateParam) {
+      const fromTime = new Date(fromDateParam).getTime();
+      const toTime = new Date(toDateParam).getTime();
+      if (!isNaN(fromTime) && !isNaN(toTime) && toTime >= fromTime) {
+        studyPeriodDays = Math.max(1, Math.round((toTime - fromTime) / (1000 * 3600 * 24)));
+      }
+    }
 
     const enriched = items.map((item: any) => {
       const stockOnHand = Number(item.stockOnHand) || 0;
