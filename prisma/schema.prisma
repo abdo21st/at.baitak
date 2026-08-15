@@ -190,3 +190,92 @@ model RateRule {
   updatedAt    DateTime         @updatedAt
 }
 
+// ==========================================
+// منظومة المشتريات والمخزون الصيدلاني (PHARMACY)
+// ==========================================
+
+model PharmacyProduct {
+  id               Int      @id @default(autoincrement())
+  productCode      String   @unique
+  productName      String
+  stockOnHand      Float    @default(0.0)
+  minStockLevel    Float    @default(0.0)
+  maxStockLevel    Float    @default(0.0)
+  costPrice        Float    @default(0.0)
+  sellPrice        Float    @default(0.0)
+  totalSoldQty     Float    @default(0.0)
+  expiryDate       String?
+  supplierId       Int?
+  supplierName     String?
+  groupName        String?
+  category         String?  // MEDICINES | MOTHER_BABY | COSMETICS_CARE | MEDICAL_EQUIPMENT | SUPPLEMENTS
+  subCategory      String?
+  activeIngredient String?
+  strength         String?
+  dosageForm       String?
+  genericGroupId   String?
+  lastSalesDate    String?
+  lastSyncedAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PharmacySupplier {
+  id                 Int      @id @default(autoincrement())
+  supplierIdPk       Int      @unique
+  name               String
+  code               String?
+  phone              String?
+  mobile             String?
+  address            String?
+  totalPurchases     Float    @default(0.0)
+  totalInvoicesCount Int      @default(0)
+  outstandingBalance Float    @default(0.0)
+  lastSyncedAt       DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model PurchasingTrip {
+  id                  String   @id @default(uuid())
+  officerId           String?
+  officerName         String
+  date                String   // YYYY-MM-DD
+  startTime           String   // HH:mm
+  endTime             String?  // HH:mm
+  suppliersVisited    Json?    // ["شركة أ", "مستودع ب"]
+  totalInvoicesAmount Float    @default(0.0)
+  commissionEarned    Float    @default(0.0)
+  status              String   @default("COMPLETED")
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model InventoryAudit {
+  id                String   @id @default(uuid())
+  officerId         String?
+  officerName       String
+  date              String   // YYYY-MM-DD
+  sectionAudited    String
+  totalItemsChecked Int      @default(0)
+  matchedCount      Int      @default(0)
+  discrepancyCount  Int      @default(0)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model PharmacySettings {
+  id                       String   @id @default("default")
+  criticalExpiryDays       Int      @default(30)
+  warningExpiryDays        Int      @default(90)
+  attentionExpiryDays      Int      @default(180)
+  purchasingCommissionRate Float    @default(0.5)
+  syncApiKey               String   @default("PHARMACY_SYNC_KEY_2026")
+  pharmacyName             String   @default("صيدلية النقاء")
+  lastSyncTimestamp        DateTime?
+  updatedAt                DateTime @updatedAt
+}
+
+
