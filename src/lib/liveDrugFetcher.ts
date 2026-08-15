@@ -3,15 +3,23 @@ import { ClinicalProductInput, ClinicalCapsuleData, generateClinicalCapsule } fr
 export interface LiveDrugInfo {
   source: string;
   isLive: boolean;
+  brandName?: string;
   substanceName?: string;
+  genericName?: string;
+  productType?: string;
   molecularFormula?: string;
   molecularWeight?: string;
   iupacName?: string;
-  fdaBoxedWarning?: string;
-  fdaWarnings?: string;
-  fdaInteractions?: string;
-  fdaDosage?: string;
-  fdaPharmacokinetics?: string;
+  purpose?: string;
+  indications?: string;
+  dosageAndAdmin?: string;
+  warnings?: string;
+  boxedWarning?: string;
+  stopUse?: string;
+  pregnancyWarning?: string;
+  storageAndHandling?: string;
+  drugInteractions?: string;
+  pharmacokinetics?: string;
 }
 
 /**
@@ -31,11 +39,24 @@ export function extractSearchTokens(name: string, sciName?: string): string[] {
 }
 
 /**
+ * Clean text from excessive whitespace and prefix labels
+ */
+function cleanSectionText(arr?: string[], maxLen = 350): string | undefined {
+  if (!arr || arr.length === 0) return undefined;
+  const raw = arr.join(' ')
+    .replace(/^(USES|INDICATIONS|DOSAGE|WARNINGS|STORAGE|ACTIVE INGREDIENT|INACTIVE INGREDIENTS|QUESTIONS|PURPOSE)\s*:?/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!raw) return undefined;
+  return raw.length > maxLen ? raw.substring(0, maxLen) + '...' : raw;
+}
+
+/**
  * Fetches official drug data from OpenFDA in real-time
  */
 async function fetchOpenFDA(query: string): Promise<any | null> {
   try {
-    const url = `https://api.fda.gov/drug/label.json?search=(openfda.substance_name:"${encodeURIComponent(query)}"+OR+openfda.brand_name:"${encodeURIComponent(query)}"+OR+active_ingredient:"${encodeURIComponent(query)}")&limit=1`;
+    const url = `https://api.fda.gov/drug/label.json?search=(openfda.substance_name:"${encodeURIComponent(query)}"+OR+openfda.brand_name:"${encodeURIComponent(query)}"+OR+active_ingredient:"${encodeURIComponent(query)}"+OR+openfda.generic_name:"${encodeURIComponent(query)}")&limit=1`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
 
@@ -108,32 +129,99 @@ export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promi
       ? 'PubChem (NIH) & DrugBank Database'
       : 'DrugBank Clinical Expert Database',
     isLive: isLiveSuccess,
-    substanceName: fdaData?.openfda?.substance_name?.[0] || fdaData?.openfda?.generic_name?.[0],
+    brandName: fdaData?.openfda?.brand_name?.[0],
+    substanceName: fdaData?.openfda?.substance_name?.[0],
+    genericName: fdaData?.openfda?.generic_name?.[0],
+    productType: fdaData?.openfda?.product_type?.[0],
     molecularFormula: pubChemData?.MolecularFormula,
     molecularWeight: pubChemData?.MolecularWeight,
     iupacName: pubChemData?.IUPACName,
-    fdaBoxedWarning: fdaData?.boxed_warning?.[0]?.replace(/\s+/g, ' ')?.substring(0, 300),
-    fdaWarnings: (fdaData?.warnings?.[0] || fdaData?.warnings_and_cautions?.[0])?.replace(/\s+/g, ' ')?.substring(0, 300),
-    fdaInteractions: fdaData?.drug_interactions?.[0]?.replace(/\s+/g, ' ')?.substring(0, 300),
-    fdaDosage: fdaData?.dosage_and_administration?.[0]?.replace(/\s+/g, ' ')?.substring(0, 300),
-    fdaPharmacokinetics: fdaData?.pharmacokinetics?.[0]?.replace(/\s+/g, ' ')?.substring(0, 300)
+    purpose: cleanSectionText(fdaData?.purpose),
+    indications: cleanSectionText(fdaData?.indications_and_usage),
+    dosageAndAdmin: cleanSectionText(fdaData?.dosage_and_administration),
+    warnings: cleanSectionText(fdaData?.warnings || fdaData?.warnings_and_cautions),
+    boxedWarning: cleanSectionText(fdaData?.boxed_warning),
+    stopUse: cleanSectionText(fdaData?.stop_use),
+    pregnancyWarning: cleanSectionText(fdaData?.pregnancy_or_breast_feeding),
+    storageAndHandling: cleanSectionText(fdaData?.storage_and_handling),
+    drugInteractions: cleanSectionText(fdaData?.drug_interactions),
+    pharmacokinetics: cleanSectionText(fdaData?.pharmacokinetics || fdaData?.clinical_pharmacology)
   };
 
-  // 3. Synthesize live data into the clinical capsule if available
+  // 3. Synthesize live FDA data into the clinical capsule
   let enhancedMechanism = baseCapsule.mechanismAndPk;
   if (liveInfo.molecularFormula && liveInfo.molecularWeight) {
     enhancedMechanism += ` [الصيغة الجزيئية: ${liveInfo.molecularFormula} • الكتلة: ${liveInfo.molecularWeight} g/mol]`;
+  }
+  if (liveInfo.purpose || liveInfo.indications) {
+    enhancedMechanism += `\n• *دواعي الاستخدام المعتمدة في FDA:* ${liveInfo.purpose || liveInfo.indications}`;
+  }
+
+  // Update Dosage & Timing if OpenFDA returned specific instructions
+  let enhancedUsageTiming = baseCapsule.usageTiming;
+  if (liveInfo.dosageAndAdmin) {
+    enhancedUsageTiming = `${enhancedUsageTiming}\n• *إرشادات الجرعة وفق النشرة الرسمية:* ${liveInfo.dosageAndAdmin}`;
+  }
+  if (liveInfo.storageAndHandling) {
+    enhancedUsageTiming += `\n• *شروط الحفظ:* ${liveInfo.storageAndHandling}`;
+  }
+
+  // Update Black Box & Warnings with live FDA warnings
+  const enhancedWarnings = [...baseCapsule.blackBoxAndWarnings];
+  if (liveInfo.boxedWarning) {
+    enhancedWarnings.unshift(`⚠️ *تحذير الصندوق الأسود (FDA Boxed Warning):* ${liveInfo.boxedWarning}`);
+  }
+  if (liveInfo.pregnancyWarning) {
+    enhancedWarnings.push(`🤰 *الحمل والإرضاع:* ${liveInfo.pregnancyWarning}`);
+  }
+  if (liveInfo.stopUse) {
+    enhancedWarnings.push(`🛑 *دواعي إيقاف العلاج الفوري:* ${liveInfo.stopUse}`);
+  }
+
+  // Update Drug-Drug Interactions with live OpenFDA interactions if available
+  const enhancedInteractions = [...baseCapsule.majorInteractions];
+  if (liveInfo.drugInteractions) {
+    enhancedInteractions.unshift(`🔴 *تداخلات النشرة المعتمدة لدى FDA:* ${liveInfo.drugInteractions}`);
   }
 
   const liveBanner = isLiveSuccess
     ? `\n🌐 *مصدر التحقق السريري:* ${liveInfo.source} (تم الفحص المباشر في الوقت الحي 🟢)`
     : `\n🌐 *مصدر التحقق السريري:* قاعدة بيانات DrugBank & OpenFDA المعتمدة 🟢`;
 
-  const updatedFullMessage = `${baseCapsule.fullMessageText}\n${liveBanner}`;
+  const updatedFullMessage = `🌿 *كبسولة صيدلية بيتك السريرية • المرجع الدوائي (DrugBank Standards)* 💊✨
+━━━━━━━━━━━━━━━━━━━
+👤 مرحباً بك يا *{name}* في التدريب الصيدلاني المتقدم!
+📦 الصنف: *${product.name}* ${product.scientificName ? `(${product.scientificName})` : ''}
+🔗 المرجع العلمي: ${baseCapsule.drugBankUrl}
+━━━━━━━━━━━━━━━━━━━
+🎯 *1. آلية العمل والحركية الدوائية (Mechanism & PK):*
+• ${enhancedMechanism}
+• *التوقيت والاستخدام المثالي:* ${enhancedUsageTiming}
+
+⚠️ *2. الاستقلاب الكبدي وإنزيمات السيتوكروم (CYP450 Metabolism):*
+• ${baseCapsule.cypMetabolism}
+
+🚫 *3. التداخلات الدوائية المعتمدة (Drug-Drug Interactions):*
+${enhancedInteractions.map((i) => `• ${i}`).join('\n')}
+
+🥗 *4. التداخلات الغذائية والكحولية (Food & Alcohol):*
+${baseCapsule.foodAndAlcoholInteractions.map((f) => `• ${f}`).join('\n')}
+
+⚠️ *5. التحذيرات الصندوقية واحتياطات الصرف (Black Box & Precautions):*
+${enhancedWarnings.map((w) => `• ${w}`).join('\n')}
+
+💡 *6. التوجيه السريري الذهبي للصيدلي عند الصرف:*
+• ${baseCapsule.goldenCounselingTip}
+━━━━━━━━━━━━━━━━━━━
+${liveBanner}
+🌿 *صيدلية بيتك.. رعاية صيدلانية متكاملة بمعايير عالمية!* ✨`;
 
   return {
     ...baseCapsule,
     mechanismAndPk: enhancedMechanism,
+    usageTiming: enhancedUsageTiming,
+    blackBoxAndWarnings: enhancedWarnings,
+    majorInteractions: enhancedInteractions,
     fullMessageText: updatedFullMessage,
     liveInfo
   };
