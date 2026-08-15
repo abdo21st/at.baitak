@@ -10,7 +10,7 @@ import {
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
   MapPin, Navigation, Bell, ShieldAlert, Edit3, X, Printer
 } from 'lucide-react';
-import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
+import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { registerServiceWorker, requestNotificationPermission, startGeofenceWatcher } from '@/lib/pwa-notifications';
@@ -215,15 +215,6 @@ export default function EmployeeDashboard() {
   const totalMonthlyHours  = Number(userRecords.reduce((a, r) => a + (r.workHours  || 0), 0).toFixed(2));
   const totalMonthlyEarned = Number(userRecords.reduce((a, r) => a + (r.earnedCost || 0), 0).toFixed(2));
 
-  const formatHoursText = (h: number) => {
-    if (!h && h !== 0) return '0 دقيقة';
-    const total = Math.round(h * 60);
-    const hrs   = Math.floor(total / 60);
-    const mins  = total % 60;
-    if (hrs > 0 && mins > 0)  return `${hrs} ساعة و ${mins} دقيقة`;
-    if (hrs > 0 && mins === 0) return `${hrs} ساعة`;
-    return `${mins} دقيقة`;
-  };
 
   const monthOptions = React.useMemo(() => {
     const months = new Set<string>();

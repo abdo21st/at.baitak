@@ -8,7 +8,7 @@ import {
   Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter, Moon,
   Download, UserX, UserMinus, FileSpreadsheet, Layers, ShieldCheck
 } from 'lucide-react';
-import { formatTime12h } from '@/lib/utils';
+import { formatTime12h, formatHoursText } from '@/lib/utils';
 
 interface AttendanceCalendarProps {
   users: User[];
@@ -381,20 +381,6 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     };
   };
 
-  const formatHoursText = (hoursNum: number) => {
-    if (!hoursNum && hoursNum !== 0) return '0 دقيقة';
-    const totalMinutes = Math.round(hoursNum * 60);
-    const hrs = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-
-    if (hrs > 0 && mins > 0) {
-      return `${hrs} ساعة و ${mins} دقيقة`;
-    } else if (hrs > 0 && mins === 0) {
-      return `${hrs} ساعة`;
-    } else {
-      return `${mins} دقيقة`;
-    }
-  };
 
   // Export to CSV Function
   const handleExportCsv = () => {
