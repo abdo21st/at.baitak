@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Pill,
   Send,
@@ -11,9 +11,11 @@ import {
   Share2,
   Smartphone,
   Check,
-  Loader2
+  Loader2,
+  Dices,
+  RefreshCw
 } from 'lucide-react';
-import { generateClinicalCapsule } from '@/lib/clinicalKnowledge';
+import { generateClinicalCapsule, DEFAULT_CLINICAL_PRODUCTS } from '@/lib/clinicalKnowledge';
 import { User, Department } from '@/lib/types';
 
 interface ClinicalCapsuleModalProps {
@@ -33,9 +35,15 @@ export default function ClinicalCapsuleModal({
   employees = [],
   departments = []
 }: ClinicalCapsuleModalProps) {
-  const [selectedProduct, setSelectedProduct] = useState<any>(initialProduct || null);
+  const [internalProducts, setInternalProducts] = useState<any[]>(
+    productsList.length > 0 ? productsList : DEFAULT_CLINICAL_PRODUCTS
+  );
+  const [selectedProduct, setSelectedProduct] = useState<any>(
+    initialProduct || (productsList.length > 0 ? productsList[0] : DEFAULT_CLINICAL_PRODUCTS[0])
+  );
   const [activeTab, setActiveTab] = useState<'smart' | 'chronic' | 'slow' | 'expiry' | 'top'>('smart');
   const [search, setSearch] = useState('');
+  const [isRolling, setIsRolling] = useState(false);
 
   // Generated Capsule Data
   const [customMessage, setCustomMessage] = useState('');
@@ -49,13 +57,33 @@ export default function ClinicalCapsuleModal({
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ total: number; sent: number; failed: number; noPhone: number } | null>(null);
 
+  // Auto fetch products from API if list is not provided
+  useEffect(() => {
+    if (productsList && productsList.length > 0) {
+      setInternalProducts(productsList);
+    } else {
+      fetch('/api/pharmacy/inventory?pageSize=200')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+            setInternalProducts(data.products);
+          } else {
+            setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+          }
+        })
+        .catch(() => {
+          setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+        });
+    }
+  }, [productsList, isOpen]);
+
   useEffect(() => {
     if (initialProduct) {
       setSelectedProduct(initialProduct);
-    } else if (productsList.length > 0) {
-      setSelectedProduct((prev: any) => prev || productsList[0]);
+    } else if (!selectedProduct && internalProducts.length > 0) {
+      setSelectedProduct(internalProducts[0]);
     }
-  }, [initialProduct, productsList]);
+  }, [initialProduct, internalProducts, selectedProduct]);
 
   useEffect(() => {
     if (selectedProduct) {
@@ -76,29 +104,55 @@ export default function ClinicalCapsuleModal({
     }
   }, [departments, selectedDeptId]);
 
+  // Filter products by active tab & search
+  const filteredProducts = useMemo(() => {
+    const pool = internalProducts.length > 0 ? internalProducts : DEFAULT_CLINICAL_PRODUCTS;
+    return pool.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const sci = (p.scientificName || '').toLowerCase();
+      const matchesSearch = !search.trim() || name.includes(search.toLowerCase()) || sci.includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (activeTab === 'chronic') {
+        return (
+          name.includes('metformin') || name.includes('gluco') || name.includes('statin') ||
+          name.includes('prazole') || name.includes('losec') || name.includes('lipitor') ||
+          name.includes('amox') || name.includes('concor') || name.includes('aspirin') ||
+          name.includes('ventolin') || name.includes('inhal') || name.includes('eltroxin')
+        );
+      }
+      if (activeTab === 'slow') {
+        return (Number(p.stockOnHand) || 0) >= 15;
+      }
+      if (activeTab === 'expiry') {
+        return p.expiryDate || p.isNearExpiry;
+      }
+      if (activeTab === 'top') {
+        return (Number(p.sellPrice) || 0) > 0;
+      }
+      return true; // smart
+    });
+  }, [internalProducts, activeTab, search]);
+
+  // 🎲 زر الاختيار العشوائي الذكي حسب الطريقة المختارة
+  const handleRandomPick = useCallback(() => {
+    const pool = filteredProducts.length > 0 ? filteredProducts : internalProducts;
+    if (pool.length === 0) return;
+
+    setIsRolling(true);
+    let counter = 0;
+    const interval = setInterval(() => {
+      const rand = pool[Math.floor(Math.random() * pool.length)];
+      setSelectedProduct(rand);
+      counter++;
+      if (counter >= 6) {
+        clearInterval(interval);
+        setIsRolling(false);
+      }
+    }, 60);
+  }, [filteredProducts, internalProducts]);
+
   if (!isOpen) return null;
-
-  // Filter products by category tabs
-  const filteredProducts = productsList.filter((p) => {
-    const name = (p.name || '').toLowerCase();
-    const sci = (p.scientificName || '').toLowerCase();
-    const matchesSearch = !search.trim() || name.includes(search.toLowerCase()) || sci.includes(search.toLowerCase());
-    if (!matchesSearch) return false;
-
-    if (activeTab === 'chronic') {
-      return name.includes('metformin') || name.includes('gluco') || name.includes('statin') || name.includes('prazole') || name.includes('losec') || name.includes('lipitor') || name.includes('amox') || name.includes('concor') || name.includes('aspirin');
-    }
-    if (activeTab === 'slow') {
-      return (Number(p.stockOnHand) || 0) > 10;
-    }
-    if (activeTab === 'expiry') {
-      return p.expiryDate || p.isNearExpiry;
-    }
-    if (activeTab === 'top') {
-      return (Number(p.sellPrice) || 0) > 0;
-    }
-    return true; // smart: show all
-  });
 
   const getRecipientCount = () => {
     if (targetType === 'all') return employees.length;
@@ -145,6 +199,13 @@ export default function ClinicalCapsuleModal({
     .replace(/{name}/g, 'فريق صيدلية بيتك')
     .replace(/{code}/g, 'EMP-101')
     .replace(/{appUrl}/g, 'https://at.ordermt.ly');
+
+  const getTabLabel = () => {
+    if (activeTab === 'chronic') return 'الأمراض المزمنة';
+    if (activeTab === 'slow') return 'الأصناف ذات الرصيد المرتفع';
+    if (activeTab === 'expiry') return 'الأصناف قريبة الانتهاء';
+    return 'الأصناف المقترحة سريرياً';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-dubai" dir="rtl">
@@ -216,35 +277,51 @@ export default function ClinicalCapsuleModal({
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Product Selection & Smart Categories */}
+              {/* Left Column: Product Selection & Random Pick */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                  <label className="block text-xs font-black text-slate-900 flex items-center justify-between">
-                    <span>1. اختر الدواء من قاعدة البيانات المحلية:</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{filteredProducts.length} صنف</span>
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-black text-slate-900">
+                      1. اختر الدواء من قاعدة البيانات:
+                    </label>
+                    <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200 font-bold">
+                      {filteredProducts.length} صنف متاح
+                    </span>
+                  </div>
 
-                  {/* Smart Category Tabs (الطريقة 4: التوجيه الذكي) */}
+                  {/* Smart Category Tabs */}
                   <div className="grid grid-cols-3 gap-1 p-1 bg-white rounded-xl border border-slate-200 text-[11px] font-bold">
                     <button
                       onClick={() => setActiveTab('smart')}
-                      className={`py-1 rounded-lg transition-all ${activeTab === 'smart' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      className={`py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'smart' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       🎯 مقترح سريرياً
                     </button>
                     <button
                       onClick={() => setActiveTab('chronic')}
-                      className={`py-1 rounded-lg transition-all ${activeTab === 'chronic' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      className={`py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'chronic' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       🩺 أمراض مزمنة
                     </button>
                     <button
                       onClick={() => setActiveTab('slow')}
-                      className={`py-1 rounded-lg transition-all ${activeTab === 'slow' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      className={`py-1.5 rounded-lg transition-all cursor-pointer ${activeTab === 'slow' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50'}`}
                     >
                       📦 رصيد مرتفع
                     </button>
                   </div>
+
+                  {/* 🎲 زر الاختيار العشوائي الذكي */}
+                  <button
+                    type="button"
+                    onClick={handleRandomPick}
+                    disabled={isRolling}
+                    className="w-full h-11 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-98"
+                    title={`اختيار دواء عشوائي من فئة: ${getTabLabel()}`}
+                  >
+                    <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
+                    <span>🎲 اختيار عشوائي من ({getTabLabel()})</span>
+                  </button>
 
                   {/* Search bar */}
                   <div className="relative">
@@ -253,25 +330,29 @@ export default function ClinicalCapsuleModal({
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="ابحث بالاسم التجاري أو العلمي..."
-                      className="w-full h-9 bg-white border border-slate-200 rounded-lg pr-8 pl-2 text-xs font-bold text-slate-800"
+                      placeholder="ابحث باسم الدواء التجاري أو العلمي..."
+                      className="w-full h-9 bg-white border border-slate-200 rounded-lg pr-8 pl-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
 
                   {/* Products List */}
-                  <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 text-xs">
+                  <div className="max-h-52 overflow-y-auto border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 text-xs">
                     {filteredProducts.map((p) => {
-                      const isSelected = selectedProduct && (selectedProduct.id === p.id || selectedProduct.code === p.code || selectedProduct.name === p.name);
+                      const isSelected = selectedProduct && (
+                        (selectedProduct.id && p.id && selectedProduct.id === p.id) ||
+                        (selectedProduct.code && p.code && selectedProduct.code === p.code) ||
+                        (selectedProduct.name === p.name)
+                      );
                       return (
                         <div
                           key={p.id || p.code || p.name}
                           onClick={() => setSelectedProduct(p)}
-                          className={`p-2.5 flex items-center justify-between hover:bg-emerald-50/50 cursor-pointer transition-all ${
-                            isSelected ? 'bg-emerald-50 border-r-4 border-r-emerald-600' : ''
+                          className={`p-2.5 flex items-center justify-between hover:bg-emerald-50/60 cursor-pointer transition-all ${
+                            isSelected ? 'bg-emerald-50 border-r-4 border-r-emerald-600 font-bold' : ''
                           }`}
                         >
                           <div>
-                            <strong className="text-slate-900 block font-bold">{p.name}</strong>
+                            <strong className="text-slate-900 block font-bold text-xs">{p.name}</strong>
                             <span className="text-[10px] text-slate-400 font-mono">
                               {p.scientificName || p.category || `كود: ${p.code || p.id}`}
                             </span>
@@ -295,16 +376,16 @@ export default function ClinicalCapsuleModal({
                   <div className="grid grid-cols-2 gap-1.5 p-1 bg-white rounded-xl border border-slate-200 text-xs font-bold">
                     <button
                       onClick={() => setTargetType('all')}
-                      className={`py-1.5 rounded-lg transition-all ${
-                        targetType === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                      className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                        targetType === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       جميع الموظفين ({employees.length})
                     </button>
                     <button
                       onClick={() => setTargetType('department')}
-                      className={`py-1.5 rounded-lg transition-all ${
-                        targetType === 'department' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-50'
+                      className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                        targetType === 'department' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
                       حسب القسم
@@ -355,7 +436,7 @@ export default function ClinicalCapsuleModal({
                     <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
                     معاينة حية لرسالة التدريب على واتساب الموظف:
                   </span>
-                  <div className="bg-[#d9fdd3] p-3.5 rounded-2xl rounded-tr-xs shadow-xs border border-emerald-200/60 max-h-48 overflow-y-auto text-xs whitespace-pre-wrap leading-relaxed text-slate-900 font-medium font-dubai">
+                  <div className="bg-[#d9fdd3] p-3.5 rounded-2xl rounded-tr-xs shadow-xs border border-emerald-200/60 max-h-44 overflow-y-auto text-xs whitespace-pre-wrap leading-relaxed text-slate-900 font-medium font-dubai">
                     {previewFormatted}
                   </div>
                 </div>

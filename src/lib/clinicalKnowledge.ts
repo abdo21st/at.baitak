@@ -203,3 +203,27 @@ ${lifestyleAdvice.map((a) => `• ${a}`).join('\n')}
     fullMessageText
   };
 }
+
+export const DEFAULT_CLINICAL_PRODUCTS: ClinicalProductInput[] = [
+  { id: '1', name: 'Nexium 40mg Tab (Esomeprazole)', scientificName: 'Esomeprazole 40mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 24, sellPrice: 48.0 },
+  { id: '2', name: 'Glucophage 500mg (Metformin)', scientificName: 'Metformin HCl 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 35, sellPrice: 15.5 },
+  { id: '3', name: 'Lipitor 20mg (Atorvastatin)', scientificName: 'Atorvastatin 20mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 18, sellPrice: 52.0 },
+  { id: '4', name: 'Augmentin 1g Tab (Amoxicillin/Clavulanate)', scientificName: 'Amoxicillin + Clavulanic Acid 1g', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 42, sellPrice: 38.0 },
+  { id: '5', name: 'Ventolin Inhaler 100mcg (Salbutamol)', scientificName: 'Salbutamol Inhaler', dosageForm: 'Inhaler', category: 'MEDICINES', stockOnHand: 30, sellPrice: 22.0 },
+  { id: '6', name: 'Concor 5mg (Bisoprolol)', scientificName: 'Bisoprolol Fumarate 5mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 28, sellPrice: 26.0 },
+  { id: '7', name: 'Voltaren 50mg (Diclofenac Sodium)', scientificName: 'Diclofenac Sodium 50mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 50, sellPrice: 18.0 },
+  { id: '8', name: 'Symbicort Turbuhaler 160/4.5mcg', scientificName: 'Budesonide + Formoterol', dosageForm: 'Inhaler', category: 'MEDICINES', stockOnHand: 12, sellPrice: 95.0 },
+  { id: '9', name: 'Panadol Extra Tab (Paracetamol + Caffeine)', scientificName: 'Paracetamol 500mg + Caffeine 65mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 65, sellPrice: 12.0 },
+  { id: '10', name: 'Osteocare Plus Omega-3 (Vitabiotics)', scientificName: 'Calcium + Magnesium + Vit D3 + Zinc', dosageForm: 'Tablets', category: 'SUPPLEMENTS', stockOnHand: 22, sellPrice: 45.0 },
+  { id: '11', name: 'Feroglobin B12 Capsules', scientificName: 'Iron + Zinc + B-Complex + Folic Acid', dosageForm: 'Capsules', category: 'SUPPLEMENTS', stockOnHand: 19, sellPrice: 36.0 },
+  { id: '12', name: 'Klacid 500mg Tab (Clarithromycin)', scientificName: 'Clarithromycin 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 14, sellPrice: 62.0 },
+  { id: '13', name: 'Eltroxin 50mcg (Levothyroxine)', scientificName: 'Levothyroxine Sodium 50mcg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 20, sellPrice: 18.0 },
+  { id: '14', name: 'Cataflam 50mg (Diclofenac Potassium)', scientificName: 'Diclofenac Potassium 50mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 40, sellPrice: 19.5 },
+  { id: '15', name: 'Zithromax 500mg (Azithromycin)', scientificName: 'Azithromycin 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 16, sellPrice: 42.0 },
+  { id: '16', name: 'Jardiance 10mg (Empagliflozin)', scientificName: 'Empagliflozin 10mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 15, sellPrice: 140.0 },
+  { id: '17', name: 'Crestor 10mg (Rosuvastatin)', scientificName: 'Rosuvastatin 10mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 17, sellPrice: 68.0 },
+  { id: '18', name: 'Controloc 40mg (Pantoprazole)', scientificName: 'Pantoprazole 40mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 25, sellPrice: 44.0 },
+  { id: '19', name: 'Brufen 400mg (Ibuprofen)', scientificName: 'Ibuprofen 400mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 55, sellPrice: 14.0 },
+  { id: '20', name: 'Neurobion Forte Coated Tab', scientificName: 'Vitamin B1 + B6 + B12', dosageForm: 'Tablets', category: 'SUPPLEMENTS', stockOnHand: 32, sellPrice: 28.0 }
+];
+
