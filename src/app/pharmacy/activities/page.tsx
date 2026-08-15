@@ -289,7 +289,7 @@ export default function PharmacyActivitiesPage() {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">الشركات المزورة (مفصولة بفاصلة)</label>
+                <label className="block text-slate-700 font-bold mb-1">الشركات والمستودعات التي تمت زيارتها (مفصولة بفاصلة)</label>
                 <input type="text" placeholder="مثال: شركة الدواء، مستودع الأمل" value={suppliersVisited} onChange={(e) => setSuppliersVisited(e.target.value)} className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-3 font-bold" />
               </div>
 

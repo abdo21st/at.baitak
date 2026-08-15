@@ -166,7 +166,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
 
   // 4. Delete Department
   const handleDeleteDepartment = async (id: string, name: string) => {
-    if (!confirm(`هل أنت تأكد من حذف قسم (${name}) وكافة الوظائف التابعة له؟`)) return;
+    if (!confirm(`هل أنت متأكد من حذف قسم (${name}) وكافة الوظائف التابعة له؟`)) return;
 
     try {
       const res = await fetch(`/api/departments?action=DELETE_DEPARTMENT&id=${id}`, {
@@ -184,7 +184,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
 
   // 5. Delete Job Role
   const handleDeleteJobRole = async (id: string, title: string) => {
-    if (!confirm(`هل أنت تأكد من حذف وظيفة (${title})؟`)) return;
+    if (!confirm(`هل أنت متأكد من حذف وظيفة (${title})؟`)) return;
 
     try {
       const res = await fetch(`/api/departments?action=DELETE_JOB_ROLE&id=${id}`, {
