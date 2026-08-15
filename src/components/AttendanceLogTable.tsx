@@ -4,7 +4,7 @@ import React from 'react';
 import { AttendanceRecord } from '@/lib/types';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
-import { formatTime12h } from '@/lib/utils';
+import { formatTime12h, formatHoursText } from '@/lib/utils';
 
 export default function AttendanceLogTable({ records }: { records: AttendanceRecord[] }) {
   const { items: sortedRecords, requestSort, sortConfig } = useSortableData(records, {
@@ -32,7 +32,7 @@ export default function AttendanceLogTable({ records }: { records: AttendanceRec
               <td className="p-3 font-sans font-bold">{r.userName}</td>
               <td className="p-3 text-blue-600 font-mono font-bold">{formatTime12h(r.checkInTime)}</td>
               <td className="p-3 text-red-600 font-mono font-bold">{formatTime12h(r.checkOutTime)}</td>
-              <td className="p-3 font-mono font-black">{r.workHours}</td>
+              <td className="p-3 font-sans font-black">{formatHoursText(r.workHours)}</td>
               <td className="p-3 font-mono font-black text-teal-700">{r.earnedCost} د.ل</td>
             </tr>
           ))}

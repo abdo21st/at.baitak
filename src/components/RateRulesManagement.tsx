@@ -297,7 +297,7 @@ export default function RateRulesManagement({ departments = [], users = [] }: Ra
             </div>
             <h3 className="font-extrabold text-slate-800 text-sm">لا توجد قواعد تسعير مضافة بعد</h3>
             <p className="text-slate-400 text-xs max-w-md mx-auto">
-              يمكنك إضافة قواعد لزيادة أجر الساعة مثل: "زيادة ليلة الجمعة 50%" أو "شفت السهر بعد منتصف الليل +3 د.ل/س" أو "بونص يوم العيد".
+              يمكنك إضافة قواعد لزيادة أجر الساعة مثل: «زيادة ليلة الجمعة 50%» أو «شفت السهر بعد منتصف الليل +3 د.ل/س» أو «بونص يوم العيد».
             </p>
             <button
               onClick={openAddModal}

@@ -24,7 +24,7 @@ export default function PrintReportLayout({
   showSignatures = true
 }: PrintReportLayoutProps) {
   const printDateStr = new Date().toISOString().split('T')[0];
-  const printTimeStr = new Date().toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const printTimeStr = new Date().toLocaleTimeString('ar-LY-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true });
 
   return (
     <div className="print-report-container w-full font-cairo">

@@ -110,38 +110,35 @@ export async function POST(req: NextRequest) {
 
     const finalHourlyRate = Number(hourlyRate) || 0;
 
-    try {
-      const existingUser = await prisma.user.findUnique({
-        where: { employeeCode: codeStr }
-      });
+    const existingUser = await prisma.user.findUnique({
+      where: { employeeCode: codeStr }
+    });
 
-      if (existingUser) {
-        return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, { status: 400 });
-      }
-
-      await prisma.user.create({
-        data: {
-          employeeCode: codeStr,
-          name: nameStr,
-          phone: phone ? String(phone).trim() : null,
-          email: `${codeStr}-${Date.now()}@hodoork.ly`,
-          password: pinStr,
-          role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
-          monthlySalary: finalMonthlySalary,
-          targetMonthlyHours: finalTargetHours,
-          hourlyRate: finalHourlyRate,
-          jobTitle: finalJobTitle,
-          departments: { connect: depIds.map((id) => ({ id })) },
-          jobRoles: { connect: roleIds.map((id) => ({ id })) }
-        }
-      });
-    } catch (dbErr) {
-      console.error('Create user error:', dbErr);
+    if (existingUser) {
+      return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, { status: 400 });
     }
+
+    await prisma.user.create({
+      data: {
+        employeeCode: codeStr,
+        name: nameStr,
+        phone: phone ? String(phone).trim() : null,
+        email: `${codeStr}-${Date.now()}@hodoork.ly`,
+        password: pinStr,
+        role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
+        monthlySalary: finalMonthlySalary,
+        targetMonthlyHours: finalTargetHours,
+        hourlyRate: finalHourlyRate,
+        jobTitle: finalJobTitle,
+        departments: { connect: depIds.map((id) => ({ id })) },
+        jobRoles: { connect: roleIds.map((id) => ({ id })) }
+      }
+    });
 
     const allUsers = await getOrSeedUsers();
     return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
+    console.error('Create user error:', error);
     return NextResponse.json({ success: false, error: error.message || 'خطأ في إضافة الموظف' }, { status: 500 });
   }
 }
@@ -151,6 +148,10 @@ export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours, phone } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'معرف الموظف مطلوب' }, { status: 400 });
+    }
 
     const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
     const pinStr = pinCode ? String(pinCode).trim() : undefined;
@@ -171,30 +172,27 @@ export async function PUT(req: NextRequest) {
       } catch {}
     }
 
-    try {
-      await prisma.user.update({
-        where: { id },
-        data: {
-          ...(nameStr && { name: nameStr }),
-          ...(codeStr && { employeeCode: codeStr }),
-          ...(pinStr && { password: pinStr }),
-          ...(phone !== undefined && { phone: phone ? String(phone).trim() : null }),
-          ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
-          ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
-          ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),
-          ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
-          ...(finalJobTitle !== undefined && { jobTitle: finalJobTitle }),
-          ...(depIds !== undefined && { departments: { set: depIds.map((dId) => ({ id: dId })) } }),
-          ...(roleIds !== undefined && { jobRoles: { set: roleIds.map((rId) => ({ id: rId })) } })
-        }
-      });
-    } catch (dbErr) {
-      console.error('Update user error:', dbErr);
-    }
+    await prisma.user.update({
+      where: { id },
+      data: {
+        ...(nameStr && { name: nameStr }),
+        ...(codeStr && { employeeCode: codeStr }),
+        ...(pinStr && { password: pinStr }),
+        ...(phone !== undefined && { phone: phone ? String(phone).trim() : null }),
+        ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
+        ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
+        ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),
+        ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
+        ...(finalJobTitle !== undefined && { jobTitle: finalJobTitle }),
+        ...(depIds !== undefined && { departments: { set: depIds.map((dId) => ({ id: dId })) } }),
+        ...(roleIds !== undefined && { jobRoles: { set: roleIds.map((rId) => ({ id: rId })) } })
+      }
+    });
 
     const allUsers = await getOrSeedUsers();
     return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
+    console.error('Update user error:', error);
     return NextResponse.json({ success: false, error: error.message || 'خطأ في تعديل بيانات الموظف' }, { status: 500 });
   }
 }

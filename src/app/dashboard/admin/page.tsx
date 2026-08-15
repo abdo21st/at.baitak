@@ -16,7 +16,7 @@ import DepartmentManagement from '@/components/DepartmentManagement';
 import RateRulesManagement from '@/components/RateRulesManagement';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
-import { formatTime12h, convert12to24, convert24to12 } from '@/lib/utils';
+import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import PrintReportLayout from '@/components/PrintReportLayout';
 
 export default function AdminDashboard() {
@@ -858,7 +858,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <span className="text-slate-400 text-xs font-bold block font-sans">إجمالي الساعات المسجلة</span>
-                  <span className="text-2xl font-black text-slate-900">{totalMonthlyHours} ساعة</span>
+                  <span className="text-2xl font-black text-slate-900 font-sans">{formatHoursText(totalMonthlyHours)}</span>
                 </div>
               </div>
 
@@ -962,7 +962,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="py-3.5 px-4 text-emerald-600 font-bold">{formatTime12h(r.checkInTime)}</td>
                           <td className="py-3.5 px-4 text-rose-600 font-bold">{formatTime12h(r.checkOutTime)}</td>
-                          <td className="py-3.5 px-4 text-center font-black">{r.workHours} ساعة</td>
+                          <td className="py-3.5 px-4 text-center font-black font-sans">{formatHoursText(r.workHours)}</td>
                           <td className="py-3.5 px-4 text-center font-mono">
                             <div className="font-black text-emerald-700">{r.earnedCost} د.ل</div>
                             {(() => {

@@ -84,3 +84,16 @@ export function calculateGpsDistanceMeters(lat1: number, lon1: number, lat2: num
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c);
 }
+
+// Formats decimal hours (e.g. 8.5) to explicit Arabic hours and minutes text (e.g. "8 ساعة و 30 دقيقة")
+export function formatHoursText(h: number | null | undefined): string {
+  if (!h && h !== 0) return '0 دقيقة';
+  const total = Math.round(Number(h) * 60);
+  if (total <= 0) return '0 دقيقة';
+  const hrs = Math.floor(total / 60);
+  const mins = total % 60;
+  if (hrs > 0 && mins > 0) return `${hrs} ساعة و ${mins} دقيقة`;
+  if (hrs > 0 && mins === 0) return `${hrs} ساعة`;
+  return `${mins} دقيقة`;
+}
+

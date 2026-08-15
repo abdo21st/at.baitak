@@ -17,7 +17,7 @@ export async function GET() {
       SELECT COUNT(*)::bigint as count FROM "PharmacyProduct"
       WHERE "stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel"
     `;
-    const belowMinStockCount = Number(belowMinResult[0].count);
+    const belowMinStockCount = Number(belowMinResult?.[0]?.count || 0);
 
     const totalSuppliersCount = await prisma.pharmacySupplier.count();
 

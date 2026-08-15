@@ -256,7 +256,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {departments.length === 0 ? (
           <div className="col-span-full py-12 text-center text-slate-400 text-xs font-bold bg-white rounded-3xl border border-dashed border-slate-200">
-            لا توجد أقسام مسجلة. انقر على زر "إضافة قسم جديد" للبدء.
+            لا توجد أقسام مسجلة. انقر على زر «إضافة قسم جديد» للبدء.
           </div>
         ) : (
           departments.map((dep) => (

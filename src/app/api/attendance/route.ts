@@ -406,9 +406,8 @@ export async function PUT(req: NextRequest) {
       const outTime = new Date(outStr).getTime();
       let diffMins = (outTime - inTime) / 60000;
       if (diffMins < 0 && !checkOutDate) {
-        const [inH] = inTimeStr.split(':').map(Number);
         const [outH] = outTimeStr.split(':').map(Number);
-        if (inH >= 18 && outH < 12) {
+        if (outH < 13) {
           diffMins += 24 * 60;
         }
       }
@@ -682,9 +681,8 @@ export async function PATCH(req: NextRequest) {
             const outTime = new Date(outStr).getTime();
             let diffMins = (outTime - inTime) / 60000;
             if (diffMins < 0 && !checkOutDate) {
-              const [inH] = newIn.split(':').map(Number);
               const [outH] = newOut.split(':').map(Number);
-              if (inH >= 18 && outH < 12) diffMins += 24 * 60;
+              if (outH < 13) diffMins += 24 * 60;
             }
 
             if (diffMins < 0) {
@@ -813,8 +811,11 @@ export async function DELETE(req: NextRequest) {
 
     try {
       await prisma.attendanceRecord.delete({ where: { id } });
-    } catch (dbErr) {
+    } catch (dbErr: any) {
       console.error('Delete attendance DB error:', dbErr);
+      if (!memoryRecords.some(r => r.id === id)) {
+        return NextResponse.json({ success: false, error: 'تعذر حذف سجل الحضور من قاعدة البيانات' }, { status: 500 });
+      }
     }
 
     memoryRecords = memoryRecords.filter((r) => r.id !== id);
