@@ -142,10 +142,20 @@ export async function POST(req: NextRequest) {
         const totalCommissions = Number(records.reduce((sum: number, r: any) => sum + (Number(r.commissionAmount) || 0), 0).toFixed(2));
 
         const effectiveRoles = emp.jobRoles || [];
-        const totalMonthlySalary = effectiveRoles.reduce((sum: number, r: { monthlySalary: number }) => sum + (r.monthlySalary || 0), 0) + (emp.monthlySalary || 0);
-        const jobRoleDailyRate = totalMonthlySalary > 0 ? totalMonthlySalary / 30 : 0;
-        const jobRoleDue = Number((uniqueDays * jobRoleDailyRate).toFixed(2));
-        const totalDue = Number((hourlyDue + jobRoleDue + totalCommissions).toFixed(2));
+        // BUG FIX: Prevent doubling monthlySalary if emp.monthlySalary is already the sum of jobRoles
+        const totalMonthlySalary = emp.monthlySalary && emp.monthlySalary > 0
+          ? emp.monthlySalary
+          : effectiveRoles.reduce((sum: number, r: { monthlySalary: number }) => sum + (r.monthlySalary || 0), 0);
+
+        // Exact total calculated from individual shifts in the month (including rate rules and bonuses)
+        const totalEarnedCost = Number(records.reduce((sum: number, r: any) => sum + (Number(r.earnedCost) || 0), 0).toFixed(2));
+
+        // If records already have earnedCost computed, use it as the source of truth
+        const totalDue = totalEarnedCost > 0
+          ? totalEarnedCost
+          : Number((hourlyDue + (uniqueDays * (totalMonthlySalary > 0 ? totalMonthlySalary / 30 : 0)) + totalCommissions).toFixed(2));
+
+        const jobRoleDue = Number((totalDue - hourlyDue - totalCommissions).toFixed(2));
 
         if (emp.phone) {
           await sendMonthlyPayrollToN8n({
@@ -159,7 +169,7 @@ export async function POST(req: NextRequest) {
             hourlyRate,
             hourlyDue,
             monthlySalary: totalMonthlySalary,
-            jobRoleDue,
+            jobRoleDue: Math.max(0, jobRoleDue),
             totalCommissions,
             totalDue
           }, targetUrl);

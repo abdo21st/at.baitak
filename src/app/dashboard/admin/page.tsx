@@ -213,8 +213,11 @@ export default function AdminDashboard() {
     direction: 'asc'
   });
 
-  const totalMonthlyHours = Number(records.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
-  const totalMonthlyEarned = Number(records.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
+  // Calculate monthly stats for the current month and respects employee filter
+  const currentMonthPrefix = new Date().toISOString().substring(0, 7);
+  const currentMonthRecords = filteredRecords.filter((r) => r.date?.startsWith(currentMonthPrefix));
+  const totalMonthlyHours = Number(currentMonthRecords.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(2));
+  const totalMonthlyEarned = Number(currentMonthRecords.reduce((acc, r) => acc + (r.earnedCost || 0), 0).toFixed(2));
 
   // Verify attendance action (توثيق الحضور)
   const handleVerifyRecord = async (recordId: string) => {
@@ -240,7 +243,7 @@ export default function AdminDashboard() {
 
   // Delete attendance record action (حذف سجل الحضور)
   const handleDeleteRecord = async (recordId: string) => {
-    if (!confirm('هل أنت تأكد من حذف سجل الحضور هذا بالكامل؟')) return;
+    if (!confirm('هل أنت متأكد من حذف سجل الحضور هذا بالكامل؟')) return;
 
     try {
       const res = await fetch(`/api/attendance?id=${recordId}`, {
@@ -444,7 +447,7 @@ export default function AdminDashboard() {
 
   // Delete Employee Action
   const handleDeleteEmployee = async (userId: string, userName: string) => {
-    if (!confirm(`هل أنت تأكد من إرادتك لحذف الموظف (${userName}) نهائياً؟`)) return;
+    if (!confirm(`هل أنت متأكد من إرادتك لحذف الموظف (${userName}) نهائياً؟`)) return;
 
     try {
       const res = await fetch(`/api/employees?id=${userId}`, {

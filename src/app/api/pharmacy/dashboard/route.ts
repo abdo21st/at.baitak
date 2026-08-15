@@ -50,10 +50,12 @@ export async function GET() {
         const expDate = new Date(p.expiryDate);
         const diffDays = Math.round((expDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
 
+        // BUG FIX 1: Use exclusive ranges (each item counted ONCE, not double-counted)
+        // 30days check already covers <=30, so 90days should be 31..90, etc.
         if (diffDays <= 0) expiredCount++;
         else if (diffDays <= 30) within30Days++;
-        else if (diffDays <= 90) within90Days++;
-        else if (diffDays <= 180) within180Days++;
+        else if (diffDays <= 90) within90Days++;   // 31-90 days
+        else if (diffDays <= 180) within180Days++;  // 91-180 days
       }
     }
 
@@ -71,12 +73,16 @@ export async function GET() {
       stockOnHand: item.stockOnHand,
       minStockLevel: item.minStockLevel,
       maxStockLevel: item.maxStockLevel,
-      suggestedOrderQty: Math.max(10, Math.round((item.maxStockLevel || item.minStockLevel * 2) || 10)),
+      // BUG FIX 2: suggestedOrderQty must never be negative
+      suggestedOrderQty: Math.max(10, Math.round(Math.max(0,
+        (item.maxStockLevel > 0 ? item.maxStockLevel - item.stockOnHand : item.minStockLevel * 2)
+      ))),
       costPrice: item.costPrice,
       sellPrice: item.sellPrice,
       supplierName: item.supplierName,
       totalSoldQty: item.totalSoldQty,
-      trueDailyVelocity: calculateInStockVelocity(item.totalSoldQty, 30),
+      // BUG FIX 3: Use inStockDays if available, fallback to 30
+      trueDailyVelocity: calculateInStockVelocity(item.totalSoldQty, Math.max(1, (item as any).inStockDays || 30)),
       urgency: item.totalSoldQty > 10 ? 'CRITICAL' : 'HIGH'
     }));
 

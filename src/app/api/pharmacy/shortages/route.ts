@@ -33,19 +33,8 @@ export async function GET(req: NextRequest) {
       )`;
     }
 
-    // BUG FIX 2: Search now works as AND with shortage filter (not replacing it)
-    const shortageItems = await prisma.$queryRaw<any[]>`
-      SELECT * FROM "PharmacyProduct"
-      WHERE (
-        "stockOnHand" <= 0 OR
-        ("stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel")
-      )
-      ${searchFilter ? prisma.$queryRaw`${searchFilter}` : prisma.$queryRaw``}
-      ORDER BY "stockOnHand" ASC, "totalSoldQty" DESC
-      LIMIT ${limit}
-    `;
-
-    // Since Prisma tagged template can't interpolate raw string conditions, use queryRawUnsafe
+    // BUG FIX 3: Remove dead query (shortageItems) that was never used — was wasted DB round-trip
+    // Use queryRawUnsafe only (with safe category and search conditions)
     const rawQuery = `
       SELECT * FROM "PharmacyProduct"
       WHERE (
@@ -82,13 +71,18 @@ export async function GET(req: NextRequest) {
       const minStockLevel = Number(item.minStockLevel) || 0;
       const maxStockLevel = Number(item.maxStockLevel) || 0;
 
-      const velocity = calculateInStockVelocity(totalSoldQty, 30);
+      // BUG FIX 4: Use inStockDays from DB (days the item had stock) not a hardcoded 30
+      // This implements the user's requirement: only measure velocity during in-stock periods
+      const inStockDays = Math.max(1, Number(item.inStockDays) || 30);
+      const velocity = calculateInStockVelocity(totalSoldQty, inStockDays);
       const doi = calculateDaysOfInventory(stockOnHand, velocity);
 
+      // BUG FIX 5: suggestedOrderQty must never be negative (if stockOnHand > maxStockLevel)
       // Suggested order qty: aim to fill to maxStockLevel, or 2x min, or 10 at minimum
-      const suggestedOrderQty = Math.max(10, Math.round(
-        (maxStockLevel > 0 ? maxStockLevel - stockOnHand : minStockLevel * 2 - stockOnHand) || 10
-      ));
+      const baseQty = maxStockLevel > 0
+        ? maxStockLevel - stockOnHand
+        : (minStockLevel > 0 ? minStockLevel * 2 - stockOnHand : 10);
+      const suggestedOrderQty = Math.max(10, Math.round(Math.max(0, baseQty)));
 
       // Generic risk: find near-expiry alternative with same active ingredient
       let genericRisk = null;
