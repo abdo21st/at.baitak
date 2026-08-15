@@ -7,6 +7,7 @@ import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 let memoryRecords: AttendanceRecord[] = [];
 
 // Helper to validate that check-out is not earlier than check-in
+// BUG FIX: Allow ANY overnight shift (e.g. 16:00 → 02:00), not just inH >= 18
 function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   const [inH, inM] = checkInTime.split(':').map(Number);
   const [outH, outM] = checkOutTime.split(':').map(Number);
@@ -14,10 +15,12 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   const inMins = inH * 60 + (inM || 0);
   const outMins = outH * 60 + (outM || 0);
 
+  // If output is before input in minutes, it MUST be overnight (outH < inH and reasonable)
   if (outMins < inMins) {
-    return inH >= 18 && outH < 12; // Overnight shift
+    // Accept any overnight pattern where check-out is in early hours (before noon)
+    return outH < 13;
   }
-  return true;
+  return outMins > inMins; // Reject exact same time (0 hours)
 }
 
 // Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours OR monthlySalary / 30 once per day)
@@ -427,14 +430,31 @@ export async function PUT(req: NextRequest) {
         }, { status: 400 });
       }
 
+      // BUG FIX: Fetch actual user rates for memory fallback (was hardcoded 50/500/160)
+      let memRate = 0, memSalary = 0, memTargetHrs = 0, memIsHourly = true;
+      try {
+        const memUser = await prisma.user.findUnique({
+          where: { id: targetRec ? targetRec.userId : memRec.userId },
+          include: { jobRoles: true }
+        });
+        if (memUser) {
+          memRate = memUser.hourlyRate || 0;
+          memSalary = memUser.monthlySalary || 0;
+          memTargetHrs = memUser.targetMonthlyHours || 0;
+          const role = memUser.jobRoles?.[0];
+          memIsHourly = role ? role.isHourly !== false : true;
+        }
+      } catch {}
+
       memRec.workHours = Number((totalMins / 60).toFixed(2));
-      memRec.earnedCost = calculateDualEarnedCost(memRec.workHours, 50, 500, 160, true);
+      memRec.earnedCost = calculateDualEarnedCost(memRec.workHours, memRate, memSalary, memTargetHrs, memIsHourly);
       memRec.checkOutTime = checkOutTime;
       memRec.checkOutLat = finalLat;
       memRec.checkOutLng = finalLng;
 
       return NextResponse.json({ success: true, record: memRec });
     }
+
 
     const outDate = checkOutDate || targetRec.date;
     const totalMins = computeWorkHours(targetRec.date, targetRec.checkInTime, outDate, checkOutTime);
@@ -492,6 +512,16 @@ export async function PUT(req: NextRequest) {
       rateRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
     } catch {}
 
+    // BUG FIX: Fetch user department IDs for department-scoped rate rules
+    let userDeptIds: string[] = [];
+    try {
+      const uWithDepts = await prisma.user.findUnique({
+        where: { id: targetRec.userId },
+        include: { departments: { select: { id: true } } }
+      });
+      userDeptIds = uWithDepts?.departments?.map((d: any) => d.id) || [];
+    } catch {}
+
     const shiftCost = calculateShiftWithRateRules(
       targetRec.date,
       targetRec.checkInTime,
@@ -503,7 +533,7 @@ export async function PUT(req: NextRequest) {
       isFirstRecordOfDay,
       rateRules,
       targetRec.userId,
-      undefined,
+      userDeptIds,
       shiftAmountNum,
       commissionRate
     );
@@ -671,6 +701,26 @@ export async function PATCH(req: NextRequest) {
               patchRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
             } catch {}
 
+            // BUG FIX: Calculate isFirstRecordOfDay correctly instead of hardcoding true
+            let patchIsFirst = true;
+            try {
+              const otherSameDayRecs = await prisma.attendanceRecord.findMany({
+                where: { userId: target.userId, date: newDate, id: { not: recordId } },
+                orderBy: { checkInTime: 'asc' }
+              });
+              patchIsFirst = otherSameDayRecs.length === 0 || (otherSameDayRecs[0].checkInTime > newIn);
+            } catch {}
+
+            // BUG FIX: Fetch department IDs for department-scoped rate rules
+            let patchDeptIds: string[] = [];
+            try {
+              const uWithDepts = await prisma.user.findUnique({
+                where: { id: target.userId },
+                include: { departments: { select: { id: true } } }
+              });
+              patchDeptIds = uWithDepts?.departments?.map((d: any) => d.id) || [];
+            } catch {}
+
             const shiftCost = calculateShiftWithRateRules(
               newDate,
               newIn,
@@ -679,10 +729,10 @@ export async function PATCH(req: NextRequest) {
               monthlySalary,
               targetMonthlyHours,
               isHourly,
-              true,
+              patchIsFirst,
               patchRules,
               target.userId,
-              undefined,
+              patchDeptIds,
               newShiftAmount,
               commissionRate
             );

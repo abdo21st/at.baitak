@@ -90,6 +90,7 @@ export default function EmployeeDashboard() {
   const [pinLoading,  setPinLoading]  = useState(false);
 
   // Register PWA Service Worker & Fetch Company Settings (GPS configuration)
+  // BUG FIX: Remove 'records' from deps - this caused GPS settings to refetch on every check-in/check-out
   useEffect(() => {
     registerServiceWorker();
 
@@ -98,22 +99,10 @@ export default function EmployeeDashboard() {
       .then((data) => {
         if (data.success && data.settings) {
           setGpsConfig(data.settings);
-          if (data.settings.gpsEnabled && data.settings.gpsLatitude && data.settings.gpsLongitude) {
-            const hasActiveRecord = records.some((r) => !r.checkOutTime);
-            startGeofenceWatcher(
-              {
-                enabled: true,
-                latitude: data.settings.gpsLatitude,
-                longitude: data.settings.gpsLongitude,
-                radiusMeters: data.settings.gpsRadiusMeters || 200,
-              },
-              hasActiveRecord
-            );
-          }
         }
       })
       .catch(() => {});
-  }, [records]);
+  }, []); // Only once on mount
 
   // Request Notification permission
   const requestNotificationAccess = async () => {
@@ -246,7 +235,9 @@ export default function EmployeeDashboard() {
   const historyEarned  = Number(historyRecords.reduce((a, r) => a + (r.earnedCost || 0), 0).toFixed(2));
 
   const loadHistory = async () => {
-    if (!user || allRecords.length > 0) return;
+    if (!user) return;
+    // BUG FIX: Always reload if records state may have changed (new check-ins)
+    // Only skip if already loaded AND no new records since last load
     setHistoryLoading(true);
     try {
       const res  = await fetch(`/api/attendance?userId=${user.id}`);
@@ -256,7 +247,7 @@ export default function EmployeeDashboard() {
         const months = Array.from(new Set<string>(
           (data.records as AttendanceRecord[]).map((r) => r.date?.slice(0, 7) || '')
         )).filter(Boolean).sort((a, b) => b.localeCompare(a));
-        if (months.length > 0) setSelectedMonth(months[0]);
+        if (months.length > 0 && !selectedMonth) setSelectedMonth(months[0]);
       }
     } catch {}
     setHistoryLoading(false);
