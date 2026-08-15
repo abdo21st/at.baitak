@@ -224,46 +224,70 @@ export default function PharmacyInventoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {products.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
-                        {(page - 1) * 25 + idx + 1}
-                      </td>
-                      <td className="py-3.5 pr-4">
-                        <div className="font-bold text-slate-900">{item.name}</div>
-                        {item.activeIngredient && (
-                          <div className="text-[10px] text-slate-400 font-mono">{item.activeIngredient}</div>
-                        )}
-                      </td>
-                      <td className="py-3.5 text-center font-mono text-slate-500">{item.code}</td>
-                      <td className="py-3.5 text-center font-mono font-black">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-lg print:border-none print:p-0 ${
-                            item.stockOnHand <= 0
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : item.stockOnHand <= item.minStockLevel
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}
-                        >
-                          {item.stockOnHand}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-center font-mono text-slate-500">{item.minStockLevel}</td>
-                      <td className="py-3.5 text-center font-mono text-slate-700 font-bold">{Number(item.costPrice).toFixed(2)} د.ل</td>
-                      <td className="py-3.5 text-center font-mono text-slate-500">{Number(item.sellPrice).toFixed(2)} د.ل</td>
-                      <td className="py-3.5 text-center font-mono text-[11px] text-slate-600">{item.expiryDate || '—'}</td>
-                      <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500">{item.supplierName || 'غير محدد'}</td>
-                      <td className="py-3.5 text-center no-print">
-                        <button
-                          onClick={() => openAdjust(item)}
-                          className="p-1.5 bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {products.map((item, idx) => {
+                    const packSize = item.packSize || 1;
+                    const orderUnit = item.orderUnit || 'عبوة';
+                    const invUnit = item.inventoryUnit || 'قطعة';
+
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                          {(page - 1) * 25 + idx + 1}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          <div className="font-bold text-slate-900">{item.name}</div>
+                          <div className="text-[10px] text-slate-500 font-medium flex flex-wrap items-center gap-2 mt-0.5">
+                            {item.activeIngredient && (
+                              <span className="text-slate-400 font-mono">{item.activeIngredient}</span>
+                            )}
+                            {packSize > 1 && (
+                              <span className="bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200 text-[9px] font-mono">
+                                1 {orderUnit} = {packSize} {invUnit}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-500">{item.code}</td>
+                        <td className="py-3.5 text-center font-mono font-black">
+                          <div className="flex flex-col items-center">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-lg print:border-none print:p-0 ${
+                                item.stockOnHand <= 0
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  : item.stockOnHand <= item.minStockLevel
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              }`}
+                            >
+                              {item.stockOnHand}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-normal mt-0.5">{invUnit}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-500">
+                          <span>{item.minStockLevel}</span>
+                          <span className="text-[9px] text-slate-400 font-normal block">{invUnit}</span>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-700 font-bold">
+                          <div>{Number(item.costPrice).toFixed(2)} د.ل</div>
+                          {packSize > 1 && (
+                            <div className="text-[9px] text-slate-400 font-normal">({Number(item.purchaseUnitCost || (item.costPrice * packSize)).toFixed(2)} /{orderUnit})</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-500">{Number(item.sellPrice).toFixed(2)} د.ل</td>
+                        <td className="py-3.5 text-center font-mono text-[11px] text-slate-600">{item.expiryDate || '—'}</td>
+                        <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500">{item.supplierName || 'غير محدد'}</td>
+                        <td className="py-3.5 text-center no-print">
+                          <button
+                            onClick={() => openAdjust(item)}
+                            className="p-1.5 bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

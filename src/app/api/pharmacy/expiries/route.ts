@@ -52,11 +52,14 @@ export async function GET(req: NextRequest) {
         productCode: p.productCode,
         productName: p.productName,
         stockOnHand: p.stockOnHand,
+        inventoryUnit: p.inventoryUnit || 'قطعة',
+        orderUnit: p.orderUnit || 'عبوة',
+        packSize: p.packSize || 1,
         costPrice: p.costPrice,
         sellPrice: p.sellPrice,
         expiryDate: p.expiryDate,
         daysRemaining,
-        supplierName: p.supplierName,
+        supplierName: p.supplierName || 'غير محدد',
         status
       });
     }

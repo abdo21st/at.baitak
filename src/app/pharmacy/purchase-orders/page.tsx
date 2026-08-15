@@ -48,6 +48,11 @@ export default function PharmacyPurchaseOrdersPage() {
 
   const addItemToOrder = (p: any) => {
     if (items.some((i) => i.productId === p.id)) return;
+    const packSize = Number(p.packSize) || 1;
+    const orderUnit = p.orderUnit || 'عبوة';
+    const invUnit = p.inventoryUnit || 'قطعة';
+    const purchaseCost = Number(p.purchaseUnitCost) || (Number(p.costPrice) * packSize);
+
     setItems((prev) => [
       ...prev,
       {
@@ -55,9 +60,12 @@ export default function PharmacyPurchaseOrdersPage() {
         productCode: p.code,
         productName: p.name,
         currentStock: p.stockOnHand,
-        requestedQty: p.minStockLevel > 0 ? p.minStockLevel * 2 : 10,
-        estimatedUnitCost: Number(p.costPrice) || 10,
-        estimatedTotal: (p.minStockLevel > 0 ? p.minStockLevel * 2 : 10) * (Number(p.costPrice) || 10)
+        inventoryUnit: invUnit,
+        orderUnit: orderUnit,
+        packSize: packSize,
+        requestedQty: p.minStockLevel > 0 ? Math.ceil((p.minStockLevel * 2) / packSize) : 5,
+        estimatedUnitCost: purchaseCost,
+        estimatedTotal: (p.minStockLevel > 0 ? Math.ceil((p.minStockLevel * 2) / packSize) : 5) * purchaseCost
       }
     ]);
     setSearchProd('');
@@ -82,14 +90,23 @@ export default function PharmacyPurchaseOrdersPage() {
   const totalEstimated = items.reduce((sum, i) => sum + i.estimatedTotal, 0);
 
   const generateWhatsAppPOText = () => {
-    let text = `*أمر شراء أدوية رسمي* 📄🌿\n`;
+    let text = `*أمر شراء وتوريد أدوية رسمي* 📄🌿\n`;
     text += `إلى: *${selectedSupplier || 'الشركة الموردة'}*\n`;
     text += `التاريخ: ${orderDate}\n`;
     text += `عدد الأصناف: ${items.length}\n`;
     text += `------------------------------------\n`;
     items.forEach((item, idx) => {
+      const orderUnit = item.orderUnit || 'عبوة';
+      const invUnit = item.inventoryUnit || 'قطعة';
+      const packSize = item.packSize || 1;
+      const totalSmall = item.requestedQty * packSize;
+
       text += `${idx + 1}. *${item.productName}* (كود: ${item.productCode})\n`;
-      text += `   الكمية المطلوبة: [ *${item.requestedQty}* علبة ]\n`;
+      text += `   الكمية المطلوبة: [ *${item.requestedQty}* ${orderUnit} ]`;
+      if (packSize > 1) {
+        text += ` (تعادل ${totalSmall} ${invUnit} - العبوة تحتوي ${packSize} ${invUnit})`;
+      }
+      text += `\n`;
     });
     text += `------------------------------------\n`;
     text += `الملاحظات: ${orderNotes}\n`;
@@ -248,32 +265,59 @@ export default function PharmacyPurchaseOrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map((item, idx) => (
-                    <tr key={item.productId} className="hover:bg-slate-50">
-                      <td className="py-3 pr-3 font-mono font-bold text-slate-400 text-center">{idx + 1}</td>
-                      <td className="py-3 pr-2 font-bold text-slate-900">{item.productName}</td>
-                      <td className="py-3 text-center font-mono text-slate-500">{item.productCode}</td>
-                      <td className="py-3 text-center">
-                        <span className="hidden print:inline-block font-mono font-black text-sm">
-                          {item.requestedQty}
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.requestedQty}
-                          onChange={(e) => updateItemQty(item.productId, parseInt(e.target.value, 10) || 1)}
-                          className="w-16 h-8 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono font-black text-slate-900 no-print"
-                        />
-                      </td>
-                      <td className="py-3 text-center font-mono text-slate-600">{item.estimatedUnitCost.toFixed(2)} د.ل</td>
-                      <td className="py-3 text-center font-mono font-bold text-emerald-700">{item.estimatedTotal.toFixed(2)} د.ل</td>
-                      <td className="py-3 text-left pl-3 no-print">
-                        <button onClick={() => removeItem(item.productId)} className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item, idx) => {
+                    const orderUnit = item.orderUnit || 'عبوة';
+                    const invUnit = item.inventoryUnit || 'قطعة';
+                    const packSize = item.packSize || 1;
+                    const totalSmall = item.requestedQty * packSize;
+
+                    return (
+                      <tr key={item.productId} className="hover:bg-slate-50">
+                        <td className="py-3 pr-3 font-mono font-bold text-slate-400 text-center">{idx + 1}</td>
+                        <td className="py-3 pr-2 font-bold text-slate-900">
+                          <div>{item.productName}</div>
+                          {packSize > 1 && (
+                            <div className="text-[10px] text-purple-700 font-mono mt-0.5">
+                              (1 {orderUnit} = {packSize} {invUnit})
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 text-center font-mono text-slate-500">{item.productCode}</td>
+                        <td className="py-3 text-center">
+                          <div className="flex flex-col items-center">
+                            <div className="flex items-center gap-1 justify-center">
+                              <span className="hidden print:inline-block font-mono font-black text-sm">
+                                {item.requestedQty}
+                              </span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.requestedQty}
+                                onChange={(e) => updateItemQty(item.productId, parseInt(e.target.value, 10) || 1)}
+                                className="w-16 h-8 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono font-black text-slate-900 no-print"
+                              />
+                              <span className="text-xs font-bold text-slate-700">{orderUnit}</span>
+                            </div>
+                            {packSize > 1 && (
+                              <span className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                ({totalSmall} {invUnit})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 text-center font-mono text-slate-600">
+                          <div>{item.estimatedUnitCost.toFixed(2)} د.ل</div>
+                          <div className="text-[9px] text-slate-400 font-normal">/{orderUnit}</div>
+                        </td>
+                        <td className="py-3 text-center font-mono font-bold text-emerald-700">{item.estimatedTotal.toFixed(2)} د.ل</td>
+                        <td className="py-3 text-left pl-3 no-print">
+                          <button onClick={() => removeItem(item.productId)} className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

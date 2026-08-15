@@ -211,44 +211,74 @@ export default function PharmacyDashboardPage() {
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] text-slate-400 font-bold">
                     <th className="pb-3 pr-2">الدواء / الصنف</th>
-                    <th className="pb-3 text-center">الرصيد</th>
-                    <th className="pb-3 text-center">سرعة السحب الحقيقية</th>
-                    <th className="pb-3 text-center">المقترح للشراء</th>
-                    <th className="pb-3 text-center">التكلفة</th>
+                    <th className="pb-3 text-center">الرصيد الفعلي</th>
+                    <th className="pb-3 text-center">سرعة السحب (30 يوم)</th>
+                    <th className="pb-3 text-center">المقترح للشراء (وحدة كبرى)</th>
+                    <th className="pb-3 text-center">التكلفة التقديرية</th>
                     <th className="pb-3 text-left pl-2">المورد</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {stats?.topShortages.map((item: any) => (
-                    <tr key={item.productId} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 pr-2 font-bold text-slate-900">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${item.stockOnHand <= 0 ? 'bg-rose-500' : 'bg-amber-500'}`}></span>
-                          <div>
-                            <div>{item.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono font-normal">كود: {item.code}</div>
+                  {stats?.topShortages.map((item: any) => {
+                    const packSize = item.packSize || 1;
+                    const orderUnit = item.orderUnit || 'عبوة';
+                    const invUnit = item.inventoryUnit || 'قطعة';
+
+                    return (
+                      <tr key={item.productId} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 pr-2 font-bold text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${item.stockOnHand <= 0 ? 'bg-rose-500' : 'bg-amber-500'}`}></span>
+                            <div>
+                              <div className="font-black text-slate-900">{item.name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono font-normal flex items-center gap-2 mt-0.5">
+                                <span>كود: {item.code}</span>
+                                {packSize > 1 && (
+                                  <span className="bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded border border-purple-200 text-[9px] font-mono">
+                                    1 {orderUnit} = {packSize} {invUnit}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 text-center font-mono font-black">
-                        <span className={`px-2 py-0.5 rounded-md ${item.stockOnHand <= 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                          {item.stockOnHand}
-                        </span>
-                      </td>
-                      <td className="py-3 text-center font-mono font-bold text-slate-800">
-                        {item.trueDailyVelocity || 0} علبة/يوم
-                      </td>
-                      <td className="py-3 text-center font-mono font-bold text-emerald-700">
-                        +{item.suggestedOrderQty}
-                      </td>
-                      <td className="py-3 text-center font-mono text-slate-600">
-                        {Number(item.costPrice).toFixed(2)} د.ل
-                      </td>
-                      <td className="py-3 text-left pl-2 text-[11px] text-slate-500 font-medium">
-                        {item.supplierName || 'غير محدد'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 text-center font-mono font-black">
+                          <div className="flex flex-col items-center">
+                            <span className={`px-2 py-0.5 rounded-md ${item.stockOnHand <= 0 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                              {item.stockOnHand}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-normal mt-0.5">{invUnit}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-center font-mono text-xs">
+                          <div className="flex flex-col items-center">
+                            <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {Number(item.trueDailyVelocity || 0).toFixed(2)}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-normal mt-0.5">{invUnit}/يوم</span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-center font-mono font-black text-emerald-700">
+                          <div className="flex flex-col items-center">
+                            <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-xs">
+                              +{item.suggestedOrderPackages || item.suggestedOrderQty} {orderUnit}
+                            </span>
+                            {packSize > 1 && (
+                              <span className="text-[9px] text-slate-500 font-normal mt-0.5">
+                                ({item.suggestedTotalSmallUnits || ((item.suggestedOrderPackages || item.suggestedOrderQty) * packSize)} {invUnit})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 text-center font-mono font-bold text-slate-900">
+                          {Number(item.estimatedOrderCost || ((item.suggestedOrderPackages || item.suggestedOrderQty) * (item.purchaseUnitCost || item.costPrice))).toFixed(2)} د.ل
+                        </td>
+                        <td className="py-3 text-left pl-2 text-[11px] text-slate-500 font-medium">
+                          {item.supplierName || 'غير محدد'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

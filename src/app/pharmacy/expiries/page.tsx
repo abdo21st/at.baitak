@@ -47,8 +47,9 @@ export default function PharmacyExpiriesPage() {
     text += `عدد الأصناف: ${items.length}\n`;
     text += `------------------------------------\n`;
     items.forEach((item, idx) => {
+      const invUnit = item.inventoryUnit || 'علبة';
       text += `${idx + 1}. *${item.productName}* (كود: ${item.productCode})\n`;
-      text += `   الكمية: [ *${item.stockOnHand}* علبة ] | تاريخ الصلاحية: [ *${item.expiryDate}* ]\n`;
+      text += `   الكمية: [ *${item.stockOnHand}* ${invUnit} ] | تاريخ الصلاحية: [ *${item.expiryDate}* ]\n`;
     });
     text += `------------------------------------\n`;
     text += `الرجاء التنسيق لاستبدال المرتجعات مع الشكر.`;
@@ -174,35 +175,51 @@ export default function PharmacyExpiriesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map((item, idx) => (
-                    <tr key={`${item.productId}-${item.expiryDate}`} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3.5 pr-4 font-bold text-slate-900">{item.productName}</td>
-                      <td className="py-3.5 text-center font-mono text-slate-500">{item.productCode}</td>
-                      <td className="py-3.5 text-center font-mono font-bold text-slate-800">{item.expiryDate}</td>
-                      <td className="py-3.5 text-center font-mono">
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold print:border-none print:p-0 ${
-                            item.status === 'EXPIRED'
-                              ? 'bg-rose-100 text-rose-800 font-black'
-                              : item.status === 'CRITICAL_30'
-                              ? 'bg-amber-100 text-amber-800'
-                              : item.status === 'WARNING_90'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {item.daysRemaining <= 0 ? 'منتهي الصلاحية' : `${item.daysRemaining} يوم`}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-center font-mono font-black text-slate-900">{item.stockOnHand}</td>
-                      <td className="py-3.5 text-center font-mono text-slate-600">{Number(item.costPrice).toFixed(2)} د.ل</td>
-                      <td className="py-3.5 text-center font-mono font-bold text-rose-700">{(item.stockOnHand * item.costPrice).toFixed(2)} د.ل</td>
-                      <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">{item.supplierName || 'غير محدد'}</td>
-                    </tr>
-                  ))}
+                  {items.map((item, idx) => {
+                    const invUnit = item.inventoryUnit || 'قطعة';
+                    const orderUnit = item.orderUnit || 'عبوة';
+                    const packSize = item.packSize || 1;
+
+                    return (
+                      <tr key={`${item.productId}-${item.expiryDate}`} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 pr-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3.5 pr-4">
+                          <div className="font-bold text-slate-900">{item.productName}</div>
+                          {packSize > 1 && (
+                            <div className="text-[9px] text-purple-700 font-mono mt-0.5">
+                              (1 {orderUnit} = {packSize} {invUnit})
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-500">{item.productCode}</td>
+                        <td className="py-3.5 text-center font-mono font-bold text-slate-800">{item.expiryDate}</td>
+                        <td className="py-3.5 text-center font-mono">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-bold print:border-none print:p-0 ${
+                              item.status === 'EXPIRED'
+                                ? 'bg-rose-100 text-rose-800 font-black'
+                                : item.status === 'CRITICAL_30'
+                                ? 'bg-amber-100 text-amber-800'
+                                : item.status === 'WARNING_90'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            {item.daysRemaining <= 0 ? 'منتهي الصلاحية' : `${item.daysRemaining} يوم`}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-center font-mono font-black text-slate-900">
+                          <div>{item.stockOnHand}</div>
+                          <div className="text-[9px] text-slate-400 font-normal">{invUnit}</div>
+                        </td>
+                        <td className="py-3.5 text-center font-mono text-slate-600">{Number(item.costPrice).toFixed(2)} د.ل</td>
+                        <td className="py-3.5 text-center font-mono font-bold text-rose-700">{(item.stockOnHand * item.costPrice).toFixed(2)} د.ل</td>
+                        <td className="py-3.5 text-left pl-4 text-[11px] text-slate-500 font-medium">{item.supplierName || 'غير محدد'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
