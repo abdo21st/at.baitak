@@ -62,6 +62,7 @@ export default function ClinicalCapsuleModal({
   const [manualIngredient, setManualIngredient] = useState('');
   const [isSavingLeafletData, setIsSavingLeafletData] = useState(false);
   const [leafletSaveSuccess, setLeafletSaveSuccess] = useState(false);
+  const [barcodeNotFoundNotice, setBarcodeNotFoundNotice] = useState<string | null>(null);
 
   // Generated Capsule Data
   const [capsuleData, setCapsuleData] = useState<ClinicalCapsuleData | null>(null);
@@ -262,6 +263,7 @@ export default function ClinicalCapsuleModal({
   const handleBarcodeScanned = useCallback(async (scannedCode: string) => {
     const clean = scannedCode.trim();
     if (!clean) return;
+    setBarcodeNotFoundNotice(null);
 
     // 1. البحث المحلي أولاً عبر كافة الباركودات والرموز المسجلة
     const matched = internalProducts.find((p: any) => checkProductMatchesBarcode(p, clean));
@@ -287,13 +289,8 @@ export default function ClinicalCapsuleModal({
       console.error('Dynamic barcode search error:', e);
     }
 
-    // 3. في حال كان باركود دواء جديد غير مسجل، يتم توجيهه للاكتشاف الحي بالإنترنت
-    setSelectedProduct({
-      id: `scan-${Date.now()}`,
-      name: clean,
-      scientificName: clean,
-      dosageForm: 'General'
-    });
+    // 3. في حال لم يتم العثور على باركود الصنف في قاعدة البيانات:
+    setBarcodeNotFoundNotice(clean);
   }, [internalProducts, checkProductMatchesBarcode]);
 
   // 📸 التقاط ورفع صورة نشرة المنتج
@@ -485,7 +482,48 @@ export default function ClinicalCapsuleModal({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="space-y-4">
+              {/* ⚠️ تنبيه عند عدم توفر باركود الصنف في قاعدة البيانات */}
+              {barcodeNotFoundNotice && (
+                <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl flex items-start justify-between gap-3 text-xs text-rose-950 font-bold shadow-md">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-rose-600/20">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <strong className="text-sm font-black text-rose-950 block">
+                        ⚠️ لا يتوفر كود الصنف ({barcodeNotFoundNotice}) في قاعدة البيانات
+                      </strong>
+                      <p className="text-xs text-rose-800 font-medium leading-relaxed">
+                        لم يتم العثور على أي صنف مطابق للباركود الممسوح في قاعدة بيانات الأدوية. يمكنك البحث عنه يدوياً بالاسم أو تصوير نشرة المنتج (Leaflet) لإضافته وتوثيق تركيبته.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBarcodeNotFoundNotice(null);
+                        leafletCameraInputRef.current?.click();
+                      }}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer transform active:scale-98"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>📸 تصوير النشرة</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBarcodeNotFoundNotice(null)}
+                      className="w-8 h-8 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-800 flex items-center justify-center transition-all cursor-pointer"
+                      title="إغلاق التنبيه"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Product Selection & Random Pick */}
               <div className="lg:col-span-5 space-y-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
@@ -978,7 +1016,8 @@ export default function ClinicalCapsuleModal({
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
         </div>
       </div>
 
