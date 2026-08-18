@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import {
   Camera,
   X,
@@ -11,11 +10,9 @@ import {
   Sparkles,
   AlertCircle,
   Volume2,
-  Image as ImageIcon,
   SwitchCamera,
-  ShieldAlert,
-  HelpCircle,
-  Upload
+  Upload,
+  CheckCircle2
 } from 'lucide-react';
 
 interface BarcodeScannerModalProps {
@@ -37,15 +34,17 @@ export default function BarcodeScannerModal({
   const [manualCode, setManualCode] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
-  const [availableCameras, setAvailableCameras] = useState<Array<{ id: string; label: string }>>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState<number>(0);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animFrameRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const scannerContainerId = 'mobile-barcode-reader-viewport';
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // نغمة تأكيد صوتية فورية
+  // نغمة تأكيد صوتية خفيفة عند نجاح المسح
   const playBeep = useCallback(() => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -72,6 +71,23 @@ export default function BarcodeScannerModal({
     } catch {}
   }, []);
 
+  const stopCameraStream = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+    setIsTorchOn(false);
+    setHasTorch(false);
+  }, []);
+
   const handleDetected = useCallback((decodedText: string) => {
     const cleanText = decodedText.trim();
     if (!cleanText || cleanText === lastScanned) return;
@@ -80,15 +96,178 @@ export default function BarcodeScannerModal({
     playBeep();
     triggerHaptic();
 
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current.stop().catch(() => {});
-    }
-
+    stopCameraStream();
     onScanSuccess(cleanText);
     onClose();
-  }, [lastScanned, onScanSuccess, onClose, playBeep, triggerHaptic]);
+  }, [lastScanned, onScanSuccess, onClose, playBeep, triggerHaptic, stopCameraStream]);
 
-  // مسح الباركود من صورة ملتقطة بكاميرا الهاتف (Native Photo Capture Fallback)
+  // تشغيل الكاميرا ومسح الباركود اللحظي
+  const startCamera = useCallback(async (deviceId?: string) => {
+    stopCameraStream();
+    setScannerError(null);
+    setIsScanning(true);
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('المتصفح لا يدعم الوصول للكاميرا مباشرة. يرجى استخدام زر التقاط صورة.');
+      }
+
+      // جلب قائمة الكاميرات
+      let devices: MediaDeviceInfo[] = [];
+      try {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        devices = allDevices.filter((d) => d.kind === 'videoinput');
+        setAvailableCameras(devices);
+      } catch {}
+
+      // تحديد أنسب إعدادات للكاميرا الخلفية
+      const videoConstraints: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 }
+          };
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('muted', 'true');
+        videoRef.current.muted = true;
+        await videoRef.current.play();
+      }
+
+      // التحقق من وجود فلاش (Torch)
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        try {
+          const capabilities = track.getCapabilities?.() as any;
+          if (capabilities && 'torch' in capabilities) {
+            setHasTorch(true);
+          }
+        } catch {}
+      }
+
+      setIsScanning(true);
+
+      // 🔍 حلقة مسح الباركود اللحظية من الفيديو المباشر
+      let detector: any = null;
+      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+        try {
+          detector = new (window as any).BarcodeDetector({
+            formats: [
+              'ean_13',
+              'ean_8',
+              'code_128',
+              'code_39',
+              'code_93',
+              'upc_a',
+              'upc_e',
+              'qr_code',
+              'data_matrix',
+              'itf'
+            ]
+          });
+        } catch {}
+      }
+
+      let lastCheckTime = 0;
+      const scanLoop = async (time: number) => {
+        if (!streamRef.current || !videoRef.current) return;
+
+        // فحص إطار كل 80 ميلي ثانية لتوفير البطارية والأداء
+        if (time - lastCheckTime >= 80 && videoRef.current.readyState >= 2) {
+          lastCheckTime = time;
+
+          // 1. فحص باستخدام BarcodeDetector الأصلي
+          if (detector) {
+            try {
+              const barcodes = await detector.detect(videoRef.current);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                handleDetected(barcodes[0].rawValue);
+                return;
+              }
+            } catch {}
+          } else {
+            // 2. Fallback: استخدام html5-qrcode على كائن الفيديو إذا لم يتوفر BarcodeDetector
+            try {
+              const { Html5Qrcode } = await import('html5-qrcode');
+              if (!canvasRef.current) {
+                canvasRef.current = document.createElement('canvas');
+              }
+              const canvas = canvasRef.current;
+              const v = videoRef.current;
+              if (v.videoWidth > 0 && v.videoHeight > 0) {
+                canvas.width = v.videoWidth;
+                canvas.height = v.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+                  canvas.toBlob(async (blob) => {
+                    if (blob) {
+                      try {
+                        const html5Qr = new Html5Qrcode('temp-hidden-scanner', false);
+                        const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
+                        const res = await html5Qr.scanFile(file, false);
+                        if (res) {
+                          handleDetected(res);
+                        }
+                      } catch {}
+                    }
+                  }, 'image/jpeg', 0.85);
+                }
+              }
+            } catch {}
+          }
+        }
+
+        animFrameRef.current = requestAnimationFrame(scanLoop);
+      };
+
+      animFrameRef.current = requestAnimationFrame(scanLoop);
+    } catch (err: any) {
+      console.warn('Camera Launch Error:', err);
+      setIsScanning(false);
+      const isHttp = typeof window !== 'undefined' && window.location.protocol === 'http:' && !window.location.hostname.includes('localhost');
+
+      if (isHttp) {
+        setScannerError('يتطلب المتصفح اتصالاً آمناً (HTTPS) لتشغيل الكاميرا المباشرة، أو يمكنك استخدام زر "التقاط صورة 📷" بالأسفل مباشرة.');
+      } else {
+        setScannerError('تعذر فتح الكاميرا المباشرة. يرجى التأكد من منح الإذن في المتصفح، أو النقر على زر "التقاط صورة 📷" بالأسفل.');
+      }
+    }
+  }, [stopCameraStream, handleDetected]);
+
+  // تبديل الكاميرا (Switch between available camera lenses)
+  const switchCamera = () => {
+    if (availableCameras.length <= 1) return;
+    const nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+    setCurrentCameraIndex(nextIndex);
+    const nextDev = availableCameras[nextIndex];
+    startCamera(nextDev.deviceId);
+  };
+
+  // تشغيل / إطفاء الفلاش (Torch)
+  const toggleTorch = async () => {
+    if (!streamRef.current || !hasTorch) return;
+    try {
+      const track = streamRef.current.getVideoTracks()[0];
+      const nextState = !isTorchOn;
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }]
+      });
+      setIsTorchOn(nextState);
+    } catch {}
+  };
+
+  // مسح الباركود من صورة ملتقطة (Native File Capture)
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -97,24 +276,29 @@ export default function BarcodeScannerModal({
       setIsProcessingFile(true);
       setScannerError(null);
 
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(scannerContainerId, {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.QR_CODE
-          ],
-          verbose: false
-        });
+      // 1. تجربة BarcodeDetector على صورة Bitmap
+      if (typeof window !== 'undefined' && 'BarcodeDetector' in window && 'createImageBitmap' in window) {
+        try {
+          const detector = new (window as any).BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+          });
+          const bitmap = await createImageBitmap(file);
+          const barcodes = await detector.detect(bitmap);
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            handleDetected(barcodes[0].rawValue);
+            return;
+          }
+        } catch {}
       }
 
-      const decoded = await scannerRef.current.scanFile(file, true);
+      // 2. Fallback: استخدام Html5Qrcode scanFile
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const scanner = new Html5Qrcode('temp-hidden-scanner', false);
+      const decoded = await scanner.scanFile(file, true);
       if (decoded) {
         handleDetected(decoded);
+      } else {
+        throw new Error('No barcode');
       }
     } catch (err) {
       setScannerError('لم يتم العثور على باركود واضح في الصورة. يرجى تجربة التقاط صورة أقرب للباركود مع إضاءة جيدة أو إدخاله يدوياً.');
@@ -124,151 +308,30 @@ export default function BarcodeScannerModal({
     }
   };
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      try {
-        await scannerRef.current.stop();
-      } catch {}
-    }
-    setIsScanning(false);
-  }, []);
-
-  const startScanner = useCallback(async (cameraIdToUse?: string) => {
-    setScannerError(null);
-    setIsScanning(true);
-
-    try {
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(scannerContainerId, {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.UPC_A,
-            Html5QrcodeSupportedFormats.UPC_E,
-            Html5QrcodeSupportedFormats.QR_CODE
-          ],
-          verbose: false
-        });
-      }
-
-      // إيقاف أي بث نشط مسبقاً قبل بدء بث جديد
-      if (scannerRef.current.isScanning) {
-        await scannerRef.current.stop().catch(() => {});
-      }
-
-      // 1. فحص قائمة الكاميرات المتاحة
-      let cameras: Array<{ id: string; label: string }> = [];
-      try {
-        cameras = await Html5Qrcode.getCameras();
-        setAvailableCameras(cameras);
-      } catch {}
-
-      // تحديد الكاميرا الخلفية الأنسب
-      let cameraConfig: any = { facingMode: 'environment' };
-
-      if (cameraIdToUse) {
-        cameraConfig = cameraIdToUse;
-      } else if (cameras.length > 0) {
-        const backCam = cameras.find((c) =>
-          c.label.toLowerCase().includes('back') ||
-          c.label.toLowerCase().includes('rear') ||
-          c.label.toLowerCase().includes('environment') ||
-          c.label.toLowerCase().includes('خلفية')
-        ) || cameras[cameras.length - 1]; // الكاميرا الخلفية غالباً تكون الأخيرة
-
-        cameraConfig = backCam.id;
-        setSelectedCameraId(backCam.id);
-      }
-
-      const scanConfig = {
-        fps: 15,
-        qrbox: { width: 280, height: 160 },
-        aspectRatio: 1.0
-      };
-
-      try {
-        await scannerRef.current.start(
-          cameraConfig,
-          scanConfig,
-          (decodedText) => handleDetected(decodedText),
-          () => {}
-        );
-      } catch (startErr) {
-        // Fallback: تجربة facingMode مباشرة إذا فشل معرف الكاميرا
-        await scannerRef.current.start(
-          { facingMode: 'environment' },
-          scanConfig,
-          (decodedText) => handleDetected(decodedText),
-          () => {}
-        );
-      }
-
-      // فحص إمكانية تشغيل الفلاش (Torch)
-      try {
-        const capabilities = scannerRef.current.getRunningTrackCapabilities?.() as any;
-        if (capabilities && capabilities.torch) {
-          setHasTorch(true);
-        }
-      } catch {}
-
-      setIsScanning(true);
-    } catch (err: any) {
-      console.warn('Camera Scanner Init Error:', err);
-      setIsScanning(false);
-      const isHttp = typeof window !== 'undefined' && window.location.protocol === 'http:' && !window.location.hostname.includes('localhost');
-      
-      if (isHttp) {
-        setScannerError('يتطلب المتصفح اتصالاً آمناً (HTTPS) لفتح البث المباشر للكاميرا، أو يمكنك استخدام زر "التقاط صورة بالكاميرا" بالأسفل مباشرة.');
-      } else {
-        setScannerError('يرجى السماح بإذن الكاميرا في المتصفح، أو النقر على "التقاط صورة للباركود" بالأسفل.');
-      }
-    }
-  }, [handleDetected]);
-
-  // التبديل بين الكاميرات المتاحة
-  const switchCamera = () => {
-    if (availableCameras.length <= 1) return;
-    const currentIndex = availableCameras.findIndex((c) => c.id === selectedCameraId);
-    const nextIndex = (currentIndex + 1) % availableCameras.length;
-    const nextCam = availableCameras[nextIndex];
-    setSelectedCameraId(nextCam.id);
-    startScanner(nextCam.id);
-  };
-
-  const toggleTorch = async () => {
-    if (!scannerRef.current || !hasTorch) return;
-    try {
-      const nextState = !isTorchOn;
-      await scannerRef.current.applyVideoConstraints({
-        advanced: [{ torch: nextState }] as any
-      });
-      setIsTorchOn(nextState);
-    } catch {}
-  };
-
   useEffect(() => {
     if (isOpen) {
       setLastScanned(null);
       setManualCode('');
       setScannerError(null);
       const timer = setTimeout(() => {
-        startScanner();
-      }, 250);
+        startCamera();
+      }, 150);
       return () => {
         clearTimeout(timer);
-        stopScanner();
+        stopCameraStream();
       };
     } else {
-      stopScanner();
+      stopCameraStream();
     }
-  }, [isOpen, startScanner, stopScanner]);
+  }, [isOpen, startCamera, stopCameraStream]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+      {/* Hidden container for background decoder */}
+      <div id="temp-hidden-scanner" className="hidden" />
+
       <div className="bg-white border border-slate-200 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -293,9 +356,15 @@ export default function BarcodeScannerModal({
         {/* Viewport Area */}
         <div className="p-4 flex flex-col items-center bg-slate-900 text-white relative">
           
-          {/* Scanner Container */}
-          <div className="w-full relative rounded-2xl overflow-hidden bg-black border border-slate-700 aspect-square max-h-[280px] flex items-center justify-center shadow-inner">
-            <div id={scannerContainerId} className="w-full h-full object-cover" />
+          {/* Real Video Preview Container */}
+          <div className="w-full relative rounded-2xl overflow-hidden bg-black border border-slate-700 aspect-square max-h-[290px] flex items-center justify-center shadow-inner">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+            />
 
             {/* Laser Scanning Animation Overlay */}
             {isScanning && !scannerError && (
@@ -315,14 +384,14 @@ export default function BarcodeScannerModal({
 
             {/* Error / Fallback State */}
             {scannerError && (
-              <div className="p-4 text-center text-slate-200 text-xs flex flex-col items-center gap-2.5 z-10">
+              <div className="absolute inset-0 bg-slate-950/90 p-4 text-center text-slate-200 text-xs flex flex-col items-center justify-center gap-2.5 z-10">
                 <AlertCircle className="w-9 h-9 text-amber-400" />
                 <p className="text-xs leading-relaxed max-w-[260px] text-slate-300">{scannerError}</p>
                 
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
                   <button
-                    onClick={() => startScanner()}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    onClick={() => startCamera()}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-md"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     إعادة المحاولة
@@ -331,7 +400,7 @@ export default function BarcodeScannerModal({
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isProcessingFile}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-md"
                   >
                     <Camera className="w-3.5 h-3.5" />
                     التقاط صورة بالكاميرا 📷
