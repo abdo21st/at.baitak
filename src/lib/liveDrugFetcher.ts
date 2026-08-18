@@ -11,14 +11,21 @@ export interface LiveDrugInfo {
   pharmClass?: string[];
   activeIngredients?: Array<{ name: string; strength?: string }>;
   referenceLinks?: {
+    // Global & European Manufacturer Directories
     drugsCom?: string;
     medscape?: string;
     rxList?: string;
     dailyMed?: string;
+    emcUK?: string;
+    vidalFrance?: string;
+    torrinomedica?: string;
+    ilacRehberi?: string;
+    drugBank?: string;
+    // Regional & Arabic Authorities
     altibbi?: string;
     webTeb?: string;
-    drugBank?: string;
     sfda?: string;
+    edaEgypt?: string;
     egyptianIndex?: string;
   };
   molecularFormula?: string;
@@ -47,45 +54,41 @@ export interface LiveDrugInfo {
 }
 
 /**
- * قاموس ذكي شامل وموسع جداً لأشهر الأسماء التجارية الإقليمية والمحلية
- * (السوق الليبي، المصري، السعودي SFDA، الأوروبي والتركي)
+ * قاموس ذكي شامل وموسع جداً لأشهر الأسماء التجارية الإقليمية والمصنعة محلياً ودولياً
+ * (السوق الليبي، المصري EDA، السعودي SFDA، التركي İTS، والأوروبي Vidal/Torrinomedica)
  */
 const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDesc: string; drugBankId?: string }> = {
-  // الجهاز الهضمي والمطهرات
-  'antinal': { ingredient: 'Nifuroxazide (Antidiarrheal & Intestinal Antiseptic)', classDesc: 'مطهر معوي واسع المجال لحالات الإسهال البكتيري (Intestinal Antiseptic)', drugBankId: 'DB08801' },
-  'diasmect': { ingredient: 'Diosmectite (Smecta)', classDesc: 'ممتز للسموم ومعالج للإسهال الحاد وحامي للغشاء المخاطي المعوي' },
-  'smecta': { ingredient: 'Diosmectite', classDesc: 'ممتز للسموم ومعالج للإسهال الحاد وحامي للغشاء المخاطي المعوي' },
-  'rowatinex': { ingredient: 'Pinene + Camphene + Cineol + Fenchone + Borneol + Anethol', classDesc: 'مفتت لحصوات الكلى ومدر للبول ومطهر ومسكن للمسالك البولية (Urinary Spasmolytic)' },
-  'rowachol': { ingredient: 'Menthol + Menthone + Pinene + Camphene + Cineol + Borneol', classDesc: 'مذيب لحصوات المرارة ومنشط لإفراز العصارة الصفراوية (Choleretic & Cholelitholytic)' },
-  'spasmo-digestin': { ingredient: 'Papain + Sanzyme + Sodium Dehydrocholate + Dicyclomine', classDesc: 'مهضم للدهون والبروتينات ومضاد للتقلصات والانتفاخ (Digestive Enzyme & Antispasmodic)' },
-  'spasmodigestin': { ingredient: 'Papain + Sanzyme + Sodium Dehydrocholate + Dicyclomine', classDesc: 'مهضم للدهون والبروتينات ومضاد للتقلصات والانتفاخ (Digestive Enzyme & Antispasmodic)' },
+  // الجهاز الهضمي والقولون العصبي
+  'colona': { ingredient: 'Mebeverine Hydrochloride 100mg + Sulpiride 25mg', classDesc: 'مهدئ ومضاد لتشنجات القولون العصبي واضطرابات الهضم (Antispasmodic & Anxiolytic)', drugBankId: 'DB01254' },
+  'librax': { ingredient: 'Chlordiazepoxide 5mg + Clidinium Bromide 2.5mg', classDesc: 'مهدئ ومضاد لتقلصات القولون العصبي وقرحة المعدة (Sedative & Antispasmodic)', drugBankId: 'DB00475' },
+  'duspatalin': { ingredient: 'Mebeverine Hydrochloride 200mg', classDesc: 'مضاد مباشر لتشنجات القولون العصبي (Direct Smooth Muscle Relaxant)', drugBankId: 'DB01254' },
+  'spasmomen': { ingredient: 'Otilonium Bromide 40mg', classDesc: 'مضاد نوعي لتقلصات الجهاز الهضمي والقولون العصبي (Antispasmodic)', drugBankId: 'DB09000' },
+  'buscopan': { ingredient: 'Hyoscine Butylbromide (Scopolamine)', classDesc: 'مسكن ومضاد للمغص الكلوي والمراري والمعدي (Anticholinergic Antispasmodic)', drugBankId: 'DB09265' },
+  'spasmo-digestin': { ingredient: 'Papain + Sanzyme + Sodium Dehydrocholate + Dicyclomine', classDesc: 'مهضم شامل للدهون والبروتينات ومضاد للانتفاخ والتقلصات (Digestive & Antispasmodic)', drugBankId: 'DB00804' },
+  'spasmodigestin': { ingredient: 'Papain + Sanzyme + Sodium Dehydrocholate + Dicyclomine', classDesc: 'مهضم شامل للدهون والبروتينات ومضاد للانتفاخ والتقلصات (Digestive & Antispasmodic)', drugBankId: 'DB00804' },
   'spasmo-amrase': { ingredient: 'Pancreatin + Papain + Ox Bile + Dimethicone', classDesc: 'مهضم شامل للدهون والنشويات وطارد للغازات (Digestive Enzymes)' },
   'amrase': { ingredient: 'Pancreatin + Papain + Ox Bile', classDesc: 'مهضم ومساعد لامتصاص العناصر الغذائية' },
-  'colona': { ingredient: 'Mebeverine HCl + Sulpiride', classDesc: 'علاج اضطرابات القولون العصبي والانتفاخ والتوتر المصاحب للقولون' },
-  'librax': { ingredient: 'Chlordiazepoxide + Clidinium Bromide', classDesc: 'مهدئ ومضاد لتقلصات القولون العصبي وقرحة المعدة' },
-  'duspatalin': { ingredient: 'Mebeverine Hydrochloride', classDesc: 'مضاد نوعي ومباشر لتشنجات وتقلصات عضلات القولون الملساء', drugBankId: 'DB01254' },
-  'spasmomen': { ingredient: 'Otilonium Bromide', classDesc: 'مضاد انتقائي لتقلصات الجهاز الهضمي والقولون العصبي', drugBankId: 'DB09000' },
-  'buscopan': { ingredient: 'Hyoscine Butylbromide', classDesc: 'مسكن ومضاد لتقلصات المعدة والمغص الكلوي والمراري', drugBankId: 'DB09265' },
+  'antinal': { ingredient: 'Nifuroxazide 200mg (Intestinal Antiseptic)', classDesc: 'مطهر معوي واسع المجال للإسهال البكتيري (Intestinal Antibacterial)', drugBankId: 'DB08801' },
+  'smecta': { ingredient: 'Diosmectite', classDesc: 'ممتز للسموم ومعالج للإسهال الحاد وحامي للغشاء المخاطي المعوي' },
+  'diasmect': { ingredient: 'Diosmectite', classDesc: 'ممتز للسموم ومعالج للإسهال الحاد وحامي للغشاء المخاطي المعوي' },
+  'rowatinex': { ingredient: 'Pinene + Camphene + Cineol + Fenchone + Borneol + Anethol', classDesc: 'مفتت لحصوات الكلى ومدر ومطهر ومسكن للمسالك البولية (Urinary Spasmolytic)' },
+  'rowachol': { ingredient: 'Menthol + Menthone + Pinene + Camphene + Cineol + Borneol', classDesc: 'مذيب لحصوات المرارة ومنشط لإفراز العصارة الصفراوية (Choleretic & Cholelitholytic)' },
   'gaviscon': { ingredient: 'Sodium Alginate + Sodium Bicarbonate + Calcium Carbonate', classDesc: 'حاجز رغوي واقي فوري ضد ارتجاع حمض المعدة والمريء (Reflux Barrier)' },
   'mucogel': { ingredient: 'Aluminium Hydroxide + Magnesium Hydroxide + Oxethazaine', classDesc: 'مضاد للحموضة ومخدر موضعي لآلام وحرقة جدار المعدة' },
   'maalox': { ingredient: 'Aluminium Hydroxide + Magnesium Hydroxide', classDesc: 'معادل سريع لحموضة المعدة وحرقة المريء' },
   'motilium': { ingredient: 'Domperidone (Dopamine D2 Antagonist)', classDesc: 'منظم لحركة المعدة ومضاد للغثيان والقيء وعسر الهضم (Prokinetic & Antiemetic)', drugBankId: 'DB01184' },
   'primperan': { ingredient: 'Metoclopramide Hydrochloride', classDesc: 'منشط لحركة الأمعاء ومضاد للقيء والغثيان', drugBankId: 'DB01233' },
   'navidoxine': { ingredient: 'Meclizine HCl + Vitamin B6 (Pyridoxine)', classDesc: 'علاج ومنع غثيان وقيء الحمل ودوار الحركة' },
-  'vomex': { ingredient: 'Dimenhydrinate', classDesc: 'مضاد للغثيان والقيء ودوار السفر' },
 
   // مسكنات ومضادات الالتهاب والروماتيزم
   'ketolac': { ingredient: 'Ketorolac Tromethamine (Potent NSAID)', classDesc: 'مسكن آلام حاد غير ستيرويدي قوي جداً (Injectable / Oral NSAID)', drugBankId: 'DB00465' },
   'cataflam': { ingredient: 'Diclofenac Potassium (Rapid Acting NSAID)', classDesc: 'مسكن سريع ومضاد للالتهاب لآلام الأسنان والمفاصل والصداع', drugBankId: 'DB00586' },
   'voltaren': { ingredient: 'Diclofenac Sodium (NSAID)', classDesc: 'مضاد للالتهاب ومسكن ممتد المفعول للروماتيزم والمفاصل', drugBankId: 'DB00586' },
   'brufen': { ingredient: 'Ibuprofen (NSAID)', classDesc: 'خافض للحرارة ومسكن للآلام ومضاد للالتهاب', drugBankId: 'DB01050' },
-  'feldene': { ingredient: 'Piroxicam', classDesc: 'مسكن قوي وطويل المفعول لآلام المفاصل والروماتويد', drugBankId: 'DB00554' },
   'celebrex': { ingredient: 'Celecoxib (Selective COX-2 Inhibitor)', classDesc: 'مسكن روماتيزمي آمن للمعدة لا يثبط COX-1', drugBankId: 'DB00482' },
   'arcoxia': { ingredient: 'Etoricoxib (Selective COX-2 Inhibitor)', classDesc: 'مسكن ومضاد للالتهاب عالي الانتقائية لـ COX-2', drugBankId: 'DB01628' },
   'panadol': { ingredient: 'Paracetamol (Acetaminophen)', classDesc: 'مسكن آمن وخافض للحرارة للبالغين والأطفال', drugBankId: 'DB00316' },
   'panadol extra': { ingredient: 'Paracetamol + Caffeine', classDesc: 'مسكن معزز بالكافيين لزيادة سرعة تسكين الصداع والآلام', drugBankId: 'DB00316' },
-  'paramol': { ingredient: 'Paracetamol', classDesc: 'مسكن للآلام وخافض للحرارة', drugBankId: 'DB00316' },
-  'adol': { ingredient: 'Paracetamol', classDesc: 'مسكن للألم وخافض للحرارة', drugBankId: 'DB00316' },
 
   // نزلات البرد والجهاز التنفسي
   '123': { ingredient: 'Paracetamol + Pseudoephedrine HCl + Chlorpheniramine Maleate', classDesc: 'تركيبة ثلاثية متكاملة لعلاج أعراض البرد والإنفلونزا والرشح والاحتقان' },
@@ -111,8 +114,7 @@ const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDes
   // المسالك البولية والأوعية الدموية
   'urisedon': { ingredient: 'Hyoscyamine + Methenamine + Methylene Blue', classDesc: 'مطهر ومسكن لآلام وتقلصات المسالك البولية وحرقة البول والتهاب المثانة' },
   'uricol': { ingredient: 'Hexamine + Piperazine Tartrate + Khellin', classDesc: 'فوار مطهر ومذيب لحصوات حمض اليوريك وموسع للحالب ومسكن للمغص الكلوي' },
-  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' },
-  'doxium': { ingredient: 'Calcium Dobesilate', classDesc: 'محسن للدورة الدموية الدقيقة ومقلل لنفاذية الشعيرات الدموية' }
+  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' }
 };
 
 /**
@@ -132,27 +134,35 @@ export function extractSearchTokens(name: string, sciName?: string): string[] {
 }
 
 /**
- * توليد روابط المراجع المعتمدة الـ 8 (العالمية والعربية والإقليمية)
+ * توليد روابط شبكة المراجع العلمية الدولية والشركات المصنعة والأدلة الدوائية الإقليمية
  */
 export function generateScientificReferenceLinks(productName: string, activeIngredient?: string) {
   const query = encodeURIComponent(activeIngredient || productName);
   const brandQuery = encodeURIComponent(productName);
 
   return {
+    // 1. المراجع العالمية ومواقع الشركات المصنعة
     drugsCom: `https://www.drugs.com/search.php?searchterm=${query}`,
     medscape: `https://reference.medscape.com/search?q=${query}`,
     rxList: `https://www.rxlist.com/script/main/srchcont_rxlist.asp?src=${query}`,
     dailyMed: `https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${query}`,
+    emcUK: `https://www.medicines.org.uk/emc/search?q=${query}`,
+    vidalFrance: `https://www.vidal.fr/recherche.html?query=${brandQuery}`,
+    torrinomedica: `https://www.torrinomedica.it/?s=${brandQuery}`,
+    ilacRehberi: `https://www.ilacrehberi.com/arama/?q=${brandQuery}`,
     drugBank: `https://go.drugbank.com/unearth/q?query=${query}`,
+
+    // 2. الهيئات والأدلة الدوائية العربية والإقليمية
     altibbi: `https://altibbi.com/الادوية/ابحث-عن-دواء?query=${brandQuery}`,
     webTeb: `https://www.webteb.com/search?q=${brandQuery}`,
     sfda: `https://www.sfda.gov.sa/ar/drugs-list`,
+    edaEgypt: `https://www.edaegypt.gov.eg/ar/الخدمات/الاستفسار-عن-توافر-المستحضرات-الدوائية/`,
     egyptianIndex: `https://www.google.com/search?q=${brandQuery}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com`
   };
 }
 
 /**
- * 1. فحص القاموس الإقليمي والمحلي الموسع (Libya, Egypt, SFDA Saudi, Turkey)
+ * 1. فحص القاموس الإقليمي والمحلي الموسع (Libya, Egypt EDA, SFDA Saudi, Turkey, Europe)
  */
 function resolveRegionalBrand(rawName: string): { ingredient: string; classDesc: string; drugBankId?: string } | null {
   const lower = rawName.toLowerCase();
@@ -233,7 +243,7 @@ async function queryOpenFDAActiveIngredient(term: string): Promise<string | null
 }
 
 /**
- * 4. البحث الحي في محركات الويب والأدلة الطبية
+ * 4. البحث الحي في محركات الأدلة الطبية الدولية
  */
 async function queryWebMedicalDirectory(brandName: string): Promise<string | null> {
   if (!brandName || brandName.length < 3) return null;
@@ -265,7 +275,7 @@ async function queryWebMedicalDirectory(brandName: string): Promise<string | nul
 }
 
 /**
- * المحرك الرئيسي لجلب واكتشاف التركيبة الكيميائية عبر الويب وتوليد الكبسولة السريرية الفورية
+ * المحرك الرئيسي لجلب واكتشاف التركيبة الكيميائية وتوليد الكبسولة السريرية الفورية
  */
 export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promise<ClinicalCapsuleData> {
   return enrichCapsuleWithLiveSources(product);
@@ -277,7 +287,7 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
 
   const refLinks = generateScientificReferenceLinks(rawName, rawSci);
 
-  // الخطوة 1: فحص القاموس الإقليمي والمحلي الموسع
+  // 1. فحص القاموس الإقليمي والمحلي الموسع
   const regionalMatch = resolveRegionalBrand(rawName);
   if (regionalMatch) {
     const updatedProd: ClinicalProductInput = {
@@ -288,28 +298,28 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
     return {
       ...capsule,
       liveInfo: {
-        source: 'Drugs.com • DailyMed • دليل الأدوية الإقليمي المعتمد',
+        source: 'دليل الأدوية الإقليمي المعتمد • DailyMed • Drugs.com',
         isLive: true,
         referenceLinks: generateScientificReferenceLinks(rawName, regionalMatch.ingredient)
       }
     } as any;
   }
 
-  // الخطوة 2: فحص الكبسولة السريرية الأساسية
+  // 2. الكبسولة السريرية الأساسية
   const baseCapsule = generateClinicalCapsule(product);
 
   if (baseCapsule.scientificName && baseCapsule.scientificName !== rawName && !baseCapsule.scientificName.includes('Active Pharmaceutical')) {
     return {
       ...baseCapsule,
       liveInfo: {
-        source: 'Drugs.com • Medscape • DailyMed • DrugBank Verified',
+        source: 'Drugs.com • Medscape • EMC UK • DrugBank Verified',
         isLive: true,
         referenceLinks: generateScientificReferenceLinks(rawName, baseCapsule.scientificName)
       }
     } as any;
   }
 
-  // الخطوة 3: في حال كان الصنف غير معروف محلياً ➔ الاستعلام والبحث الحي عبر الإنترنت (RxNorm / OpenFDA / Web Medical)
+  // 3. البحث الحي بالإنترنت عبر المعاجم الدوائية
   const tokens = extractSearchTokens(rawName, rawSci);
   let discoveredIngredient: string | null = null;
   let discoverySource = 'Drugs.com / DailyMed & RxNorm Live Discovery';
@@ -333,7 +343,7 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
     return {
       ...dynamicCapsule,
       liveInfo: {
-        source: `${discoverySource} (تم استخراج المادة الفعالة: ${discoveredIngredient})`,
+        source: `${discoverySource} (المادة الفعالة المستخرجة: ${discoveredIngredient})`,
         isLive: true,
         genericName: discoveredIngredient,
         referenceLinks: generateScientificReferenceLinks(rawName, discoveredIngredient)

@@ -580,13 +580,18 @@ export default function ClinicalCapsuleModal({
                     </div>
                   </div>
 
-                  {/* 📚 شريط المراجع العالمية والإقليمية المعتمدة (Drugs.com, Medscape, DailyMed, Altibbi, WebTeb, SFDA) */}
+                  {/* 📚 شريط المراجع العالمية والشركات المصنعة والأدلة الإقليمية المعتمدة */}
                   {selectedProduct && (
-                    <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                      <div className="text-[10px] font-black text-slate-500 mb-1.5 flex items-center gap-1">
-                        <Globe2 className="w-3 h-3 text-emerald-600" />
-                        <span>مراجع استخراج التركيبة والتحقق السريري المعتمدة:</span>
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                      <div className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <Globe2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>مراجع الشركات المصنعة ونشرات الـ SPC المعتمدة:</span>
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-normal">انقر لفتح صفحة الصنف مباشرة</span>
                       </div>
+                      
+                      {/* Global & European Formularies */}
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                         <a
                           href={`https://www.drugs.com/search.php?searchterm=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
@@ -619,6 +624,56 @@ export default function ClinicalCapsuleModal({
                         </a>
 
                         <a
+                          href={`https://www.medicines.org.uk/emc/search?q=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🇬🇧 EMC UK (نشرات المصنعين)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.vidal.fr/recherche.html?query=${encodeURIComponent(selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🇫🇷 Vidal (الدليل الفرنسي)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.torrinomedica.it/?s=${encodeURIComponent(selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🇮🇹 Torrinomedica (الإيطالي)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.ilacrehberi.com/arama/?q=${encodeURIComponent(selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🇹🇷 İlaç Rehberi (التركي)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(selectedProduct.name)}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com+OR+site%3Aedaegypt.gov.eg`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🇪🇬 هيئة الدواء و DrugEye</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
                           href={`https://altibbi.com/الادوية/ابحث-عن-دواء?query=${encodeURIComponent(selectedProduct.name)}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -639,12 +694,12 @@ export default function ClinicalCapsuleModal({
                         </a>
 
                         <a
-                          href={`https://www.google.com/search?q=${encodeURIComponent(selectedProduct.name)}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com`}
+                          href={`https://www.sfda.gov.sa/ar/drugs-list`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2 py-1 bg-slate-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                          className="px-2 py-1 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
                         >
-                          <span>📋 دليل الأدوية المصري</span>
+                          <span>🇸🇦 الغذاء والدواء (SFDA)</span>
                           <ExternalLink className="w-2.5 h-2.5" />
                         </a>
                       </div>
