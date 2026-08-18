@@ -183,8 +183,230 @@ export function generateScientificReferenceLinks(productName: string, activeIngr
     webTeb: `https://www.webteb.com/search?q=${brandQuery}`,
     sfda: `https://www.sfda.gov.sa/ar/drugs-list`,
     edaEgypt: `https://www.edaegypt.gov.eg/ar/الخدمات/الاستفسار-عن-توافر-المستحضرات-الدوائية/`,
-    egyptianIndex: `https://www.google.com/search?q=${brandQuery}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com`
+    egyptianIndex: `https://www.google.com/search?q=${brandQuery}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com`,
+    // 3. شركات الأدوية العربية والدولية
+    pharcoEgypt: `https://pharco.org/?s=${brandQuery}`,
+    eipico: `https://www.eipico.com.eg/?s=${brandQuery}`,
+    jamjoom: `https://www.jamjoompharma.com/?s=${brandQuery}`,
+    tabukPharma: `https://www.tabukpharmaceutical.com/?s=${brandQuery}`
   };
+}
+
+/**
+ * 3. البحث في OpenFDA Drug Labels لاكتشاف المادة الفعالة
+ */
+async function queryOpenFDAActiveIngredient(term: string): Promise<string | null> {
+  if (!term || term.length < 3) return null;
+  try {
+    const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
+    const url = `https://api.fda.gov/drug/label.json?api_key=${apiKey}&search=(openfda.brand_name:"${encodeURIComponent(term)}"+OR+openfda.substance_name:"${encodeURIComponent(term)}")&limit=1`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.results?.[0]?.openfda) {
+      const ofda = data.results[0].openfda;
+      if (Array.isArray(ofda.substance_name) && ofda.substance_name.length > 0) {
+        return ofda.substance_name.join(' + ');
+      }
+      if (Array.isArray(ofda.generic_name) && ofda.generic_name.length > 0) {
+        return ofda.generic_name.join(' + ');
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 3b. جلب بيانات سريرية كاملة من OpenFDA (دواعي الاستعمال، الجرعة، التحذيرات، التداخلات)
+ * هذا هو نفس مصدر Drugs.com والمواقع الصيدلانية الكبرى — كلها تأخذ من نشرات FDA الرسمية
+ */
+export interface OpenFDAFullLabel {
+  ingredient: string;
+  indications: string;
+  dosageAndAdmin: string;
+  warnings: string[];
+  contraindications: string;
+  drugInteractions: string[];
+  patientCounseling: string;
+  boxedWarning: string;
+  pregnancyWarning: string;
+  source: string;
+}
+
+async function queryOpenFDAFullLabel(brandOrGeneric: string): Promise<OpenFDAFullLabel | null> {
+  if (!brandOrGeneric || brandOrGeneric.length < 3) return null;
+  try {
+    const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
+    const encoded = encodeURIComponent(brandOrGeneric);
+    const url = `https://api.fda.gov/drug/label.json?api_key=${apiKey}&search=(openfda.brand_name:"${encoded}"+OR+openfda.generic_name:"${encoded}"+OR+openfda.substance_name:"${encoded}")&limit=1`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const r = data?.results?.[0];
+    if (!r) return null;
+
+    const ofda = r.openfda || {};
+    const clean = (arr: string[] | undefined) =>
+      Array.isArray(arr) ? arr.join(' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) : '';
+
+    // المادة الفعالة
+    const ingredient =
+      (Array.isArray(ofda.substance_name) ? ofda.substance_name.join(' + ') : '') ||
+      (Array.isArray(ofda.generic_name) ? ofda.generic_name.join(' + ') : '') || '';
+
+    if (!ingredient) return null;
+
+    // البيانات السريرية
+    const indications = clean(r.indications_and_usage);
+    const dosageAndAdmin = clean(r.dosage_and_administration);
+    const warningsRaw = clean(r.warnings || r.warnings_and_cautions);
+    const contraindications = clean(r.contraindications);
+    const drugInteractionsRaw = clean(r.drug_interactions);
+    const patientCounseling = clean(r.patient_counseling_information || r.information_for_patients);
+    const boxedWarning = clean(r.boxed_warning);
+    const pregnancyWarning = clean(r.pregnancy || r.teratogenic_effects);
+
+    // تقطيع التحذيرات إلى قائمة
+    const warnings = warningsRaw
+      ? warningsRaw.split(/\.(?=\s[A-Z])/).filter(s => s.trim().length > 20).slice(0, 4)
+      : [];
+    const drugInteractions = drugInteractionsRaw
+      ? drugInteractionsRaw.split(/\.(?=\s[A-Z])/).filter(s => s.trim().length > 20).slice(0, 3)
+      : [];
+
+    return {
+      ingredient,
+      indications: indications || 'راجع النشرة الرسمية للاستعمالات الطبية.',
+      dosageAndAdmin: dosageAndAdmin || 'وفق توجيه الطبيب أو الصيدلي.',
+      warnings: warnings.length > 0 ? warnings : ['استشر الصيدلي قبل الاستخدام مع أدوية أخرى.'],
+      contraindications,
+      drugInteractions: drugInteractions.length > 0 ? drugInteractions : [],
+      patientCounseling: patientCounseling || '',
+      boxedWarning,
+      pregnancyWarning,
+      source: 'OpenFDA / FDA Drug Label (نشرة الدواء الرسمية الأمريكية)'
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 3c. Scraping مباشر من Drugs.com (HTML server-side)
+ * Drugs.com تخدم صفحات SSR قابلة للقراءة مباشرةً
+ */
+async function scrapeDrugsCom(brandName: string): Promise<{ ingredient: string; summary: string } | null> {
+  if (!brandName || brandName.length < 3) return null;
+  try {
+    const slug = brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const urls = [
+      `https://www.drugs.com/${slug}.html`,
+      `https://www.drugs.com/otc/${slug}.html`,
+      `https://www.drugs.com/pro/${slug}.html`,
+    ];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+
+    let html = '';
+    for (const url of urls) {
+      try {
+        const r = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PharmacyBot/1.0)' }
+        });
+        if (r.ok) { html = await r.text(); break; }
+      } catch { continue; }
+    }
+    clearTimeout(timer);
+    if (!html) return null;
+
+    // استخراج المادة الفعالة من وصف الصفحة
+    const ingMatch = html.match(/(?:Generic Name|Active Ingredient|Ingredients?)[:\s]*<[^>]*>([^<]{5,120})/i)
+      || html.match(/<dt>\s*(?:Generic Name|Active Ingredient)[^<]*<\/dt>\s*<dd>([^<]{3,100})/i)
+      || html.match(/class="[^"]*drug-subtitle[^"]*"[^>]*>([^<]{5,100})/i);
+    const summaryMatch = html.match(/<p[^>]*class="[^"]*drug-use[^"]*"[^>]*>([^<]{20,400})/i)
+      || html.match(/<meta name="description" content="([^"]{30,300})"/i);
+
+    const ingredient = ingMatch?.[1]?.trim().replace(/&amp;/g, '&') || '';
+    const summary = summaryMatch?.[1]?.trim().replace(/&amp;/g, '&').replace(/<[^>]+>/g, ' ') || '';
+
+    return ingredient || summary ? { ingredient, summary } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 3d. Scraping من مواقع شركات الأدوية العربية (Pharco مصر، وغيرها)
+ * يبحث في:
+ * - Pharco Egypt (pharco.org)
+ * - Eipico Egypt (eipico.com.eg)
+ * - Jamjoom Pharma SA (jamjoompharma.com)
+ * - Tabuk Pharma SA (tabukpharmaceutical.com)
+ */
+async function scrapeArabPharmaSites(brandName: string): Promise<{ ingredient: string; company: string } | null> {
+  if (!brandName || brandName.length < 3) return null;
+  const cleanName = brandName.split(/[\s/+-]/)[0].toLowerCase();
+
+  const pharmaSites = [
+    {
+      name: 'Pharco Egypt',
+      url: `https://pharco.org/?s=${encodeURIComponent(cleanName)}`,
+      ingPattern: /(?:Active Ingredient|Composition|المادة الفعالة|التركيب)[:\s]*<[^>]*>([^<]{5,150})/i,
+    },
+    {
+      name: 'Eipico Egypt',
+      url: `https://www.eipico.com.eg/?s=${encodeURIComponent(cleanName)}`,
+      ingPattern: /(?:Active Ingredient|Composition|composition)[:\s]*<[^>]*>([^<]{5,150})/i,
+    },
+    {
+      name: 'Jamjoom Pharma',
+      url: `https://www.jamjoompharma.com/?s=${encodeURIComponent(cleanName)}`,
+      ingPattern: /(?:Active Substance|Ingredient|تركيب)[:\s]*<[^>]*>([^<]{5,150})/i,
+    },
+    {
+      name: 'Tabuk Pharma',
+      url: `https://www.tabukpharmaceutical.com/?s=${encodeURIComponent(cleanName)}`,
+      ingPattern: /(?:Active Ingredient|INN|Generic)[:\s]*<[^>]*>([^<]{5,120})/i,
+    },
+    {
+      name: 'AltibbiBD',
+      url: `https://altibbi.com/%D8%A7%D9%84%D8%A7%D8%AF%D9%88%D9%8A%D8%A9/${encodeURIComponent(cleanName)}`,
+      ingPattern: /(?:المادة الفعالة|التركيب|العنصر الفعال)[:\s]*<[^>]*>([^<]{3,120})/i,
+    },
+  ];
+
+  for (const site of pharmaSites) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(site.url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PharmacyBot/1.0; +https://at.ordermt.ly)' }
+      });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const html = await res.text();
+      const match = html.match(site.ingPattern);
+      if (match?.[1]) {
+        const ingredient = match[1].trim().replace(/&amp;/g, '&').replace(/<[^>]+>/g, ' ');
+        if (ingredient.length > 3) {
+          return { ingredient, company: site.name };
+        }
+      }
+    } catch { continue; }
+  }
+  return null;
 }
 
 /**
@@ -237,36 +459,6 @@ async function queryRxNormForActiveIngredient(brandName: string): Promise<string
   }
 }
 
-/**
- * 3. البحث في OpenFDA Drug Labels لاكتشاف المادة الفعالة
- */
-async function queryOpenFDAActiveIngredient(term: string): Promise<string | null> {
-  if (!term || term.length < 3) return null;
-  try {
-    const apiKey = process.env.OPENFDA_API_KEY || 'FekhVCxWo7fB3uUVULKg0nZ3DKmr2hCPyPRIk0yS';
-    const url = `https://api.fda.gov/drug/label.json?api_key=${apiKey}&search=(openfda.brand_name:"${encodeURIComponent(term)}"+OR+openfda.substance_name:"${encodeURIComponent(term)}")&limit=1`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
-
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data?.results?.[0]?.openfda) {
-      const ofda = data.results[0].openfda;
-      if (Array.isArray(ofda.substance_name) && ofda.substance_name.length > 0) {
-        return ofda.substance_name.join(' + ');
-      }
-      if (Array.isArray(ofda.generic_name) && ofda.generic_name.length > 0) {
-        return ofda.generic_name.join(' + ');
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 4. البحث الحي في محركات الأدلة الطبية الدولية
@@ -424,33 +616,91 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
   if (tokens.length > 0) {
     const searchTerm = tokens[0];
 
-    // استعلام DailyMed أولاً (أكثر موثوقية للمستحضرات التجارية)
-    const dailyMedResult = await queryDailyMedForDrug(rawName);
-    if (dailyMedResult?.ingredient) {
-      discoveredIngredient = dailyMedResult.ingredient;
-      dailyMedIndication = dailyMedResult.indication;
-      discoverySource = dailyMedResult.source;
+    // ── أولاً: OpenFDA Full Label (نفس مصدر Drugs.com / Medscape / RxList)
+    const fdaFull = await queryOpenFDAFullLabel(rawName);
+    if (fdaFull?.ingredient) {
+      const updatedProd: ClinicalProductInput = { ...product, scientificName: fdaFull.ingredient };
+      const dynamicCapsule = generateClinicalCapsule(updatedProd);
+
+      // استبدال النص العام بالبيانات الحقيقية من نشرة FDA
+      const realIndications = fdaFull.indications && fdaFull.indications.length > 30
+        ? `• ${fdaFull.indications.slice(0, 450)}`
+        : dynamicCapsule.indications;
+      const realDosage = fdaFull.dosageAndAdmin && fdaFull.dosageAndAdmin.length > 20
+        ? fdaFull.dosageAndAdmin.slice(0, 400)
+        : dynamicCapsule.dosageAndAdmin;
+      const realWarnings = fdaFull.warnings.length > 0
+        ? fdaFull.warnings.map(w => `⚠️ ${w.trim()}`)
+        : dynamicCapsule.warningsAndContraindications;
+      const realInteractions = fdaFull.drugInteractions.length > 0
+        ? fdaFull.drugInteractions.map(i => `🔴 ${i.trim()}`)
+        : dynamicCapsule.majorInteractions;
+      const realCounseling = fdaFull.patientCounseling && fdaFull.patientCounseling.length > 20
+        ? fdaFull.patientCounseling.slice(0, 300)
+        : dynamicCapsule.patientCounselingTip;
+      const boxedNote = fdaFull.boxedWarning ? `\n⛔ تحذير أسود: ${fdaFull.boxedWarning.slice(0, 200)}` : '';
+
+      return {
+        ...dynamicCapsule,
+        indications: realIndications,
+        dosageAndAdmin: realDosage,
+        warningsAndContraindications: [...realWarnings, ...(boxedNote ? [boxedNote] : [])],
+        majorInteractions: realInteractions,
+        patientCounselingTip: realCounseling,
+        liveInfo: {
+          source: fdaFull.source,
+          isLive: true,
+          genericName: fdaFull.ingredient,
+          referenceLinks: generateScientificReferenceLinks(rawName, fdaFull.ingredient)
+        }
+      } as any;
     }
 
-    // RxNorm كمصدر ثانٍ
+    // ── ثانياً: Scraping من Drugs.com مباشرةً
+    const drugsComData = await scrapeDrugsCom(rawName);
+    if (drugsComData?.ingredient && drugsComData.ingredient.length > 3) {
+      discoveredIngredient = drugsComData.ingredient;
+      discoverySource = `Drugs.com (${drugsComData.summary?.slice(0, 80) || 'بيانات مُستخرجة مباشرةً'})`;
+    }
+
+    // ── ثالثاً: Scraping من شركات الأدوية العربية (Pharco، Eipico، Jamjoom...)
+    if (!discoveredIngredient) {
+      const arabData = await scrapeArabPharmaSites(rawName);
+      if (arabData?.ingredient) {
+        discoveredIngredient = arabData.ingredient;
+        discoverySource = `${arabData.company} (موقع الشركة المصنعة)`;
+      }
+    }
+
+    // ── رابعاً: DailyMed NIH
+    if (!discoveredIngredient) {
+      const dailyMedResult = await queryDailyMedForDrug(rawName);
+      if (dailyMedResult?.ingredient) {
+        discoveredIngredient = dailyMedResult.ingredient;
+        dailyMedIndication = dailyMedResult.indication;
+        discoverySource = dailyMedResult.source;
+      }
+    }
+
+    // ── خامساً: RxNorm
     if (!discoveredIngredient) {
       discoveredIngredient = await queryRxNormForActiveIngredient(searchTerm);
       if (discoveredIngredient) discoverySource = 'RxNorm NLM (NIH)';
     }
 
-    // OpenFDA كمصدر ثالث
+    // ── سادساً: OpenFDA (مادة فعالة فقط)
     if (!discoveredIngredient) {
       discoveredIngredient = await queryOpenFDAActiveIngredient(searchTerm);
       if (discoveredIngredient) discoverySource = 'OpenFDA Drug Labels (FDA)';
     }
 
-    // Wikipedia/Wikidata كمصدر رابع
+    // ── سابعاً: Wikipedia
     if (!discoveredIngredient) {
       discoveredIngredient = await queryWebMedicalDirectory(searchTerm);
       if (discoveredIngredient) discoverySource = 'Wikipedia Medical Reference';
     }
 
-    // PubChem كمصدر خامس (للجزيئات الكيميائية البحتة)
+    // ── ثامناً: PubChem (جزيئات كيميائية)
     if (!discoveredIngredient) {
       const pubChemResult = await queryPubChemForCompound(searchTerm);
       if (pubChemResult?.name) {
