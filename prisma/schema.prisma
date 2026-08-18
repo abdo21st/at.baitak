@@ -225,6 +225,7 @@ model PharmacyProduct {
   strength         String?
   dosageForm       String?
   genericGroupId   String?
+  barcodes         String?  // الباركودات المتعددة والبديلة مفصولة بفواصل
   lastSalesDate    String?
   lastSyncedAt     DateTime @default(now())
   createdAt        DateTime @default(now())

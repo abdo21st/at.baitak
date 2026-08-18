@@ -23,12 +23,28 @@ export async function GET(req: NextRequest) {
     }
 
     if (search.trim()) {
-      const safeTerm = search.trim().replace(/'/g, "''");
-      conditions.push(`(
+      const rawTerm = search.trim();
+      const safeTerm = rawTerm.replace(/'/g, "''");
+      const noLeadingZero = rawTerm.replace(/^0+/, '');
+      const safeNoZero = noLeadingZero.replace(/'/g, "''");
+      const withLeadingZero = rawTerm.length === 12 ? '0' + rawTerm : '';
+      const safeWithZero = withLeadingZero.replace(/'/g, "''");
+
+      let barcodeConditions = `
         LOWER("productName") LIKE LOWER('%${safeTerm}%') OR
         LOWER("productCode") LIKE LOWER('%${safeTerm}%') OR
+        LOWER(COALESCE("barcodes", '')) LIKE LOWER('%${safeTerm}%') OR
         LOWER(COALESCE("activeIngredient", '')) LIKE LOWER('%${safeTerm}%')
-      )`);
+      `;
+
+      if (safeNoZero && safeNoZero !== safeTerm) {
+        barcodeConditions += ` OR LOWER("productCode") LIKE LOWER('%${safeNoZero}%') OR LOWER(COALESCE("barcodes", '')) LIKE LOWER('%${safeNoZero}%')`;
+      }
+      if (safeWithZero) {
+        barcodeConditions += ` OR LOWER("productCode") LIKE LOWER('%${safeWithZero}%') OR LOWER(COALESCE("barcodes", '')) LIKE LOWER('%${safeWithZero}%')`;
+      }
+
+      conditions.push(`(${barcodeConditions})`);
     }
 
     // BUG FIX: lowStock filter now correctly uses stockOnHand < minStockLevel (column comparison)
@@ -67,6 +83,7 @@ export async function GET(req: NextRequest) {
       products: products.map((p: any) => ({
         id: p.id,
         code: p.productCode,
+        barcodes: p.barcodes || p.productCode || '',
         name: p.productName,
         stockOnHand: Number(p.stockOnHand),
         minStockLevel: Number(p.minStockLevel),

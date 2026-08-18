@@ -177,46 +177,58 @@ export default function ClinicalCapsuleModal({
     }
   }, [departments, selectedDeptId]);
 
-  // Filter products by active tab & search (supports Chemical Formula, Active Ingredient, Brand, Barcode, Code)
+  // Helper to check if a product matches any of its multiple barcodes
+  const checkProductMatchesBarcode = useCallback((p: any, query: string): boolean => {
+    if (!query || !p) return false;
+    const rawQ = query.trim().toLowerCase();
+    const qNoZero = rawQ.replace(/^0+/, '');
+
+    const rawBarcodes = `${p.barcodes || ''},${p.barcode || ''},${p.code || ''},${p.productCode || ''}`;
+    const tokens = rawBarcodes
+      .split(/[\s,;|/]+/)
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+
+    for (const token of tokens) {
+      const tokenNoZero = token.replace(/^0+/, '');
+      if (token === rawQ || (tokenNoZero && tokenNoZero === qNoZero)) return true;
+      if (rawQ.length >= 6 && (token.includes(rawQ) || rawQ.includes(token))) return true;
+    }
+
+    const name = (p.name || p.productName || '').toLowerCase();
+    const sci = (p.scientificName || p.activeIngredient || '').toLowerCase();
+    if (name.includes(rawQ) || sci.includes(rawQ)) return true;
+
+    return false;
+  }, []);
+
+  // Filter products by active tab & search (supports Multi-Barcodes, Chemical Formula, Active Ingredient, Brand)
   const filteredProducts = useMemo(() => {
     const pool = internalProducts.length > 0 ? internalProducts : DEFAULT_CLINICAL_PRODUCTS;
     const term = search.trim().toLowerCase();
 
     return pool.filter((p: any) => {
-      const name = (p.name || p.productName || '').toLowerCase();
-      const sci = (p.scientificName || p.activeIngredient || '').toLowerCase();
-      const code = (p.code || p.productCode || '').toLowerCase();
-      const barcode = (p.barcode || '').toLowerCase();
+      if (!term) {
+        if (activeTab === 'chronic') {
+          const name = (p.name || p.productName || '').toLowerCase();
+          const sci = (p.scientificName || p.activeIngredient || '').toLowerCase();
+          return (
+            name.includes('metformin') || name.includes('gluco') || name.includes('statin') ||
+            name.includes('prazole') || name.includes('losec') || name.includes('lipitor') ||
+            name.includes('amox') || name.includes('concor') || name.includes('aspirin') ||
+            name.includes('ventolin') || name.includes('inhal') || name.includes('eltroxin') ||
+            sci.includes('metformin') || sci.includes('statin') || sci.includes('bisoprolol')
+          );
+        }
+        if (activeTab === 'slow') return (Number(p.stockOnHand) || 0) >= 15;
+        if (activeTab === 'expiry') return p.expiryDate || p.isNearExpiry;
+        if (activeTab === 'top') return (Number(p.sellPrice) || 0) > 0;
+        return true;
+      }
 
-      const matchesSearch = !term ||
-        name.includes(term) ||
-        sci.includes(term) ||
-        code.includes(term) ||
-        barcode.includes(term);
-
-      if (!matchesSearch) return false;
-
-      if (activeTab === 'chronic') {
-        return (
-          name.includes('metformin') || name.includes('gluco') || name.includes('statin') ||
-          name.includes('prazole') || name.includes('losec') || name.includes('lipitor') ||
-          name.includes('amox') || name.includes('concor') || name.includes('aspirin') ||
-          name.includes('ventolin') || name.includes('inhal') || name.includes('eltroxin') ||
-          sci.includes('metformin') || sci.includes('statin') || sci.includes('bisoprolol')
-        );
-      }
-      if (activeTab === 'slow') {
-        return (Number(p.stockOnHand) || 0) >= 15;
-      }
-      if (activeTab === 'expiry') {
-        return p.expiryDate || p.isNearExpiry;
-      }
-      if (activeTab === 'top') {
-        return (Number(p.sellPrice) || 0) > 0;
-      }
-      return true; // smart
+      return checkProductMatchesBarcode(p, term);
     });
-  }, [internalProducts, activeTab, search]);
+  }, [internalProducts, activeTab, search, checkProductMatchesBarcode]);
 
   // 🎲 زر الاختيار العشوائي الذكي حسب الطريقة المختارة
   const handleRandomPick = useCallback(() => {
@@ -236,28 +248,43 @@ export default function ClinicalCapsuleModal({
     }, 60);
   }, [filteredProducts, internalProducts]);
 
-  // 📷 استجابة قراءة الباركود من كاميرا الهاتف
-  const handleBarcodeScanned = useCallback((scannedCode: string) => {
-    const clean = scannedCode.trim().toLowerCase();
-    const matched = internalProducts.find((p: any) =>
-      (p.barcode && p.barcode.toLowerCase() === clean) ||
-      (p.code && p.code.toLowerCase() === clean) ||
-      (p.productCode && p.productCode.toLowerCase() === clean) ||
-      (p.name && p.name.toLowerCase().includes(clean)) ||
-      (p.scientificName && p.scientificName.toLowerCase().includes(clean))
-    );
+  // 📷 استجابة قراءة الباركود من كاميرا الهاتف (دعم الباركودات المتعددة والبحث السحابي الفوري)
+  const handleBarcodeScanned = useCallback(async (scannedCode: string) => {
+    const clean = scannedCode.trim();
+    if (!clean) return;
+
+    // 1. البحث المحلي أولاً عبر كافة الباركودات والرموز المسجلة
+    const matched = internalProducts.find((p: any) => checkProductMatchesBarcode(p, clean));
 
     if (matched) {
       setSelectedProduct(matched);
-    } else {
-      setSelectedProduct({
-        id: `scan-${Date.now()}`,
-        name: scannedCode,
-        scientificName: scannedCode,
-        dosageForm: 'General'
-      });
+      return;
     }
-  }, [internalProducts]);
+
+    // 2. البحث السحابي المباشر في قاعدة البيانات في حال لم يكن الصنف محملاً مسبقاً
+    try {
+      const res = await fetch(`/api/pharmacy/inventory?search=${encodeURIComponent(clean)}&pageSize=5`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+          const dbProduct = data.products[0];
+          setSelectedProduct(dbProduct);
+          setInternalProducts((prev) => [dbProduct, ...prev.filter((x: any) => x.id !== dbProduct.id)]);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Dynamic barcode search error:', e);
+    }
+
+    // 3. في حال كان باركود دواء جديد غير مسجل، يتم توجيهه للاكتشاف الحي بالإنترنت
+    setSelectedProduct({
+      id: `scan-${Date.now()}`,
+      name: clean,
+      scientificName: clean,
+      dosageForm: 'General'
+    });
+  }, [internalProducts, checkProductMatchesBarcode]);
 
   if (!isOpen) return null;
 

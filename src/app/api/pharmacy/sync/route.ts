@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
             strength: aiInfo.strength || null,
             dosageForm: aiInfo.dosageForm || null,
             genericGroupId: aiInfo.genericGroupId || null,
+            barcodes: item.barcodes ? String(item.barcodes) : (item.barcode ? String(item.barcode) : pCode),
             lastSalesDate: item.lastSalesDate || null,
             lastSyncedAt: new Date()
           },
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
             strength: aiInfo.strength || null,
             dosageForm: aiInfo.dosageForm || null,
             genericGroupId: aiInfo.genericGroupId || null,
+            barcodes: item.barcodes ? String(item.barcodes) : (item.barcode ? String(item.barcode) : pCode),
             lastSalesDate: item.lastSalesDate || null,
             lastSyncedAt: new Date()
           }
