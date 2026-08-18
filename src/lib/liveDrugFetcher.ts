@@ -109,7 +109,7 @@ const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDes
   // Urinary Antiseptics
   'urisedon': { ingredient: 'Hyoscyamine + Methenamine + Methylene Blue', classDesc: 'مطهر ومسكن لآلام وتقلصات المسالك البولية وحرقة البول والتهاب المثانة' },
   'uricol': { ingredient: 'Hexamine + Piperazine Tartrate + Khellin', classDesc: 'فوار مطهر ومذيب لحصوات حمض اليوريك وموسع للحالب ومسكن للمغص الكلوي' },
-  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' }
+  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' },
 
   // مسكنات ومضادات الالتهاب والروماتيزم
   'ketolac': { ingredient: 'Ketorolac Tromethamine (Potent NSAID)', classDesc: 'مسكن آلام حاد غير ستيرويدي قوي جداً (Injectable / Oral NSAID)', drugBankId: 'DB00465' },
@@ -141,11 +141,6 @@ const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDes
   'verserc': { ingredient: 'Betahistine Dihydrochloride', classDesc: 'علاج الدوار وطنين الأذن والدوار الحركي' },
   'eltroxin': { ingredient: 'Levothyroxine Sodium (T4 Thyroid Hormone)', classDesc: 'هرمون الغدة الدرقية البديل لعلاج قصور ونقص نشاط الغدة الدرقية', drugBankId: 'DB00451' },
   'euthyrox': { ingredient: 'Levothyroxine Sodium (T4 Thyroid Hormone)', classDesc: 'هرمون الغدة الدرقية البديل لعلاج قصور ونقص نشاط الغدة الدرقية', drugBankId: 'DB00451' },
-
-  // المسالك البولية والأوعية الدموية
-  'urisedon': { ingredient: 'Hyoscyamine + Methenamine + Methylene Blue', classDesc: 'مطهر ومسكن لآلام وتقلصات المسالك البولية وحرقة البول والتهاب المثانة' },
-  'uricol': { ingredient: 'Hexamine + Piperazine Tartrate + Khellin', classDesc: 'فوار مطهر ومذيب لحصوات حمض اليوريك وموسع للحالب ومسكن للمغص الكلوي' },
-  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' }
 };
 
 /**
