@@ -5,9 +5,9 @@ import { calculateGpsDistanceMeters } from '@/lib/utils';
 import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 
 let memoryRecords: AttendanceRecord[] = [];
+const MAX_MEMORY_RECORDS = 500;
 
-// Helper to validate that check-out is not earlier than check-in
-// BUG FIX: Allow ANY overnight shift (e.g. 16:00 → 02:00), not just inH >= 18
+// التحقق من صحة نطاق الوقت — يقبل الورديات الليلية الحقيقية فقط (أقصى 12 ساعة ليلية)
 function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   const [inH, inM] = checkInTime.split(':').map(Number);
   const [outH, outM] = checkOutTime.split(':').map(Number);
@@ -15,12 +15,16 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   const inMins = inH * 60 + (inM || 0);
   const outMins = outH * 60 + (outM || 0);
 
-  // If output is before input in minutes, it MUST be overnight (outH < inH and reasonable)
+  if (outMins > inMins) return true; // نفس اليوم: انصراف بعد الحضور ✅
+
   if (outMins < inMins) {
-    // Accept any overnight pattern where check-out is in early hours (before noon)
-    return outH < 13;
+    // وردية ليلية: يُقبل فقط إذا مجموع الوقت لا يتجاوز 12 ساعة (720 دقيقة)
+    const minutesBeforeMidnight = 1440 - inMins;
+    const minutesAfterMidnight = outMins;
+    return (minutesBeforeMidnight + minutesAfterMidnight) <= 720;
   }
-  return outMins > inMins; // Reject exact same time (0 hours)
+
+  return false; // وقت متطابق تمامًا — رفض
 }
 
 // Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours OR monthlySalary / 30 once per day)
@@ -316,11 +320,21 @@ export async function POST(req: NextRequest) {
       earnedCost = shiftCost.totalCost;
     }
 
+    // استخراج jobRoleId من البيانات المُرسلة أو من الوظيفة الأولى للموظف
+    const { jobRoleId } = body;
+    const resolvedJobRoleId = jobRoleId || (await (async () => {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: userId }, include: { jobRoles: true } });
+        return u?.jobRoles?.[0]?.id || null;
+      } catch { return null; }
+    })());
+
     let newRecord: AttendanceRecord;
     try {
       const created = await prisma.attendanceRecord.create({
         data: {
           userId,
+          jobRoleId: resolvedJobRoleId,
           date: todayDate,
           checkInTime,
           checkOutTime: checkOutTime || null,
@@ -368,6 +382,10 @@ export async function POST(req: NextRequest) {
         createdAt: `${todayDate} ${checkInTime}`
       };
       memoryRecords.unshift(newRecord);
+      // تحديد حد أقصى لمنع تسرب الذاكرة في بيئة production
+      if (memoryRecords.length > MAX_MEMORY_RECORDS) {
+        memoryRecords = memoryRecords.slice(0, MAX_MEMORY_RECORDS);
+      }
     }
 
     return NextResponse.json({

@@ -22,35 +22,33 @@ export default function LoginPage() {
     const inputPin = pinCode.trim();
 
     try {
-      // Fetch live employees from PostgreSQL database
-      const res = await fetch('/api/employees');
+      // التحقق الآمن عبر server-side API (bcrypt) بدلًا من المقارنة في المتصفح
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeCode: inputCode, pinCode: inputPin })
+      });
       const data = await res.json();
-      const liveUsers: User[] = (data.success && data.users?.length > 0) ? data.users : initialUsers;
 
-      const foundUser = liveUsers.find(
-        (u) => u.employeeCode === inputCode && u.pinCode === inputPin
-      );
-
-      if (foundUser) {
-        localStorage.setItem('currentUser', JSON.stringify(foundUser));
-
-        if (foundUser.role === 'ADMIN') {
+      if (data.success && data.user) {
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        if (data.user.role === 'ADMIN') {
           router.push('/dashboard/admin');
         } else {
           router.push('/dashboard/employee');
         }
       } else {
-        setError('رقم الموظف أو الرقم السري غير صحيح');
+        setError(data.error || 'رقم الموظف أو الرقم السري غير صحيح');
       }
     } catch {
-      // Offline / fallback check
-      const foundUser = initialUsers.find(
-        (u) => u.employeeCode === inputCode && u.pinCode === inputPin
-      );
+      // Offline fallback — مقارنة بسيطة بالبيانات المحلية
+      const fallbackRes = await fetch('/api/employees').catch(() => null);
+      const fallbackData = fallbackRes ? await fallbackRes.json().catch(() => ({})) : {};
+      const liveUsers: User[] = (fallbackData.success && fallbackData.users?.length > 0) ? fallbackData.users : initialUsers;
+      const foundUser = liveUsers.find((u) => u.employeeCode === inputCode && u.pinCode === inputPin);
 
       if (foundUser) {
         localStorage.setItem('currentUser', JSON.stringify(foundUser));
-
         if (foundUser.role === 'ADMIN') {
           router.push('/dashboard/admin');
         } else {

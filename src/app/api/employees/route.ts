@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { initialUsers } from '@/lib/data-store';
 import { User } from '@/lib/types';
+import bcrypt from 'bcryptjs';
 
 // Helper to sync initial users into PostgreSQL if empty
 async function getOrSeedUsers(): Promise<User[]> {
@@ -44,15 +45,16 @@ async function getOrSeedUsers(): Promise<User[]> {
       });
     }
 
-    // Seed database
+    // Seed database — تشفير PIN بـ bcrypt عند البذر الأولي
     for (const u of initialUsers) {
+      const hashedPin = await bcrypt.hash(u.pinCode, 10);
       await prisma.user.create({
         data: {
           id: u.id,
           employeeCode: u.employeeCode,
           name: u.name,
           email: `${u.employeeCode}@hodoork.ly`,
-          password: u.pinCode,
+          password: hashedPin,
           role: u.role as any,
           hourlyRate: u.hourlyRate,
           monthlySalary: 0,
@@ -118,13 +120,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, { status: 400 });
     }
 
+    // تشفير PIN بـ bcrypt قبل الحفظ
+    const hashedPin = await bcrypt.hash(pinStr, 10);
+
     await prisma.user.create({
       data: {
         employeeCode: codeStr,
         name: nameStr,
         phone: phone ? String(phone).trim() : null,
         email: `${codeStr}-${Date.now()}@hodoork.ly`,
-        password: pinStr,
+        password: hashedPin,
         role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
         monthlySalary: finalMonthlySalary,
         targetMonthlyHours: finalTargetHours,
@@ -168,8 +173,15 @@ export async function PUT(req: NextRequest) {
       try {
         const jrs = await prisma.jobRole.findMany({ where: { id: { in: roleIds } } });
         finalMonthlySalary = jrs.reduce((sum, r) => sum + r.monthlySalary, 0);
+        finalTargetHours = jrs[0]?.targetMonthlyHours || 0; // ✅ إصلاح: تحديث ساعات الوظيفة المستهدفة
         finalJobTitle = jrs.map((r) => r.title).join(' + ') || 'بدون وظيفة خاصة';
       } catch {}
+    }
+
+    // تشفير PIN الجديد إذا تم تغييره
+    let finalPassword: string | undefined;
+    if (pinStr) {
+      finalPassword = await bcrypt.hash(pinStr, 10);
     }
 
     await prisma.user.update({
@@ -177,7 +189,7 @@ export async function PUT(req: NextRequest) {
       data: {
         ...(nameStr && { name: nameStr }),
         ...(codeStr && { employeeCode: codeStr }),
-        ...(pinStr && { password: pinStr }),
+        ...(finalPassword && { password: finalPassword }), // ✅ bcrypt hashed
         ...(phone !== undefined && { phone: phone ? String(phone).trim() : null }),
         ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
         ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
