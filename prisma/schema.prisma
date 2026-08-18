@@ -295,4 +295,24 @@ model PharmacySettings {
   updatedAt                DateTime @updatedAt
 }
 
+model ClinicalDrugReference {
+  id                           String   @id @default(uuid())
+  brandPattern                 String   @unique // كود/نمط المطابقة مثلاً: "colona", "librax"
+  brandName                    String   // الاسم التجاري
+  activeIngredients            String   // التركيبة الكيميائية النقية
+  therapeuticClass             String   // الفئة والتصنيف الدوائي
+  indications                  String   // دواعي الاستعمال
+  dosageAndAdmin               String   // طريقة الاستخدام والجرعة
+  majorInteractions            String[] // أهم التداخلات الدوائية
+  warningsAndContraindications String[] // موانع وتحذيرات هامة
+  patientCounselingTip         String   // نصيحة الصرف للمريض
+  drugBankId                   String?  @default("")
+  drugBankUrl                  String?  @default("")
+  sourceReference              String?  @default("EMC UK • EDA • SFDA • Drugs.com")
+  isCustom                     Boolean  @default(false) // مضاف أو معدل يدوياً
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+
 
