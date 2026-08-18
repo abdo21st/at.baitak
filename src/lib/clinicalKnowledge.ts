@@ -7,6 +7,8 @@ export interface ClinicalProductInput {
   category?: string;
   stockOnHand?: number;
   sellPrice?: number;
+  leafletImageUrl?: string;
+  leafletNotes?: string;
 }
 
 export interface ClinicalCapsuleData {
@@ -20,6 +22,8 @@ export interface ClinicalCapsuleData {
   warningsAndContraindications: string[];
   patientCounselingTip: string;
   fullMessageText: string;
+  isInfoAvailable?: boolean;
+  leafletImageUrl?: string;
   // Legacy fields for backwards compatibility
   mechanismAndPk?: string;
   cypMetabolism?: string;
@@ -608,33 +612,41 @@ export function generateClinicalCapsule(product: ClinicalProductInput): Clinical
   }
 
   // -------------------------------------------------------------
-  // 10. GENERAL CLINICAL SMART FALLBACK (Any other Product)
+  // 10. UNKNOWN / NOT FOUND CLINICAL FALLBACK (No Chemical Profile)
   // -------------------------------------------------------------
   else {
-    let formDetails = 'يُؤخذ بانتظام بالجرعة المقررة مع كوب ماء وفير (250 مل).';
-    if (form.includes('susp') || form.includes('syrup') || form.includes('liquid')) {
-      formDetails = 'يُرج المحلول جيداً قبل كل جرعة لضمان تجانس الدواء، مع استخدام المكيال المدرج المرفق بدقة.';
-    } else if (form.includes('drop')) {
-      formDetails = 'تُقطر الجرعة المقررة مع تجنب ملامسة فوهة القطارة للعين أو الأذن لضمان التعقيم.';
-    } else if (form.includes('efferv') || form.includes('sachet')) {
-      formDetails = 'يُذاب الكيس/الفوار بالكامل في نصف كوب ماء ويُشرب مباشرة بعد الفوران.';
-    }
+    const isActuallyKnown = Boolean(sciName && sciName.length > 2 && sciName !== name);
 
-    indications = 'يُستخدم وفق دواعي الاستعمال الطبية المعتمدة للمادة الفعالة والشكل الصيدلاني.';
-    dosageAndAdmin = `• ${formDetails} مع مراعاة تناوله في نفس الموعد يومياً للمحافظة على تركيز ثابت بالدم.`;
-    majorInteractions = [
-      '🔴 تفاعلات معززة للسمية: استشر الصيدلي دائماً عند استخدام أدوية السيولة، مسكنات الروماتيزم، أو أدوية الأمراض المزمنة.',
-      '🟠 مكملات المعادن ومضادات الحموضة: باعد ساعتين عن تناول الحديد والكالسيوم ومضادات الحموضة.'
-    ];
-    warningsAndContraindications = [
-      '⚠️ الالتزام الصارم بالجرعات الموصوفة وتجنب مضاعفة الجرعة عند النسيان.',
-      '⚠️ إبلاغ الصيدلي عن أي تاريخ مرضي أو حمل أو رضاعة قبل الاستخدام.'
-    ];
-    patientCounselingTip = 'احرص على سؤال المريض عن الأدوية المزمنة الأخرى التي يتناولها، والتأكيد على تناول الدواء بانتظام في مواعيده المحددة.';
+    if (isActuallyKnown) {
+      indications = 'يُستخدم وفق دواعي الاستعمال الطبية المعتمدة للمادة الفعالة والشكل الصيدلاني.';
+      dosageAndAdmin = `• يُؤخذ بانتظام بالجرعة المقررة مع كوب ماء وفير (250 مل) وفي نفس الموعد يومياً.`;
+      majorInteractions = [
+        '🔴 تفاعلات معززة للسمية: استشر الصيدلي دائماً عند استخدام أدوية السيولة، مسكنات الروماتيزم، أو أدوية الأمراض المزمنة.',
+        '🟠 مكملات المعادن ومضادات الحموضة: باعد ساعتين عن تناول الحديد والكالسيوم ومضادات الحموضة.'
+      ];
+      warningsAndContraindications = [
+        '⚠️ الالتزام الصارم بالجرعات الموصوفة وتجنب مضاعفة الجرعة عند النسيان.',
+        '⚠️ إبلاغ الصيدلي عن أي تاريخ مرضي أو حمل أو رضاعة قبل الاستخدام.'
+      ];
+      patientCounselingTip = 'احرص على سؤال المريض عن الأدوية المزمنة الأخرى التي يتناولها، والتأكيد على تناول الدواء بانتظام في مواعيده المحددة.';
+    } else {
+      indications = '⚠️ لا تتوفر معلومات سريرية حالياً لهذا الصنف في قواعد البيانات المعتمدة.';
+      dosageAndAdmin = '• يرجى مراجعة النشرة الداخلية المرفقة مع عبوة الدواء أو استشارة الصيدلي المشرف.';
+      majorInteractions = [
+        '⚠️ لم يتم تسجيل تداخلات دوائية مؤكدة لعدم توفر التركيبة الكيميائية - يرجى تصوير النشرة بالأسفل لتسجيلها.'
+      ];
+      warningsAndContraindications = [
+        '⚠️ لا تقم بصرف الدواء أو تقديم استشارة للمريض دون التأكد من المادة الفعالة المعتمدة.'
+      ];
+      patientCounselingTip = 'يرجى تصوير نشرة المنتج أو العلبة من الزر بالأسفل لقراءتها وحفظ بياناتها في قاعدة البيانات السحابية.';
+    }
   }
 
+  const isAvailable = !(indications.includes('لا تتوفر معلومات'));
+
   // Construct Formatted Concise WhatsApp & UI Clinical Capsule Message
-  const fullMessageText = `🌿 *كبسولة صيدلية بيتك السريرية • الدليل الدوائي السريع* 💊✨
+  const fullMessageText = isAvailable
+    ? `🌿 *كبسولة صيدلية بيتك السريرية • الدليل الدوائي السريع* 💊✨
 ━━━━━━━━━━━━━━━━━━━
 👤 مرحباً بك يا *{name}* في التدريب الصيدلاني السريع!
 📦 *الدواء (Brand):* *${name}*
@@ -657,11 +669,19 @@ ${warningsAndContraindications.map((w) => `• ${w}`).join('\n')}
 • ${patientCounselingTip}
 ━━━━━━━━━━━━━━━━━━━
 🔗 *المرجع العلمي المعتمد:* ${drugBankUrl}
-🌿 *صيدلية بيتك.. رعاية صيدلانية متكاملة ومبسطة!* ✨`;
+🌿 *صيدلية بيتك.. رعاية صيدلانية متكاملة ومبسطة!* ✨`
+    : `🌿 *كبسولة صيدلية بيتك السريرية • تنبيه توثيق الصنف* 💊
+━━━━━━━━━━━━━━━━━━━
+📦 *الصنف:* *${name}*
+🧪 *التركيبة الكيميائية:* غير متوفرة حالياً
+⚠️ *الحالة:* لا تتوفر معلومات سريرية معتمدة لهذا الصنف حالياً في قواعد البيانات.
+📷 *الإجراء المطلوب:* يرجى تصوير النشرة الداخلية أو العلبة من زر الكاميرا بالأسفل لتوثيق التركيبة وإضافتها للسيرفر السحابي.
+━━━━━━━━━━━━━━━━━━━
+🌿 *صيدلية بيتك.. رعاية صيدلانية دقيقة وموثوقة!* ✨`;
 
   return {
     productName: name,
-    scientificName: activeIngredientsEn,
+    scientificName: isAvailable ? activeIngredientsEn : 'غير متوفرة حالياً (بانتظار تصوير النشرة)',
     drugBankId,
     drugBankUrl,
     indications,
@@ -670,6 +690,8 @@ ${warningsAndContraindications.map((w) => `• ${w}`).join('\n')}
     warningsAndContraindications,
     patientCounselingTip,
     fullMessageText,
+    isInfoAvailable: isAvailable,
+    leafletImageUrl: product.leafletImageUrl,
     // Backwards compatibility bindings
     mechanismAndPk: indications,
     cypMetabolism: therapeuticClass,

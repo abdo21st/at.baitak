@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Pill,
   Send,
@@ -18,7 +16,11 @@ import {
   Zap,
   RefreshCw,
   Globe2,
-  Camera
+  Camera,
+  FileText,
+  AlertTriangle,
+  Image as ImageIcon,
+  Save
 } from 'lucide-react';
 import { generateClinicalCapsule, DEFAULT_CLINICAL_PRODUCTS, ClinicalCapsuleData } from '@/lib/clinicalKnowledge';
 import BarcodeScannerModal from './BarcodeScannerModal';
@@ -52,6 +54,14 @@ export default function ClinicalCapsuleModal({
   const [isRolling, setIsRolling] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [totalDbCount, setTotalDbCount] = useState<number>(0);
+
+  // Leaflet Photo & Manual Data Enrichment
+  const leafletCameraInputRef = useRef<HTMLInputElement>(null);
+  const [leafletImage, setLeafletImage] = useState<string | null>(null);
+  const [isUploadingLeaflet, setIsUploadingLeaflet] = useState(false);
+  const [manualIngredient, setManualIngredient] = useState('');
+  const [isSavingLeafletData, setIsSavingLeafletData] = useState(false);
+  const [leafletSaveSuccess, setLeafletSaveSuccess] = useState(false);
 
   // Generated Capsule Data
   const [capsuleData, setCapsuleData] = useState<ClinicalCapsuleData | null>(null);
@@ -286,6 +296,71 @@ export default function ClinicalCapsuleModal({
     });
   }, [internalProducts, checkProductMatchesBarcode]);
 
+  // 📸 التقاط ورفع صورة نشرة المنتج
+  const handleLeafletPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingLeaflet(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.success && data.file?.filePath) {
+        setLeafletImage(data.file.filePath);
+      } else {
+        alert(data.error || 'فشل رفع صورة النشرة');
+      }
+    } catch (err: any) {
+      alert(err.message || 'خطأ أثناء رفع صورة النشرة');
+    } finally {
+      setIsUploadingLeaflet(false);
+    }
+  };
+
+  // 💾 حفظ بيانات النشرة والمادة الفعالة في قاعدة البيانات السحابية
+  const handleSaveLeafletData = async () => {
+    if (!selectedProduct) return;
+    try {
+      setIsSavingLeafletData(true);
+      const ingredient = manualIngredient.trim() || selectedProduct.scientificName || selectedProduct.name;
+
+      const res = await fetch('/api/pharmacy/clinical-knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brandPattern: (selectedProduct.code || selectedProduct.name).toLowerCase(),
+          brandName: selectedProduct.name,
+          activeIngredients: ingredient,
+          therapeuticClass: 'تم التوثيق عبر نشرة المنتج 📷',
+          indications: customMessage,
+          sourceReference: 'نشرة الدواء الموثقة بالكاميرا 📷',
+          patientCounselingTip: 'تم التوثيق والتحقق بواسطة الصيدلي'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setLeafletSaveSuccess(true);
+        setSelectedProduct({
+          ...selectedProduct,
+          scientificName: ingredient
+        });
+        setTimeout(() => setLeafletSaveSuccess(false), 3000);
+      }
+    } catch (e: any) {
+      alert(e.message || 'فشل حفظ بيانات النشرة');
+    } finally {
+      setIsSavingLeafletData(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const getRecipientCount = () => {
@@ -445,16 +520,32 @@ export default function ClinicalCapsuleModal({
                     </button>
                   </div>
 
-                  {/* Action Buttons: Camera Barcode Scanner & Random Pick */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Action Buttons: Camera Barcode Scanner, Leaflet Camera & Random Pick */}
+                  <div className="grid grid-cols-3 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setIsBarcodeScannerOpen(true)}
-                      className="h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer transform active:scale-98"
+                      className="h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-[11px] font-black shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1 transition-all cursor-pointer transform active:scale-98"
                       title="مسح باركود الدواء بكاميرا الهاتف"
                     >
-                      <Camera className="w-4 h-4 text-emerald-100" />
-                      <span>📷 مسح باركود</span>
+                      <Camera className="w-3.5 h-3.5 text-emerald-100" />
+                      <span>📷 باركود</span>
+                    </button>
+
+                    {/* 📸 زر تصوير نشرة المنتج */}
+                    <button
+                      type="button"
+                      onClick={() => leafletCameraInputRef.current?.click()}
+                      disabled={isUploadingLeaflet}
+                      className="h-11 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[11px] font-black shadow-md shadow-blue-600/20 flex items-center justify-center gap-1 transition-all cursor-pointer transform active:scale-98"
+                      title="تصوير نشرة أو عبوة الدواء لإضافتها للبيانات السحابية"
+                    >
+                      {isUploadingLeaflet ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5 text-blue-100" />
+                      )}
+                      <span>📸 تصوير نشرة</span>
                     </button>
 
                     {/* 🎲 زر الاختيار العشوائي الذكي */}
@@ -462,12 +553,22 @@ export default function ClinicalCapsuleModal({
                       type="button"
                       onClick={handleRandomPick}
                       disabled={isRolling}
-                      className="h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer transform active:scale-98"
+                      className="h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-[11px] font-black shadow-md shadow-amber-500/20 flex items-center justify-center gap-1 transition-all cursor-pointer transform active:scale-98"
                       title={`اختيار دواء عشوائي من فئة: ${getTabLabel()}`}
                     >
-                      <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
-                      <span>🎲 دواء عشوائي</span>
+                      <Dices className={`w-3.5 h-3.5 ${isRolling ? 'animate-spin' : ''}`} />
+                      <span>🎲 عشوائي</span>
                     </button>
+
+                    {/* Hidden Native Camera Input for Leaflet */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      ref={leafletCameraInputRef}
+                      onChange={handleLeafletPhotoUpload}
+                      className="hidden"
+                    />
                   </div>
 
                   {/* Search bar */}
@@ -607,7 +708,91 @@ export default function ClinicalCapsuleModal({
                     </div>
                   </div>
 
-                  {/* 📚 شريط المراجع العالمية والشركات المصنعة والأدلة الإقليمية المعتمدة */}
+                  {/* ⚠️ تنبيه عند عدم توفر معلومات سريرية معتمدة للصنف */}
+                  {capsuleData && (!capsuleData.isInfoAvailable || customMessage.includes('لا تتوفر معلومات')) && (
+                    <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-950 font-bold shadow-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <strong className="block font-black text-amber-950">⚠️ لا تتوفر معلومات سريرية حالياً لهذا الصنف</strong>
+                          <span className="text-[11px] text-amber-800 font-medium">يرجى تصوير نشرة المنتج أو العبوة لإضافتها وتوثيق المادة الفعالة فوراً.</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => leafletCameraInputRef.current?.click()}
+                        className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shrink-0 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer transform active:scale-98"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>📸 تصوير النشرة</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 📸 بطاقة معاينة وتوثيق صورة نشرة المنتج المرفوعة */}
+                  {leafletImage && (
+                    <div className="p-3.5 bg-blue-50/80 border-2 border-blue-200 rounded-2xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-blue-950">
+                          <ImageIcon className="w-4 h-4 text-blue-600" />
+                          <span>نشرة المنتج الموثقة بالكاميرا 📷</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLeafletImage(null)}
+                          className="text-[10px] text-rose-600 hover:underline font-bold"
+                        >
+                          إزالة الصورة
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <a href={leafletImage} target="_blank" rel="noopener noreferrer" className="shrink-0 relative group">
+                          <img
+                            src={leafletImage}
+                            alt="نشرة الدواء"
+                            className="w-16 h-16 object-cover rounded-xl border border-blue-300 shadow-xs group-hover:opacity-90 transition-all"
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded-xl text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-all">
+                            تكبير 🔍
+                          </span>
+                        </a>
+
+                        <div className="flex-1 space-y-1.5">
+                          <input
+                            type="text"
+                            value={manualIngredient}
+                            onChange={(e) => setManualIngredient(e.target.value)}
+                            placeholder="اكتب المادة الفعالة المستخرجة من النشرة..."
+                            className="w-full h-8 bg-white border border-blue-200 rounded-lg px-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSaveLeafletData}
+                              disabled={isSavingLeafletData}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer"
+                            >
+                              {isSavingLeafletData ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Save className="w-3 h-3" />
+                              )}
+                              <span>حفظ وتوثيق بالسيرفر السحابي</span>
+                            </button>
+                            {leafletSaveSuccess && (
+                              <span className="text-[11px] text-emerald-700 font-black flex items-center gap-1 animate-bounce">
+                                <Check className="w-3.5 h-3.5" />
+                                <span>تم الحفظ السحابي بنجاح!</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {selectedProduct && (
                     <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
                       <div className="text-[10px] font-black text-slate-700 flex items-center justify-between">
