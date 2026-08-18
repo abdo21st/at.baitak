@@ -51,6 +51,7 @@ export default function ClinicalCapsuleModal({
   const [search, setSearch] = useState('');
   const [isRolling, setIsRolling] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [totalDbCount, setTotalDbCount] = useState<number>(0);
 
   // Generated Capsule Data
   const [capsuleData, setCapsuleData] = useState<ClinicalCapsuleData | null>(null);
@@ -67,25 +68,52 @@ export default function ClinicalCapsuleModal({
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ total: number; sent: number; failed: number; noPhone: number } | null>(null);
 
-  // Auto fetch products from API if list is not provided
+  // جلب كامل أصناف الصيدلية من قاعدة البيانات السحابية بدون حصر بـ 200 صنف
   useEffect(() => {
     if (productsList && productsList.length > 0) {
       setInternalProducts(productsList);
+      setTotalDbCount(productsList.length);
     } else {
-      fetch('/api/pharmacy/inventory?pageSize=200')
+      fetch('/api/pharmacy/inventory?pageSize=5000')
         .then((res) => res.json())
         .then((data) => {
           if (data.success && Array.isArray(data.products) && data.products.length > 0) {
             setInternalProducts(data.products);
+            setTotalDbCount(data.totalCount || data.products.length);
           } else {
             setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+            setTotalDbCount(DEFAULT_CLINICAL_PRODUCTS.length);
           }
         })
         .catch(() => {
           setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+          setTotalDbCount(DEFAULT_CLINICAL_PRODUCTS.length);
         });
     }
   }, [productsList, isOpen]);
+
+  // بحث ديناميكي مباشر في قاعدة البيانات بالاسم التجاري أو التركيبة الكيميائية
+  useEffect(() => {
+    if (!search || search.trim().length < 2) return;
+    const timer = setTimeout(() => {
+      fetch(`/api/pharmacy/inventory?search=${encodeURIComponent(search.trim())}&pageSize=300`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+            // دمج النتائج الجديدة مع منع التكرار
+            setInternalProducts((prev) => {
+              const map = new Map();
+              prev.forEach((p) => map.set(p.id || p.productCode || p.name, p));
+              data.products.forEach((p: any) => map.set(p.id || p.productCode || p.name, p));
+              return Array.from(map.values());
+            });
+            if (data.totalCount) setTotalDbCount(data.totalCount);
+          }
+        })
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     if (initialProduct) {
@@ -149,13 +177,23 @@ export default function ClinicalCapsuleModal({
     }
   }, [departments, selectedDeptId]);
 
-  // Filter products by active tab & search
+  // Filter products by active tab & search (supports Chemical Formula, Active Ingredient, Brand, Barcode, Code)
   const filteredProducts = useMemo(() => {
     const pool = internalProducts.length > 0 ? internalProducts : DEFAULT_CLINICAL_PRODUCTS;
-    return pool.filter((p) => {
-      const name = (p.name || '').toLowerCase();
-      const sci = (p.scientificName || '').toLowerCase();
-      const matchesSearch = !search.trim() || name.includes(search.toLowerCase()) || sci.includes(search.toLowerCase());
+    const term = search.trim().toLowerCase();
+
+    return pool.filter((p: any) => {
+      const name = (p.name || p.productName || '').toLowerCase();
+      const sci = (p.scientificName || p.activeIngredient || '').toLowerCase();
+      const code = (p.code || p.productCode || '').toLowerCase();
+      const barcode = (p.barcode || '').toLowerCase();
+
+      const matchesSearch = !term ||
+        name.includes(term) ||
+        sci.includes(term) ||
+        code.includes(term) ||
+        barcode.includes(term);
+
       if (!matchesSearch) return false;
 
       if (activeTab === 'chronic') {
@@ -163,7 +201,8 @@ export default function ClinicalCapsuleModal({
           name.includes('metformin') || name.includes('gluco') || name.includes('statin') ||
           name.includes('prazole') || name.includes('losec') || name.includes('lipitor') ||
           name.includes('amox') || name.includes('concor') || name.includes('aspirin') ||
-          name.includes('ventolin') || name.includes('inhal') || name.includes('eltroxin')
+          name.includes('ventolin') || name.includes('inhal') || name.includes('eltroxin') ||
+          sci.includes('metformin') || sci.includes('statin') || sci.includes('bisoprolol')
         );
       }
       if (activeTab === 'slow') {
@@ -350,10 +389,10 @@ export default function ClinicalCapsuleModal({
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-black text-slate-900">
-                      1. اختر الدواء من قاعدة البيانات:
+                       1. اختر الدواء أو ابحث بالتركيبة الكيميائية:
                     </label>
-                    <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded-md border border-slate-200 font-bold">
-                      {filteredProducts.length} صنف متاح
+                    <span className="text-[10px] text-emerald-800 font-mono bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-bold">
+                      {filteredProducts.length} صنف {totalDbCount > filteredProducts.length ? `(من إجمالي ${totalDbCount})` : 'متاح'}
                     </span>
                   </div>
 
@@ -411,7 +450,7 @@ export default function ClinicalCapsuleModal({
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder="ابحث باسم الدواء التجاري أو العلمي..."
+                      placeholder="ابحث بالتركيبة الكيميائية (Active Ingredient) أو الاسم التجاري..."
                       className="w-full h-9 bg-white border border-slate-200 rounded-lg pr-8 pl-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
