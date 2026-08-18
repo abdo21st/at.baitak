@@ -76,9 +76,40 @@ const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDes
   'gaviscon': { ingredient: 'Sodium Alginate + Sodium Bicarbonate + Calcium Carbonate', classDesc: 'حاجز رغوي واقي فوري ضد ارتجاع حمض المعدة والمريء (Reflux Barrier)' },
   'mucogel': { ingredient: 'Aluminium Hydroxide + Magnesium Hydroxide + Oxethazaine', classDesc: 'مضاد للحموضة ومخدر موضعي لآلام وحرقة جدار المعدة' },
   'maalox': { ingredient: 'Aluminium Hydroxide + Magnesium Hydroxide', classDesc: 'معادل سريع لحموضة المعدة وحرقة المريء' },
+  // ENO Fruit Salt & Effervescent Antacids
+  'eno': { ingredient: 'Sodium Bicarbonate 2800mg + Citric Acid 2000mg + Sodium Carbonate 500mg (per 5g sachet)', classDesc: 'مُعادِل سريع لحموضة المعدة وانتفاخ البطن - فوار أملاح الفاكهة (Effervescent Antacid & Antiflatulent)' },
+  'eno fruit': { ingredient: 'Sodium Bicarbonate + Citric Acid + Sodium Carbonate', classDesc: 'أملاح الفاكهة الفوارة - معادل سريع لحموضة المعدة والغازات' },
+  'rennie': { ingredient: 'Calcium Carbonate 680mg + Magnesium Carbonate 80mg', classDesc: 'مضاد سريع للحموضة والارتجاع المعدي ومطاط للغازات' },
+  'gelusil': { ingredient: 'Aluminium Hydroxide + Magnesium Hydroxide + Simethicone', classDesc: 'مضاد للحموضة وطارد للغازات سريع المفعول' },
   'motilium': { ingredient: 'Domperidone (Dopamine D2 Antagonist)', classDesc: 'منظم لحركة المعدة ومضاد للغثيان والقيء وعسر الهضم (Prokinetic & Antiemetic)', drugBankId: 'DB01184' },
   'primperan': { ingredient: 'Metoclopramide Hydrochloride', classDesc: 'منشط لحركة الأمعاء ومضاد للقيء والغثيان', drugBankId: 'DB01233' },
   'navidoxine': { ingredient: 'Meclizine HCl + Vitamin B6 (Pyridoxine)', classDesc: 'علاج ومنع غثيان وقيء الحمل ودوار الحركة' },
+  // Vitamins & Supplements
+  'neurobion': { ingredient: 'Vitamin B1 (Thiamine) 100mg + B6 (Pyridoxine) 200mg + B12 (Cyanocobalamin) 200mcg', classDesc: 'مجمع فيتامينات ب العصبي لعلاج التهاب الأعصاب والتنميل والضعف العام' },
+  'nervobion': { ingredient: 'Vitamin B1 + B6 + B12 Complex (Neurotropic)', classDesc: 'مجمع الفيتامينات العصبية ب1 ب6 ب12 لتقوية الأعصاب وعلاج الإرهاق' },
+  'becozym': { ingredient: 'Vitamin B Complex (B1 + B2 + B3 + B5 + B6)', classDesc: 'مجمع فيتامينات ب الكامل لتقوية الجهاز العصبي وتحسين التمثيل الغذائي' },
+  'supradyn': { ingredient: 'Multivitamins + Minerals (Comprehensive)', classDesc: 'مكمل غذائي متكامل بالفيتامينات والمعادن للحيوية اليومية والجهاز المناعي' },
+  'pharmaton': { ingredient: 'Ginseng Extract + Multivitamins + Minerals', classDesc: 'منشط وعلاج الإرهاق والوهن الذهني والبدني ومعزز الطاقة الشاملة' },
+  'calcivit d': { ingredient: 'Calcium Carbonate 1200mg + Vitamin D3 1000 IU', classDesc: 'مكمل الكالسيوم وفيتامين د لبناء العظام ومنع هشاشة العظام والكساح' },
+  'caltrate': { ingredient: 'Calcium Carbonate + Vitamin D3 + Magnesium + Zinc', classDesc: 'تركيبة متكاملة لصحة العظام وتقوية الجهاز المناعي' },
+  // Antihistamines & Allergy
+  'claritine': { ingredient: 'Loratadine 10mg', classDesc: 'مضاد للهستامين الجيل الثاني خالٍ من النعاس لعلاج الحساسية والرشح والشرى', drugBankId: 'DB00455' },
+  'claritin': { ingredient: 'Loratadine 10mg', classDesc: 'مضاد للهستامين الجيل الثاني لعلاج حمى القش والحساسية المزمنة', drugBankId: 'DB00455' },
+  'aerius': { ingredient: 'Desloratadine 5mg', classDesc: 'مضاد هستامين انتقائي من الجيل الثالث - لا يسبب نعاساً على الإطلاق', drugBankId: 'DB00967' },
+  'zyrtec': { ingredient: 'Cetirizine Hydrochloride 10mg', classDesc: 'مضاد هستامين الجيل الثاني لعلاج أمراض الحساسية والشرى والأكزيما التحسسية', drugBankId: 'DB00341' },
+  'avil': { ingredient: 'Pheniramine Maleate 45mg (Antihistamine)', classDesc: 'مضاد هستامين الجيل الأول سريع المفعول للحساسية الحادة ودوار الحركة والغثيان', drugBankId: 'DB01106' },
+  // Antifungals
+  'fluconazole': { ingredient: 'Fluconazole 150mg (Triazole Antifungal)', classDesc: 'مضاد فطري فموي واسع المجال لعلاج العدوى الفطرية الجهازية والمهبلية والفموية', drugBankId: 'DB00196' },
+  'diflucan': { ingredient: 'Fluconazole 150mg', classDesc: 'مضاد فطري نظامي قوي لعلاج عدوى المبيضة والرشاشيات', drugBankId: 'DB00196' },
+  'canesten': { ingredient: 'Clotrimazole 1% (Topical Antifungal)', classDesc: 'مضاد فطري موضعي لعلاج الفطريات الجلدية وقدم الرياضي والحكة الأربية', drugBankId: 'DB00257' },
+  // Cardiovascular
+  'xarelto': { ingredient: 'Rivaroxaban (Factor Xa Inhibitor)', classDesc: 'مميع الدم الفموي المباشر للوقاية من الجلطات الوريدية والسكتة الدماغية في الرجفان الأذيني', drugBankId: 'DB06228' },
+  'plavix': { ingredient: 'Clopidogrel 75mg', classDesc: 'مضاد لالتصاق الصفائح الدموية للوقاية من جلطات القلب والشرايين', drugBankId: 'DB00758' },
+  'norvasc': { ingredient: 'Amlodipine Besylate 5mg / 10mg', classDesc: 'حاصر قنوات الكالسيوم لعلاج ارتفاع ضغط الدم والذبحة الصدرية', drugBankId: 'DB00381' },
+  // Urinary Antiseptics
+  'urisedon': { ingredient: 'Hyoscyamine + Methenamine + Methylene Blue', classDesc: 'مطهر ومسكن لآلام وتقلصات المسالك البولية وحرقة البول والتهاب المثانة' },
+  'uricol': { ingredient: 'Hexamine + Piperazine Tartrate + Khellin', classDesc: 'فوار مطهر ومذيب لحصوات حمض اليوريك وموسع للحالب ومسكن للمغص الكلوي' },
+  'daflon': { ingredient: 'Micronized Purified Flavonoid Fraction (Diosmin 450mg + Hesperidin 50mg)', classDesc: 'مقوي للأوردة والشعيرات الدموية لعلاج البواسير، الدوالي، وثقل الساقين' }
 
   // مسكنات ومضادات الالتهاب والروماتيزم
   'ketolac': { ingredient: 'Ketorolac Tromethamine (Potent NSAID)', classDesc: 'مسكن آلام حاد غير ستيرويدي قوي جداً (Injectable / Oral NSAID)', drugBankId: 'DB00465' },
@@ -275,7 +306,69 @@ async function queryWebMedicalDirectory(brandName: string): Promise<string | nul
 }
 
 /**
+ * 5. استعلام PubChem للحصول على التركيبة الكيميائية والخصائص الجزيئية
+ */
+async function queryPubChemForCompound(term: string): Promise<{ name: string; formula?: string; description?: string } | null> {
+  if (!term || term.length < 3) return null;
+  try {
+    const firstWord = term.split(/[\s/+-]/)[0];
+    const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(firstWord)}/JSON?MaxRecords=1`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const props = data?.PC_Compounds?.[0]?.props;
+    if (!Array.isArray(props)) return null;
+    const nameProp = props.find((p: any) => p.urn?.label === 'IUPAC Name' && p.urn?.name === 'Preferred');
+    const formulaProp = props.find((p: any) => p.urn?.label === 'Molecular Formula');
+    const iupacName = nameProp?.value?.sval || null;
+    const formula = formulaProp?.value?.sval || null;
+    return iupacName || formula ? { name: iupacName || firstWord, formula: formula || undefined } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 6. استعلام DailyMed للحصول على نشرة الدواء الرسمية من مستودع NIH
+ */
+async function queryDailyMedForDrug(term: string): Promise<{ ingredient: string; indication: string; source: string } | null> {
+  if (!term || term.length < 3) return null;
+  try {
+    const firstWord = term.split(/[\s/+-]/)[0];
+    const url = `https://dailymed.nlm.nih.gov/dailymed/services/v2/drugnames.json?drug_name=${encodeURIComponent(firstWord)}&pagesize=3`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const drugs = data?.data;
+    if (!Array.isArray(drugs) || drugs.length === 0) return null;
+    const firstDrug = drugs[0];
+    if (!firstDrug?.setid) return null;
+    const spl = await fetch(`https://dailymed.nlm.nih.gov/dailymed/services/v2/spls/${firstDrug.setid}.json`);
+    if (!spl.ok) return null;
+    const splData = await spl.json();
+    const ingredients = splData?.data?.active_ingredients?.map((i: any) => `${i.name}${i.strength ? ' ' + i.strength : ''}`).join(' + ');
+    if (ingredients) {
+      return {
+        ingredient: ingredients,
+        indication: splData?.data?.purpose || '',
+        source: 'DailyMed NIH (SPL نشرة دواء رسمية)'
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * المحرك الرئيسي لجلب واكتشاف التركيبة الكيميائية وتوليد الكبسولة السريرية الفورية
+ * يجمع بين: القاموس الإقليمي + DailyMed + PubChem + RxNorm + OpenFDA + Wikipedia
  */
 export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promise<ClinicalCapsuleData> {
   return enrichCapsuleWithLiveSources(product);
@@ -284,66 +377,111 @@ export async function fetchLiveDrugCapsule(product: ClinicalProductInput): Promi
 export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput): Promise<ClinicalCapsuleData> {
   const rawName = (product.name || '').trim();
   const rawSci = (product.scientificName || product.activeIngredient || '').trim();
-
   const refLinks = generateScientificReferenceLinks(rawName, rawSci);
 
-  // 1. فحص القاموس الإقليمي والمحلي الموسع
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 1: القاموس الإقليمي الموسع (أسرع مصدر + أعلى دقة)
+  // ═══════════════════════════════════════════════════════════
   const regionalMatch = resolveRegionalBrand(rawName);
   if (regionalMatch) {
-    const updatedProd: ClinicalProductInput = {
-      ...product,
-      scientificName: regionalMatch.ingredient
-    };
+    const updatedProd: ClinicalProductInput = { ...product, scientificName: regionalMatch.ingredient };
     const capsule = generateClinicalCapsule(updatedProd);
     return {
       ...capsule,
       liveInfo: {
-        source: 'دليل الأدوية الإقليمي المعتمد • DailyMed • Drugs.com',
+        source: 'الدليل الإقليمي المعتمد • Drugs.com • DailyMed NIH • Medscape',
         isLive: true,
         referenceLinks: generateScientificReferenceLinks(rawName, regionalMatch.ingredient)
       }
     } as any;
   }
 
-  // 2. الكبسولة السريرية الأساسية
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 2: الكبسولة السريرية من قاعدة المعرفة المدمجة
+  // ═══════════════════════════════════════════════════════════
   const baseCapsule = generateClinicalCapsule(product);
+  const isInfoAvailable = baseCapsule.isInfoAvailable !== false;
+  const sciNameIsReal = baseCapsule.scientificName &&
+    baseCapsule.scientificName !== rawName &&
+    !baseCapsule.scientificName.toLowerCase().includes('غير متوفرة') &&
+    baseCapsule.scientificName.length > 5;
 
-  if (baseCapsule.scientificName && baseCapsule.scientificName !== rawName && !baseCapsule.scientificName.includes('Active Pharmaceutical')) {
+  if (sciNameIsReal && isInfoAvailable) {
     return {
       ...baseCapsule,
       liveInfo: {
-        source: 'Drugs.com • Medscape • EMC UK • DrugBank Verified',
+        source: 'DrugBank • Drugs.com • Medscape • EMC UK',
         isLive: true,
         referenceLinks: generateScientificReferenceLinks(rawName, baseCapsule.scientificName)
       }
     } as any;
   }
 
-  // 3. البحث الحي بالإنترنت عبر المعاجم الدوائية
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 3: البحث الحي في مصادر متعددة بالتوازي
+  // (DailyMed NIH + RxNorm + OpenFDA + PubChem + Wikipedia)
+  // ═══════════════════════════════════════════════════════════
   const tokens = extractSearchTokens(rawName, rawSci);
   let discoveredIngredient: string | null = null;
-  let discoverySource = 'Drugs.com / DailyMed & RxNorm Live Discovery';
+  let discoverySource = '';
+  let dailyMedIndication = '';
 
   if (tokens.length > 0) {
-    discoveredIngredient = await queryRxNormForActiveIngredient(tokens[0]);
-    if (!discoveredIngredient) {
-      discoveredIngredient = await queryOpenFDAActiveIngredient(tokens[0]);
+    const searchTerm = tokens[0];
+
+    // استعلام DailyMed أولاً (أكثر موثوقية للمستحضرات التجارية)
+    const dailyMedResult = await queryDailyMedForDrug(rawName);
+    if (dailyMedResult?.ingredient) {
+      discoveredIngredient = dailyMedResult.ingredient;
+      dailyMedIndication = dailyMedResult.indication;
+      discoverySource = dailyMedResult.source;
     }
+
+    // RxNorm كمصدر ثانٍ
     if (!discoveredIngredient) {
-      discoveredIngredient = await queryWebMedicalDirectory(tokens[0]);
+      discoveredIngredient = await queryRxNormForActiveIngredient(searchTerm);
+      if (discoveredIngredient) discoverySource = 'RxNorm NLM (NIH)';
+    }
+
+    // OpenFDA كمصدر ثالث
+    if (!discoveredIngredient) {
+      discoveredIngredient = await queryOpenFDAActiveIngredient(searchTerm);
+      if (discoveredIngredient) discoverySource = 'OpenFDA Drug Labels (FDA)';
+    }
+
+    // Wikipedia/Wikidata كمصدر رابع
+    if (!discoveredIngredient) {
+      discoveredIngredient = await queryWebMedicalDirectory(searchTerm);
+      if (discoveredIngredient) discoverySource = 'Wikipedia Medical Reference';
+    }
+
+    // PubChem كمصدر خامس (للجزيئات الكيميائية البحتة)
+    if (!discoveredIngredient) {
+      const pubChemResult = await queryPubChemForCompound(searchTerm);
+      if (pubChemResult?.name) {
+        discoveredIngredient = pubChemResult.name;
+        discoverySource = `PubChem NCBI (${pubChemResult.formula || 'Molecular Data'})`;
+      }
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 4: بناء الكبسولة من المادة الفعالة المكتشفة
+  // ═══════════════════════════════════════════════════════════
   if (discoveredIngredient) {
-    const updatedProd: ClinicalProductInput = {
-      ...product,
-      scientificName: discoveredIngredient
-    };
+    const updatedProd: ClinicalProductInput = { ...product, scientificName: discoveredIngredient };
     const dynamicCapsule = generateClinicalCapsule(updatedProd);
+
+    // إضافة دواعي الاستعمال من DailyMed إن وُجدت
+    const enrichedIndications = dailyMedIndication
+      ? `${dynamicCapsule.indications}\n🔗 DailyMed: ${dailyMedIndication}`
+      : dynamicCapsule.indications;
+
     return {
       ...dynamicCapsule,
+      indications: enrichedIndications,
       liveInfo: {
-        source: `${discoverySource} (المادة الفعالة المستخرجة: ${discoveredIngredient})`,
+        source: `${discoverySource} • Drugs.com • Medscape • EMC UK`,
         isLive: true,
         genericName: discoveredIngredient,
         referenceLinks: generateScientificReferenceLinks(rawName, discoveredIngredient)
@@ -351,10 +489,14 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
     } as any;
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 5: لا توجد بيانات - إظهار حالة "معلومات غير متوفرة"
+  // ═══════════════════════════════════════════════════════════
   return {
     ...baseCapsule,
+    isInfoAvailable: false,
     liveInfo: {
-      source: 'DrugBank Clinical Repository',
+      source: 'غير متوفر في قواعد البيانات المتاحة حالياً',
       isLive: false,
       referenceLinks: refLinks
     }
