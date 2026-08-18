@@ -17,9 +17,11 @@ import {
   BookOpen,
   Zap,
   RefreshCw,
-  Globe2
+  Globe2,
+  Camera
 } from 'lucide-react';
 import { generateClinicalCapsule, DEFAULT_CLINICAL_PRODUCTS, ClinicalCapsuleData } from '@/lib/clinicalKnowledge';
+import BarcodeScannerModal from './BarcodeScannerModal';
 import { User, Department } from '@/lib/types';
 
 interface ClinicalCapsuleModalProps {
@@ -48,6 +50,7 @@ export default function ClinicalCapsuleModal({
   const [activeTab, setActiveTab] = useState<'smart' | 'chronic' | 'slow' | 'expiry' | 'top'>('smart');
   const [search, setSearch] = useState('');
   const [isRolling, setIsRolling] = useState(false);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
   // Generated Capsule Data
   const [capsuleData, setCapsuleData] = useState<ClinicalCapsuleData | null>(null);
@@ -193,6 +196,29 @@ export default function ClinicalCapsuleModal({
       }
     }, 60);
   }, [filteredProducts, internalProducts]);
+
+  // 📷 استجابة قراءة الباركود من كاميرا الهاتف
+  const handleBarcodeScanned = useCallback((scannedCode: string) => {
+    const clean = scannedCode.trim().toLowerCase();
+    const matched = internalProducts.find((p: any) =>
+      (p.barcode && p.barcode.toLowerCase() === clean) ||
+      (p.code && p.code.toLowerCase() === clean) ||
+      (p.productCode && p.productCode.toLowerCase() === clean) ||
+      (p.name && p.name.toLowerCase().includes(clean)) ||
+      (p.scientificName && p.scientificName.toLowerCase().includes(clean))
+    );
+
+    if (matched) {
+      setSelectedProduct(matched);
+    } else {
+      setSelectedProduct({
+        id: `scan-${Date.now()}`,
+        name: scannedCode,
+        scientificName: scannedCode,
+        dosageForm: 'General'
+      });
+    }
+  }, [internalProducts]);
 
   if (!isOpen) return null;
 
@@ -353,17 +379,30 @@ export default function ClinicalCapsuleModal({
                     </button>
                   </div>
 
-                  {/* 🎲 زر الاختيار العشوائي الذكي */}
-                  <button
-                    type="button"
-                    onClick={handleRandomPick}
-                    disabled={isRolling}
-                    className="w-full h-11 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-98"
-                    title={`اختيار دواء عشوائي من فئة: ${getTabLabel()}`}
-                  >
-                    <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
-                    <span>🎲 اختيار عشوائي من ({getTabLabel()})</span>
-                  </button>
+                  {/* Action Buttons: Camera Barcode Scanner & Random Pick */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      className="h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer transform active:scale-98"
+                      title="مسح باركود الدواء بكاميرا الهاتف"
+                    >
+                      <Camera className="w-4 h-4 text-emerald-100" />
+                      <span>📷 مسح باركود</span>
+                    </button>
+
+                    {/* 🎲 زر الاختيار العشوائي الذكي */}
+                    <button
+                      type="button"
+                      onClick={handleRandomPick}
+                      disabled={isRolling}
+                      className="h-11 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer transform active:scale-98"
+                      title={`اختيار دواء عشوائي من فئة: ${getTabLabel()}`}
+                    >
+                      <Dices className={`w-4 h-4 ${isRolling ? 'animate-spin' : ''}`} />
+                      <span>🎲 دواء عشوائي</span>
+                    </button>
+                  </div>
 
                   {/* Search bar */}
                   <div className="relative">
@@ -565,6 +604,14 @@ export default function ClinicalCapsuleModal({
           )}
         </div>
       </div>
+
+      {/* 📷 نافذة قارئ الباركود بكاميرا الهاتف */}
+      <BarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
+        onScanSuccess={handleBarcodeScanned}
+        title="مسح باركود الدواء بكاميرا الهاتف"
+      />
     </div>
   );
 }
