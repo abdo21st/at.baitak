@@ -580,6 +580,77 @@ export default function ClinicalCapsuleModal({
                     </div>
                   </div>
 
+                  {/* 📚 شريط المراجع العالمية والإقليمية المعتمدة (Drugs.com, Medscape, DailyMed, Altibbi, WebTeb, SFDA) */}
+                  {selectedProduct && (
+                    <div className="p-2.5 bg-white rounded-xl border border-slate-200">
+                      <div className="text-[10px] font-black text-slate-500 mb-1.5 flex items-center gap-1">
+                        <Globe2 className="w-3 h-3 text-emerald-600" />
+                        <span>مراجع استخراج التركيبة والتحقق السريري المعتمدة:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                        <a
+                          href={`https://www.drugs.com/search.php?searchterm=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>💊 Drugs.com</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://reference.medscape.com/search?q=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🩺 Medscape</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🏛️ DailyMed (NIH)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://altibbi.com/الادوية/ابحث-عن-دواء?query=${encodeURIComponent(selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-green-50 hover:text-green-700 hover:border-green-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🌿 الطبي (Altibbi)</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.webteb.com/search?q=${encodeURIComponent(selectedProduct.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>🔍 ويب طب</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+
+                        <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(selectedProduct.name)}+site%3Adrugeye.org+OR+site%3Aegyptiandrugindex.com`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2 py-1 bg-slate-50 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 text-slate-700 border border-slate-200 rounded-lg transition-all flex items-center gap-1"
+                        >
+                          <span>📋 دليل الأدوية المصري</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
                   <textarea
                     rows={8}
                     value={customMessage}
