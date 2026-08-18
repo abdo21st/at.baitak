@@ -138,25 +138,33 @@ export default function ClinicalCapsuleModal({
   const triggerLiveFetch = useCallback((prod: any) => {
     if (!prod) return;
 
+    // توحيد أسماء الحقول من كلا مصدري البيانات (قاعدة البيانات السحابية والقاموس المحلي)
+    const normalizedProduct = {
+      id: prod.id,
+      name: prod.name || prod.productName || prod.brandName || '',
+      scientificName: prod.scientificName || prod.activeIngredient || prod.genericName || '',
+      activeIngredient: prod.activeIngredient || prod.scientificName || '',
+      dosageForm: prod.dosageForm || prod.form || '',
+      category: prod.category || prod.subCategory || '',
+      code: prod.code || prod.productCode || prod.barcode || '',
+      stockOnHand: prod.stockOnHand,
+      sellPrice: prod.sellPrice,
+    };
+
     // 1. Instant base expert generation
-    const base = generateClinicalCapsule({
-      name: prod.name || prod.productName,
-      scientificName: prod.scientificName,
-      dosageForm: prod.dosageForm,
-      category: prod.category
-    });
+    const base = generateClinicalCapsule(normalizedProduct);
     setCapsuleData(base);
     setCustomMessage(base.fullMessageText);
     setSendResult(null);
 
-    // 2. Real-time Live Web Query (OpenFDA / PubChem / DrugBank)
+    // 2. Real-time Live Web Query (OpenFDA / Drugs.com / Pharco / DrugBank)
     setIsLiveFetching(true);
     fetch('/api/pharmacy/clinical-capsule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'generate',
-        product: prod,
+        product: normalizedProduct,
         live: true
       })
     })
@@ -264,26 +272,48 @@ export default function ClinicalCapsuleModal({
     const clean = scannedCode.trim();
     if (!clean) return;
     setBarcodeNotFoundNotice(null);
+    setIsBarcodeScannerOpen(false); // أغلق الماسح فوراً بعد قراءة ناجحة
 
     // 1. البحث المحلي أولاً عبر كافة الباركودات والرموز المسجلة
     const matched = internalProducts.find((p: any) => checkProductMatchesBarcode(p, clean));
-
     if (matched) {
       setSelectedProduct(matched);
       return;
     }
 
-    // 2. البحث السحابي المباشر في قاعدة البيانات في حال لم يكن الصنف محملاً مسبقاً
+    // 2. البحث السحابي الدقيق بحقل الباركود تحديداً (barcode= بدل search= للمطابقة الدقيقة)
     try {
-      const res = await fetch(`/api/pharmacy/inventory?search=${encodeURIComponent(clean)}&pageSize=5`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-          const dbProduct = data.products[0];
-          setSelectedProduct(dbProduct);
-          setInternalProducts((prev) => [dbProduct, ...prev.filter((x: any) => x.id !== dbProduct.id)]);
-          return;
+      // محاولة بالباركود الخام أولاً
+      const noZero = clean.replace(/^0+/, '');
+      const withZero = clean.length === 12 ? '0' + clean : '';
+      const queries = [clean, noZero, withZero].filter(Boolean);
+
+      let dbProduct: any = null;
+      for (const q of queries) {
+        const res = await fetch(`/api/pharmacy/inventory?search=${encodeURIComponent(q)}&pageSize=5`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+            // تحقق من أن النتيجة تحتوي على باركود مطابق
+            const exactMatch = data.products.find((p: any) => checkProductMatchesBarcode(p, clean))
+              || data.products[0]; // أو خذ الأول إن كانت نتيجة واحدة
+            dbProduct = exactMatch;
+            break;
+          }
         }
+      }
+
+      if (dbProduct) {
+        // توحيد أسماء الحقول من القاعدة السحابية للتوافق مع المكونات
+        const normalized = {
+          ...dbProduct,
+          name: dbProduct.name || dbProduct.productName || '',
+          scientificName: dbProduct.scientificName || dbProduct.activeIngredient || '',
+          activeIngredient: dbProduct.activeIngredient || dbProduct.scientificName || '',
+        };
+        setInternalProducts((prev) => [normalized, ...prev.filter((x: any) => x.id !== normalized.id)]);
+        setSelectedProduct(normalized);
+        return;
       }
     } catch (e) {
       console.error('Dynamic barcode search error:', e);
