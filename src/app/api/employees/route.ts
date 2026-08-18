@@ -25,7 +25,7 @@ async function getOrSeedUsers(): Promise<User[]> {
         return {
           id: u.id,
           employeeCode: u.employeeCode,
-          pinCode: u.password || '1234',
+          pinCode: (u.password && (u.password.startsWith('$2b$') || u.password.startsWith('$2a$'))) ? '••••' : (u.password || '••••'),
           name: u.name,
           role: u.role as any,
           phone: u.phone || null,

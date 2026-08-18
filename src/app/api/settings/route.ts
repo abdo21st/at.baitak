@@ -7,14 +7,17 @@ export async function GET() {
       where: { id: 'default' }
     });
 
+    const defaultLat = process.env.COMPANY_DEFAULT_LAT ? Number(process.env.COMPANY_DEFAULT_LAT) : null;
+    const defaultLng = process.env.COMPANY_DEFAULT_LNG ? Number(process.env.COMPANY_DEFAULT_LNG) : null;
+
     if (!settings) {
       settings = await prisma.companySettings.create({
         data: {
           id: 'default',
-          companyName: 'نظام تدوين ساعات العمل المخصص',
+          companyName: process.env.COMPANY_NAME || 'نظام تدوين ساعات العمل المخصص',
           gpsEnabled: false,
-          gpsLatitude: 32.8872,
-          gpsLongitude: 13.1913,
+          gpsLatitude: defaultLat,
+          gpsLongitude: defaultLng,
           gpsRadiusMeters: 200
         }
       });

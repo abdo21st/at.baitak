@@ -27,42 +27,6 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   return false; // وقت متطابق تمامًا — رفض
 }
 
-// Dual calculation: (workHours * directHourlyRate) + ((workHours * monthlySalary) / targetMonthlyHours OR monthlySalary / 30 once per day)
-function calculateDualEarnedCost(
-  workHours: number,
-  directHourlyRate: number = 0,
-  monthlySalary: number = 0,
-  targetMonthlyHours: number = 0,
-  isHourly: boolean = true,
-  isFirstRecordOfDay: boolean = true
-): number {
-  if (!workHours || workHours <= 0) return 0;
-
-  // Part 1: Direct Hourly Rate earnings
-  const directCost = workHours * (directHourlyRate || 0);
-
-  // Part 2: Job Role Salary portion
-  let jobRoleCost = 0;
-  if (monthlySalary > 0) {
-    if (isHourly) {
-      if (targetMonthlyHours && targetMonthlyHours > 0) {
-        jobRoleCost = (workHours * monthlySalary) / targetMonthlyHours;
-      } else {
-        jobRoleCost = 0; // If target hours is not specified, do NOT calculate job role portion
-      }
-    } else {
-      // Non-hourly / Fixed monthly salary: daily portion = monthlySalary / 30 ONLY once per unique day
-      if (isFirstRecordOfDay) {
-        jobRoleCost = monthlySalary / 30;
-      } else {
-        jobRoleCost = 0;
-      }
-    }
-  }
-
-  return Number((directCost + jobRoleCost).toFixed(2));
-}
-
 // Fetch or seed records in PostgreSQL
 async function getOrSeedRecords(userIdFilter?: string | null): Promise<AttendanceRecord[]> {
   try {
@@ -103,13 +67,14 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
         const isFirst = recordIsFirstMap.get(r.id) ?? true;
         const userDeptIds = r.user?.departments?.map((d: any) => d.id) || [];
 
-        let calculatedEarned = r.earnedCost;
         const shiftAmt = (r as any).shiftAmount || 0;
         const commRate = (r as any).commissionRate || (primaryRole?.hasCommission ? primaryRole.commissionRate : 0) || 0;
         const commType = (r as any).shiftAmountType || (primaryRole?.hasCommission ? primaryRole.commissionType : null);
         const commAmt = (r as any).commissionAmount !== undefined ? (r as any).commissionAmount : Number(((shiftAmt * commRate) / 100).toFixed(2));
 
-        if (r.checkOutTime) {
+        // Use persisted earnedCost if already calculated, otherwise calculate once
+        let calculatedEarned = r.earnedCost;
+        if ((calculatedEarned === 0 || calculatedEarned === null || calculatedEarned === undefined) && r.checkOutTime) {
           const shiftCost = calculateShiftWithRateRules(
             r.date,
             r.checkInTime,
@@ -463,8 +428,20 @@ export async function PUT(req: NextRequest) {
         }
       } catch {}
 
+      const shiftCost = calculateShiftWithRateRules(
+        memRec.date,
+        memRec.checkInTime,
+        checkOutTime,
+        memRate,
+        memSalary,
+        memTargetHrs,
+        memIsHourly,
+        true,
+        [],
+        memRec.userId
+      );
       memRec.workHours = Number((totalMins / 60).toFixed(2));
-      memRec.earnedCost = calculateDualEarnedCost(memRec.workHours, memRate, memSalary, memTargetHrs, memIsHourly);
+      memRec.earnedCost = shiftCost.totalCost;
       memRec.checkOutTime = checkOutTime;
       memRec.checkOutLat = finalLat;
       memRec.checkOutLng = finalLng;

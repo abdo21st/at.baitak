@@ -78,7 +78,7 @@ model User {
   employeeCode       String             @unique
   name               String
   email              String             @unique
-  password           String             @default("123456")
+  password           String             @default("")
   role               UserRole           @default(EMPLOYEE)
   avatar             String?
   phone              String?

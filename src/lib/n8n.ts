@@ -16,12 +16,16 @@ export async function sendDirectWhatsApp(phone: string, text: string): Promise<b
   const wahaUrl = process.env.WAHA_API_URL || 'http://102.203.201.52:3008/api/sendText';
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json; charset=utf-8'
+    };
+    if (process.env.WAHA_API_KEY) {
+      headers['X-Api-Key'] = process.env.WAHA_API_KEY;
+    }
+
     const res = await fetch(wahaUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'X-Api-Key': process.env.WAHA_API_KEY || 'hodoork_waha_secure_2026'
-      },
+      headers,
       body: JSON.stringify({
         session: 'default',
         chatId,

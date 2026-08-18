@@ -45,7 +45,21 @@ export async function POST(req: NextRequest) {
         orderBy: { checkInTime: 'asc' }
       });
 
-      let updatedCount = 0;
+      // 3. Build a precise map of the first record of each day for each user
+      const firstRecordMap = new Map<string, string>();
+      const sortedByDateTime = [...monthRecords].sort((a, b) => {
+        const dateComp = a.date.localeCompare(b.date);
+        if (dateComp !== 0) return dateComp;
+        return a.checkInTime.localeCompare(b.checkInTime);
+      });
+      for (const r of sortedByDateTime) {
+        const key = `${r.userId}_${r.date}`;
+        if (!firstRecordMap.has(key)) {
+          firstRecordMap.set(key, r.id);
+        }
+      }
+
+      const updateOperations: any[] = [];
 
       for (const rec of monthRecords) {
         if (!rec.checkInTime || !rec.checkOutTime) continue;
@@ -57,7 +71,7 @@ export async function POST(req: NextRequest) {
         const isHourly = primaryRole ? primaryRole.isHourly !== false : true;
         const userDeptIds = rec.user?.departments?.map((d) => d.id) || [];
 
-        const isFirst = monthRecords.findIndex(r => r.userId === rec.userId && r.date === rec.date) === monthRecords.indexOf(rec);
+        const isFirst = firstRecordMap.get(`${rec.userId}_${rec.date}`) === rec.id;
         const shiftAmt = (rec as any).shiftAmount || 0;
         const commRate = (rec as any).commissionRate || (primaryRole?.hasCommission ? Number(primaryRole.commissionRate) : 0) || 0;
 
@@ -77,22 +91,26 @@ export async function POST(req: NextRequest) {
           commRate
         );
 
-        await prisma.attendanceRecord.update({
-          where: { id: rec.id },
-          data: {
-            workHours: shiftCost.workHours,
-            earnedCost: shiftCost.totalCost,
-            commissionAmount: shiftCost.commissionAmount
-          } as any
-        });
+        updateOperations.push(
+          prisma.attendanceRecord.update({
+            where: { id: rec.id },
+            data: {
+              workHours: shiftCost.workHours,
+              earnedCost: shiftCost.totalCost,
+              commissionAmount: shiftCost.commissionAmount
+            } as any
+          })
+        );
+      }
 
-        updatedCount++;
+      if (updateOperations.length > 0) {
+        await prisma.$transaction(updateOperations);
       }
 
       return NextResponse.json({
         success: true,
-        message: `تمت إعادة احتساب ${updatedCount} سجل لشهر (${targetMonth}) بنجاح وفق القواعد النشطة`,
-        updatedCount,
+        message: `تمت إعادة احتساب ${updateOperations.length} سجل لشهر (${targetMonth}) بنجاح وفق القواعد النشطة`,
+        updatedCount: updateOperations.length,
         month: targetMonth
       });
     }

@@ -54,7 +54,6 @@ export async function POST(req: NextRequest) {
     const userData = {
       id: user.id,
       employeeCode: user.employeeCode,
-      pinCode: inputPin, // نُرجع الـ PIN الأصلي للـ client فقط في الجلسة
       name: user.name,
       role: user.role,
       phone: user.phone || null,
