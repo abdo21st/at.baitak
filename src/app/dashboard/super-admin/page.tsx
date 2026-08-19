@@ -525,12 +525,12 @@ export default function SuperAdminPage() {
                   <input
                     type="text"
                     required
-                    placeholder="alnaqaa"
+                    placeholder="at.mt أو mt"
                     value={form.slug}
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''),
                       })
                     }
                     className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -709,12 +709,12 @@ export default function SuperAdminPage() {
                   <input
                     type="text"
                     required
-                    placeholder="baytak"
+                    placeholder="at.mt أو mt"
                     value={editForm.slug}
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''),
                       })
                     }
                     className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
