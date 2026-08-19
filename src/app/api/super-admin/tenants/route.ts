@@ -39,11 +39,11 @@ export async function GET() {
   }
 }
 
-// POST: إنشاء نشاط تجاري جديد مع باقة اشتراك
+// POST: إنشاء نشاط تجاري جديد مع باقة اشتراك وشعار
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, slug, planId, managerName, managerPhone, phone, billingCycle, amountPaid } = body;
+    const { name, slug, logo, planId, managerName, managerPhone, phone, billingCycle, amountPaid } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       data: {
         name,
         slug: slug.toLowerCase().trim(),
+        logo: logo || null,
         planId: planId || null,
         managerName: managerName || '',
         managerPhone: managerPhone || '',
@@ -106,6 +107,52 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       tenant: newTenant,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH: تحديث بيانات وشعار نشاط تجاري قائم
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, name, slug, logo, planId, managerName, managerPhone, phone, status } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'معرف النشاط التجاري مطلوب' },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.tenant.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(slug !== undefined && { slug: slug.toLowerCase().trim() }),
+        ...(logo !== undefined && { logo }),
+        ...(planId !== undefined && { planId }),
+        ...(managerName !== undefined && { managerName }),
+        ...(managerPhone !== undefined && { managerPhone }),
+        ...(phone !== undefined && { phone }),
+        ...(status !== undefined && { status }),
+      },
+      include: {
+        plan: true,
+        subscriptions: {
+          orderBy: { endDate: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      tenant: updated,
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { initialUsers } from '@/lib/data-store';
 import { User } from '@/lib/types';
@@ -12,6 +12,24 @@ export default function LoginPage() {
   const [pinCode, setPinCode] = useState('1234');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null }>({
+    name: 'صيدلية بيتك',
+    logo: null,
+  });
+
+  useEffect(() => {
+    fetch('/api/tenant/info')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.tenant) {
+          setTenantInfo({
+            name: data.tenant.name || 'صيدلية بيتك',
+            logo: data.tenant.logo || null,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,20 +85,30 @@ export default function LoginPage() {
       <div className="bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
         {/* App Branding Logo */}
         <div className="text-center space-y-2">
-          <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl p-4 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
-            <svg className="w-12 h-12 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
-              <path d="M3 21h18" />
-              <path d="M9 7h1" />
-              <path d="M9 11h1" />
-              <path d="M9 15h1" />
-              <path d="M14 7h1" />
-              <path d="M14 11h1" />
-              <path d="M14 15h1" />
-            </svg>
+          <div className="w-20 h-20 rounded-3xl p-2 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/10 border border-slate-100 bg-white">
+            {tenantInfo.logo ? (
+              <img
+                src={tenantInfo.logo}
+                alt={tenantInfo.name}
+                className="w-full h-full object-contain rounded-2xl"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+                <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
+                  <path d="M3 21h18" />
+                  <path d="M9 7h1" />
+                  <path d="M9 11h1" />
+                  <path d="M9 15h1" />
+                  <path d="M14 7h1" />
+                  <path d="M14 11h1" />
+                  <path d="M14 15h1" />
+                </svg>
+              </div>
+            )}
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            حضورك | صيدلية بيتك
+            حضورك | {tenantInfo.name}
           </h1>
           <p className="text-slate-500 text-xs font-semibold">
             أدخل رقم الموظف والرقم السري لتسجيل أوقات الدوام ومتابعة المستحقات

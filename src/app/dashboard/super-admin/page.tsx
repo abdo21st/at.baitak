@@ -7,6 +7,7 @@ interface Tenant {
   id: string;
   name: string;
   slug: string;
+  logo?: string | null;
   phone?: string;
   managerName?: string;
   managerPhone?: string;
@@ -51,18 +52,33 @@ export default function SuperAdminPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Modal State
+  // Add Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     slug: '',
+    logo: '',
     planId: '',
     managerName: '',
     managerPhone: '',
     phone: '',
     billingCycle: 'MONTHLY',
     amountPaid: 0,
+  });
+
+  // Edit / Logo Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    slug: '',
+    logo: '',
+    planId: '',
+    managerName: '',
+    managerPhone: '',
+    phone: '',
+    status: 'ACTIVE',
   });
 
   const fetchData = useCallback(async () => {
@@ -88,6 +104,22 @@ export default function SuperAdminPage() {
     fetchData();
   }, [fetchData]);
 
+  // Handle Logo File Upload for Add Modal
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      if (isEdit) {
+        setEditForm((prev) => ({ ...prev, logo: base64 }));
+      } else {
+        setForm((prev) => ({ ...prev, logo: base64 }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.slug) return;
@@ -104,6 +136,7 @@ export default function SuperAdminPage() {
         setForm({
           name: '',
           slug: '',
+          logo: '',
           planId: plans[0]?.id || '',
           managerName: '',
           managerPhone: '',
@@ -114,6 +147,46 @@ export default function SuperAdminPage() {
         fetchData();
       } else {
         alert(data.error || 'حدث خطأ أثناء إضافة النشاط');
+      }
+    } catch (err) {
+      alert('حدث خطأ في الاتصال بالسيرفر');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (tenant: Tenant) => {
+    setEditingTenant(tenant);
+    setEditForm({
+      name: tenant.name,
+      slug: tenant.slug,
+      logo: tenant.logo || '',
+      planId: tenant.plan?.id || '',
+      managerName: tenant.managerName || '',
+      managerPhone: tenant.managerPhone || '',
+      phone: tenant.phone || '',
+      status: tenant.status,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTenant) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/super-admin/tenants', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingTenant.id, ...editForm }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsEditModalOpen(false);
+        setEditingTenant(null);
+        fetchData();
+      } else {
+        alert(data.error || 'حدث خطأ أثناء تحديث النشاط');
       }
     } catch (err) {
       alert('حدث خطأ في الاتصال بالسيرفر');
@@ -171,7 +244,7 @@ export default function SuperAdminPage() {
                     v2.5 SaaS Hub
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5 font-medium">المركز السحابي الموحد لإدارة تراخيص واشتراكات الأنشطة التجارية</p>
+                <p className="text-sm text-slate-500 mt-0.5 font-medium">المركز السحابي الموحد لإدارة تراخيص واشتراكات وشعارات الأنشطة التجارية</p>
               </div>
             </div>
           </div>
@@ -307,7 +380,7 @@ export default function SuperAdminPage() {
               <table className="w-full text-right text-sm">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                   <tr>
-                    <th className="py-3.5 px-4">النشاط التجاري</th>
+                    <th className="py-3.5 px-4">النشاط التجاري والشعار</th>
                     <th className="py-3.5 px-4">النطاق الفرعي</th>
                     <th className="py-3.5 px-4">الباقة الحالية</th>
                     <th className="py-3.5 px-4">الموظفين</th>
@@ -320,9 +393,24 @@ export default function SuperAdminPage() {
                   {filteredTenants.map((tenant) => (
                     <tr key={tenant.id} className="hover:bg-slate-50/70 transition">
                       <td className="py-4 px-4">
-                        <div className="font-semibold text-slate-900">{tenant.name}</div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          تاريخ الانضمام: {new Date(tenant.createdAt).toLocaleDateString('en-GB')}
+                        <div className="flex items-center gap-3">
+                          {tenant.logo ? (
+                            <img
+                              src={tenant.logo}
+                              alt={tenant.name}
+                              className="w-10 h-10 rounded-xl object-contain border border-slate-200 bg-white p-0.5 shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                              {tenant.name.slice(0, 2)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-slate-900">{tenant.name}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              تاريخ الانضمام: {new Date(tenant.createdAt).toLocaleDateString('en-GB')}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="py-4 px-4">
@@ -374,12 +462,22 @@ export default function SuperAdminPage() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() => alert(`ميزة الدخول كعميل لـ ${tenant.name} مفعّلة عبر النطاق ${tenant.slug}.mtapp.ly`)}
-                          className="h-8 px-3 text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 font-medium rounded-lg transition"
-                        >
-                          دخول النشاط ↗
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openEditModal(tenant)}
+                            className="h-8 px-3 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition"
+                          >
+                            تعديل الشعار ✏️
+                          </button>
+                          <a
+                            href={`https://${tenant.slug}.mtapp.ly`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition flex items-center gap-1"
+                          >
+                            دخول ↗
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -438,6 +536,30 @@ export default function SuperAdminPage() {
                   <span className="h-11 px-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-xs text-slate-500 flex items-center font-mono">
                     .mtapp.ly
                   </span>
+                </div>
+              </div>
+
+              {/* Logo Upload & Preview */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">شعار النشاط التجاري (Logo)</label>
+                <div className="flex items-center gap-3">
+                  {form.logo ? (
+                    <img
+                      src={form.logo}
+                      alt="Logo Preview"
+                      className="w-12 h-12 rounded-xl object-contain border border-slate-200 bg-slate-50 p-1"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs">
+                      شعار
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleLogoUpload(e, false)}
+                    className="text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
                 </div>
               </div>
 
@@ -540,6 +662,135 @@ export default function SuperAdminPage() {
                   className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm"
                 >
                   {submitting ? 'جاري الإنشاء...' : 'إنشاء وحفظ النشاط'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Tenant & Logo Modal */}
+      {isEditModalOpen && editingTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">تعديل النشاط والشعار</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{editingTenant.name}</p>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateTenant} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">اسم النشاط التجاري</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                />
+              </div>
+
+              {/* Logo Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">شعار ورمز التطبيق (Logo Icon)</label>
+                <div className="flex items-center gap-3">
+                  {editForm.logo ? (
+                    <img
+                      src={editForm.logo}
+                      alt="Logo Preview"
+                      className="w-14 h-14 rounded-2xl object-contain border border-slate-200 bg-slate-50 p-1 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs">
+                      بدون شعار
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleLogoUpload(e, true)}
+                      className="text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">يظهر الشعار كأيقونة رئيسية للتطبيق في صفحة تسجيل الدخول واللوحة</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">اسم المدير</label>
+                  <input
+                    type="text"
+                    value={editForm.managerName}
+                    onChange={(e) => setEditForm({ ...editForm, managerName: e.target.value })}
+                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">رقم الهاتف</label>
+                  <input
+                    type="text"
+                    value={editForm.managerPhone}
+                    onChange={(e) => setEditForm({ ...editForm, managerPhone: e.target.value })}
+                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">باقة الاشتراك</label>
+                  <select
+                    value={editForm.planId}
+                    onChange={(e) => setEditForm({ ...editForm, planId: e.target.value })}
+                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                  >
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">حالة النشاط</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                  >
+                    <option value="ACTIVE">نشط (Active)</option>
+                    <option value="TRIAL">فترة تجريبية (Trial)</option>
+                    <option value="SUSPENDED">موقوف (Suspended)</option>
+                    <option value="EXPIRED">منتهي (Expired)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="h-11 px-4 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm"
+                >
+                  {submitting ? 'جاري الحفظ...' : 'حفظ التعديلات والشعار'}
                 </button>
               </div>
             </form>
