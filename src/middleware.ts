@@ -15,28 +15,36 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Detect subdomain
-  // Examples:
-  // at.mtapp.ly or mtapp.ly -> main platform dashboard
-  // alnaqaa.mtapp.ly -> tenantSlug = "alnaqaa"
-  // localhost:3000 or custom IP -> tenantSlug = "baytak" (صيدلية بيتك)
+  // Route Mapping:
+  // 1. at.mtapp.ly -> Super Admin Dashboard Control Panel
+  // 2. at.baitak.mtapp.ly -> صيدلية بيتك (Baytak Pharmacy)
+  // 3. *.mtapp.ly -> Sub-tenant businesses
   const hostClean = hostname.split(':')[0].toLowerCase();
   let tenantSlug = 'baytak';
+  let isSuperAdminHost = false;
 
-  if (hostClean === 'at.mtapp.ly' || hostClean === 'mtapp.ly' || hostClean === 'localhost' || hostClean === '127.0.0.1') {
+  if (hostClean === 'at.mtapp.ly' || hostClean === 'admin.mtapp.ly') {
+    isSuperAdminHost = true;
+    tenantSlug = 'super-admin';
+  } else if (
+    hostClean === 'at.baitak.mtapp.ly' ||
+    hostClean === 'baitak.mtapp.ly' ||
+    hostClean === 'localhost' ||
+    hostClean === '127.0.0.1'
+  ) {
     tenantSlug = 'baytak';
   } else if (hostClean.endsWith('.mtapp.ly')) {
     tenantSlug = hostClean.replace('.mtapp.ly', '');
-  } else {
-    const hostParts = hostClean.split('.');
-    if (hostParts.length > 2 && hostParts[0] !== 'www' && hostParts[0] !== 'at') {
-      tenantSlug = hostParts[0];
-    }
   }
 
-  // Clone headers and inject tenant slug for downstream handlers
+  // Clone headers and inject tenant slug
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-tenant-slug', tenantSlug);
+
+  // If user visits root / on at.mtapp.ly, redirect directly to Super Admin dashboard
+  if (isSuperAdminHost && url.pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard/super-admin', request.url));
+  }
 
   return NextResponse.next({
     request: {
