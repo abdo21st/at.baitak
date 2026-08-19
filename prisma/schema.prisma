@@ -315,5 +315,28 @@ model ClinicalDrugReference {
   updatedAt                    DateTime @updatedAt
 }
 
+model WhatsAppShortageRequest {
+  id               String   @id @default(uuid())
+  chatId           String?  // e.g. "12036302@g.us" or sender phone
+  groupName        String?  // اسم المجموعة إن وجد
+  senderName       String?  // اسم العضو المرسل
+  senderPhone      String?  // رقم هاتف المرسل
+  rawMessage       String   // النص الأصلي للرسالة
+  productName      String   // اسم الصنف المستخرج
+  matchedCode      String?  // كود الصنف المطابق في المنظومة
+  activeIngredient String?  // المادة الفعالة
+  requestedQty     Float    @default(1.0) // الكمية المطلوبة
+  unit             String?  @default("عبوة")
+  urgency          String   @default("HIGH") // CRITICAL | HIGH | MEDIUM | LOW
+  status           String   @default("PENDING") // PENDING | ORDERED | RECEIVED | CANCELLED
+  source           String   @default("WHATSAPP_GROUP")
+  imageUrl         String?  // رابط أو Base64 لصورة العلبة أو الروشتة المرفقة
+  mediaType        String?  // IMAGE | DOCUMENT | TEXT
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-
+  @@index([status])
+  @@index([productName])
+  @@index([createdAt])
+}

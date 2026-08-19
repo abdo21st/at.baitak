@@ -418,7 +418,7 @@ async function scrapeArabPharmaSites(brandName: string): Promise<{ ingredient: s
 /**
  * 1. فحص القاموس الإقليمي والمحلي الموسع (Libya, Egypt EDA, SFDA Saudi, Turkey, Europe)
  */
-function resolveRegionalBrand(rawName: string): { ingredient: string; classDesc: string; drugBankId?: string } | null {
+export function resolveRegionalBrand(rawName: string): { ingredient: string; classDesc: string; drugBankId?: string } | null {
   const lower = rawName.toLowerCase();
   for (const [brandKey, data] of Object.entries(REGIONAL_BRAND_MOLECULE_MAP)) {
     if (lower.includes(brandKey)) {
