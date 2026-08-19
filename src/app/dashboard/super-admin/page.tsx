@@ -312,7 +312,7 @@ export default function SuperAdminPage() {
                       </td>
                       <td className="py-4 px-4">
                         <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-blue-700 font-medium">
-                          {tenant.slug}.hodoork.ly
+                          {tenant.slug}.mtapp.ly
                         </span>
                       </td>
                       <td className="py-4 px-4">
@@ -360,7 +360,7 @@ export default function SuperAdminPage() {
                       </td>
                       <td className="py-4 px-4 text-center">
                         <button
-                          onClick={() => alert(`ميزة الدخول كعميل لـ ${tenant.name} مفعّلة عبر النطاق ${tenant.slug}`)}
+                          onClick={() => alert(`ميزة الدخول كعميل لـ ${tenant.name} مفعّلة عبر النطاق ${tenant.slug}.mtapp.ly`)}
                           className="h-8 px-3 text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 font-medium rounded-lg transition"
                         >
                           دخول النشاط ↗
@@ -421,7 +421,7 @@ export default function SuperAdminPage() {
                     className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <span className="h-11 px-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-xs text-slate-500 flex items-center font-mono">
-                    .hodoork.ly
+                    .mtapp.ly
                   </span>
                 </div>
               </div>

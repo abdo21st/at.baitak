@@ -17,14 +17,21 @@ export function middleware(request: NextRequest) {
 
   // Detect subdomain
   // Examples:
-  // alandalus.hodoork.ly -> tenantSlug = "alandalus"
-  // admin.hodoork.ly -> tenantSlug = "admin"
-  // localhost:3000 or custom IP -> tenantSlug = "main"
-  const hostParts = hostname.split(':')[0].split('.');
-  let tenantSlug = 'main';
+  // at.mtapp.ly or mtapp.ly -> main platform dashboard
+  // alnaqaa.mtapp.ly -> tenantSlug = "alnaqaa"
+  // localhost:3000 or custom IP -> tenantSlug = "baytak" (صيدلية بيتك)
+  const hostClean = hostname.split(':')[0].toLowerCase();
+  let tenantSlug = 'baytak';
 
-  if (hostParts.length > 2 && hostParts[0] !== 'www') {
-    tenantSlug = hostParts[0];
+  if (hostClean === 'at.mtapp.ly' || hostClean === 'mtapp.ly' || hostClean === 'localhost' || hostClean === '127.0.0.1') {
+    tenantSlug = 'baytak';
+  } else if (hostClean.endsWith('.mtapp.ly')) {
+    tenantSlug = hostClean.replace('.mtapp.ly', '');
+  } else {
+    const hostParts = hostClean.split('.');
+    if (hostParts.length > 2 && hostParts[0] !== 'www' && hostParts[0] !== 'at') {
+      tenantSlug = hostParts[0];
+    }
   }
 
   // Clone headers and inject tenant slug for downstream handlers
