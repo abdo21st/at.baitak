@@ -933,7 +933,7 @@ export default function PharmacyShortagesPage() {
                           </div>
                         )}
                         <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
-                          "{req.rawMessage}"
+                          &ldquo;{req.rawMessage}&rdquo;
                         </div>
                       </td>
 
