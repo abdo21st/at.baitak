@@ -4,7 +4,7 @@
  * matches with BNF 83 & Global Clinical Repositories, and returns enriched shortage data.
  */
 
-import { fetchDrugClinicalDetails, resolveRegionalBrand } from './liveDrugFetcher';
+import { resolveRegionalBrand } from './liveDrugFetcher';
 import { queryBnfMonograph } from './bnfKnowledge';
 import { extractActiveChemicalMolecule } from './clinicalKnowledge';
 
@@ -109,7 +109,7 @@ export async function analyzeMedicineImageText(imageTextOrCaption: string, base6
   const mol = extractActiveChemicalMolecule(imageTextOrCaption);
 
   const activeIngredient = regional?.ingredient || bnf?.drugName || mol?.normalizedChemicalName || 'مادة فعالة قيد المطابقة';
-  const clinicalNotes = bnf ? `توثيق الدليل البريطاني 🇬🇧 BNF 83: ${bnf.indications?.slice(0, 100)}...` : 'تم التحليل والمطابقة مع المصادر الدوائية المعتمدة';
+  const clinicalNotes = bnf ? `توثيق الدليل البريطاني 🇬🇧 BNF 83: ${bnf.indicationsAndDose?.slice(0, 100)}...` : 'تم التحليل والمطابقة مع المصادر الدوائية المعتمدة';
 
   return {
     productName: imageTextOrCaption || 'صنف دوائي مستخرج من الصورة',
