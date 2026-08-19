@@ -1,4 +1,5 @@
 import { ClinicalProductInput, ClinicalCapsuleData, generateClinicalCapsule, extractActiveChemicalMolecule } from './clinicalKnowledge';
+import { queryBnfMonograph } from './bnfKnowledge';
 
 export interface LiveDrugInfo {
   source: string;
@@ -167,6 +168,11 @@ export function generateScientificReferenceLinks(productName: string, activeIngr
   const brandQuery = encodeURIComponent(productName);
 
   return {
+    // 🇬🇧 الدليل الدوائي البريطاني الرسمي (BNF 83 - British National Formulary / NICE UK)
+    bnf: `https://bnf.nice.org.uk/drugs/${encodeURIComponent((activeIngredient || productName).toLowerCase().replace(/[^\w-]/g, '-'))}/`,
+    bnfSearch: `https://bnf.nice.org.uk/search/?q=${query}`,
+    bnfGuidance: `https://www.nice.org.uk/guidance/conditions-and-diseases`,
+
     // 1. المراجع العالمية ومواقع الشركات المصنعة
     drugsCom: `https://www.drugs.com/search.php?searchterm=${query}`,
     medscape: `https://reference.medscape.com/search?q=${query}`,
@@ -565,6 +571,44 @@ export async function enrichCapsuleWithLiveSources(product: ClinicalProductInput
   const rawName = (product.name || '').trim();
   const rawSci = (product.scientificName || product.activeIngredient || '').trim();
   const refLinks = generateScientificReferenceLinks(rawName, rawSci);
+
+  // ═══════════════════════════════════════════════════════════
+  // المرحلة 0: الدليل الدوائي البريطاني الرسمي (BNF 83 - British National Formulary)
+  // ═══════════════════════════════════════════════════════════
+  const bnfMatch = queryBnfMonograph(rawSci) || queryBnfMonograph(rawName);
+  if (bnfMatch) {
+    const updatedProd: ClinicalProductInput = { ...product, scientificName: bnfMatch.drugName };
+    const capsule = generateClinicalCapsule(updatedProd);
+
+    const bnfDose = bnfMatch.indicationsAndDose && bnfMatch.indicationsAndDose.length > 20
+      ? `• [BNF 83]: ${bnfMatch.indicationsAndDose}`
+      : capsule.dosageAndAdmin;
+    const bnfCautions = bnfMatch.cautions ? `⚠️ تحذيرات BNF: ${bnfMatch.cautions}` : '';
+    const bnfRenal = bnfMatch.renalImpairment ? `🫘 القصور الكلوي (BNF): ${bnfMatch.renalImpairment}` : '';
+    const bnfHepatic = bnfMatch.hepaticImpairment ? `🫁 القصور الكبدي (BNF): ${bnfMatch.hepaticImpairment}` : '';
+    const bnfPreg = bnfMatch.pregnancyAndLactation ? `🤰 الحمل والرضاعة (BNF): ${bnfMatch.pregnancyAndLactation}` : '';
+
+    const warningsList = [
+      ...capsule.warningsAndContraindications,
+      ...(bnfCautions ? [bnfCautions] : []),
+      ...(bnfRenal ? [bnfRenal] : []),
+      ...(bnfHepatic ? [bnfHepatic] : []),
+      ...(bnfPreg ? [bnfPreg] : [])
+    ];
+
+    return {
+      ...capsule,
+      dosageAndAdmin: bnfDose,
+      warningsAndContraindications: warningsList,
+      patientCounselingTip: bnfMatch.patientAdvice ? `${bnfMatch.patientAdvice} — ${capsule.patientCounselingTip}` : capsule.patientCounselingTip,
+      liveInfo: {
+        source: `🇬🇧 ${bnfMatch.source} • NICE UK • Drugs.com`,
+        isLive: true,
+        genericName: bnfMatch.drugName,
+        referenceLinks: generateScientificReferenceLinks(rawName, bnfMatch.drugName)
+      }
+    } as any;
+  }
 
   // ═══════════════════════════════════════════════════════════
   // المرحلة 1: القاموس الإقليمي الموسع (أسرع مصدر + أعلى دقة)

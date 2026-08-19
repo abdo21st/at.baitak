@@ -5,7 +5,7 @@ sources:
     port: 5432
     database: hodoork_db
     user: postgres
-    password: postgres_pass_2026
+    password: "123"
 
 tools:
   run_query:

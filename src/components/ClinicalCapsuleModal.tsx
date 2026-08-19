@@ -921,6 +921,17 @@ export default function ClinicalCapsuleModal({
                       {/* Global & European Formularies */}
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
                         <a
+                          href={`https://bnf.nice.org.uk/drugs/${encodeURIComponent((selectedProduct.scientificName || selectedProduct.name).toLowerCase().replace(/[^\w-]/g, '-'))}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 hover:text-amber-900 hover:border-amber-400 text-amber-900 border border-amber-300 font-black rounded-lg transition-all flex items-center gap-1 shadow-xs"
+                          title="الدليل الدوائي البريطاني الرسمي (BNF 83) - الجمعية الصيدلانية البريطانية و NHS NICE"
+                        >
+                          <span>🇬🇧 BNF 83 (الدليل البريطاني)</span>
+                          <ExternalLink className="w-2.5 h-2.5 text-amber-700" />
+                        </a>
+
+                        <a
                           href={`https://www.drugs.com/search.php?searchterm=${encodeURIComponent(selectedProduct.scientificName || selectedProduct.name)}`}
                           target="_blank"
                           rel="noopener noreferrer"
