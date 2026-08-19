@@ -12,9 +12,10 @@ export default function LoginPage() {
   const [pinCode, setPinCode] = useState('1234');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null }>({
-    name: 'صيدلية بيتك',
+  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null; loaded: boolean }>({
+    name: '',
     logo: null,
+    loaded: false,
   });
 
   useEffect(() => {
@@ -23,12 +24,15 @@ export default function LoginPage() {
       .then((data) => {
         if (data.success && data.tenant) {
           setTenantInfo({
-            name: data.tenant.name || 'صيدلية بيتك',
+            name: data.tenant.name || '',
             logo: data.tenant.logo || null,
+            loaded: true,
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setTenantInfo({ name: '', logo: null, loaded: true });
+      });
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -89,11 +93,11 @@ export default function LoginPage() {
             {tenantInfo.logo ? (
               <img
                 src={tenantInfo.logo}
-                alt={tenantInfo.name}
+                alt={tenantInfo.name || 'شعار النشاط'}
                 className="w-full h-full object-contain rounded-2xl"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center">
+              <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
                 <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
                   <path d="M3 21h18" />
@@ -108,7 +112,7 @@ export default function LoginPage() {
             )}
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            حضورك | {tenantInfo.name}
+            حضورك {tenantInfo.name ? `| ${tenantInfo.name}` : ''}
           </h1>
           <p className="text-slate-500 text-xs font-semibold">
             أدخل رقم الموظف والرقم السري لتسجيل أوقات الدوام ومتابعة المستحقات
