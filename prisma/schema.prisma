@@ -66,6 +66,7 @@ model Tenant {
   subscriptions    Subscription[]
 
   // العلاقات مع بيانات النشاط التجاري
+  companySettings  CompanySettings?
   users            User[]
   departments      Department[]
   projects         Project[]
