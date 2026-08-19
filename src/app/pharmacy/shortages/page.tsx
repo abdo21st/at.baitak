@@ -384,7 +384,7 @@ export default function PharmacyShortagesPage() {
   return (
     <div className="space-y-6 font-cairo">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center gap-1 border border-indigo-200">
@@ -392,33 +392,33 @@ export default function PharmacyShortagesPage() {
               محرك حساب النواقص بالوحدات الكبرى والنطاق الزمني المرن
             </span>
           </div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
-            إدارة النواقص وتوليد طلبيات الشراء
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+            <span>إدارة النواقص وتوليد طلبيات الشراء</span>
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             تحديد حركة المخزون بالتاريخ (من تاريخ إلى تاريخ) وتحديد فترة التغطية المطلوبة بدقة
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
           {shortages.length > 0 && (
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-sm transition-all cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-xs transition-all cursor-pointer"
             >
               <Printer className="w-4 h-4" />
-              <span>طباعة كشف النواقص (A4)</span>
+              <span>طباعة (A4)</span>
             </button>
           )}
 
           {cartItemsList.length > 0 && (
             <button
               onClick={() => setIsOrderModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 h-11 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <ShoppingCart className="w-4 h-4" />
-              <span>معاينة الطلبية ({cartItemsList.length})</span>
+              <span>الطلبية ({cartItemsList.length})</span>
               <span className="font-mono bg-emerald-700/80 px-2 py-0.5 rounded-md text-[11px]">
                 {totalCartEstimatedCost.toFixed(2)} د.ل
               </span>
@@ -427,7 +427,7 @@ export default function PharmacyShortagesPage() {
 
           <button
             onClick={fetchShortages}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all cursor-pointer"
+            className="w-11 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all flex items-center justify-center cursor-pointer shrink-0"
             title="تحديث البيانات"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -435,11 +435,11 @@ export default function PharmacyShortagesPage() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-200 shadow-xs no-print">
+      {/* Navigation Tabs (Responsive for Mobile) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs no-print">
         <button
           onClick={() => setActiveTab('inventory')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'inventory'
               ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
               : 'text-slate-600 hover:bg-slate-100'
@@ -451,14 +451,14 @@ export default function PharmacyShortagesPage() {
 
         <button
           onClick={() => { setActiveTab('whatsapp'); fetchWhatsAppShortages(); }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'whatsapp'
               ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          <span>📱 نواقص وطلبيات الواتساب الحية والمصورة</span>
+          <span>📱 نواقص وطلبيات الواتساب الحية</span>
           {pendingWhatsAppCount > 0 && (
             <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">
               {pendingWhatsAppCount} جديد
@@ -876,7 +876,7 @@ export default function PharmacyShortagesPage() {
           </div>
         </div>
 
-        {/* WhatsApp Requests Table */}
+        {/* WhatsApp Requests Container (Table for Desktop + Cards for Mobile) */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
           {whatsappLoading && whatsappRequests.length === 0 ? (
             <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-2">
@@ -892,175 +892,303 @@ export default function PharmacyShortagesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
-                  <tr>
-                    <th className="py-3.5 pr-4">الصورة / المعاينة</th>
-                    <th className="py-3.5">اسم الصنف المستخرج</th>
-                    <th className="py-3.5 text-center">الكمية المطلوبة</th>
-                    <th className="py-3.5 text-center">الأهمية</th>
-                    <th className="py-3.5">المرسل والمجموعة</th>
-                    <th className="py-3.5">الحالة</th>
-                    <th className="py-3.5 text-left pl-4">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {whatsappRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                      {/* Photo / Thumbnail Preview */}
-                      <td className="py-3 pr-4">
-                        {req.imageUrl ? (
-                          <div
-                            onClick={() => setImagePreviewModal(req.imageUrl)}
-                            className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-200 cursor-pointer group shadow-xs hover:border-emerald-500 transition-all"
-                            title="انقر لتكبير صورة الواتساب"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover group-hover:scale-105 transition-all" />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[9px] font-bold">
-                              🔍 تكبير
-                            </div>
+            <>
+              {/* 1. Mobile Cards View (Visible on Phones & Small Screens) */}
+              <div className="block md:hidden divide-y divide-slate-100 p-3 space-y-3">
+                {whatsappRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-slate-50/50 rounded-2xl border border-slate-200 p-3.5 space-y-3 transition-all"
+                  >
+                    {/* Top: Photo + Title + Urgency */}
+                    <div className="flex items-start gap-3">
+                      {req.imageUrl ? (
+                        <div
+                          onClick={() => setImagePreviewModal(req.imageUrl)}
+                          className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-200 cursor-pointer shrink-0 shadow-xs active:scale-95 transition-all"
+                          title="انقر لتكبير صورة الواتساب"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/25 flex items-center justify-center text-white text-[9px] font-bold">
+                            🔍 تكبير
                           </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-                            <FileText className="w-5 h-5" />
-                          </div>
-                        )}
-                      </td>
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                      )}
 
-                      {/* Product Name & Extraction */}
-                      <td className="py-3">
-                        <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                          <span>{req.productName}</span>
-                          {req.matchedCode && (
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
-                              كود: {req.matchedCode}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-1">
+                          <h4 className="text-xs font-black text-slate-900 leading-snug">
+                            {req.productName}
+                          </h4>
+                          {req.urgency === 'CRITICAL' ? (
+                            <span className="px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black shrink-0">
+                              🔴 عاجل
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-bold shrink-0">
+                              🟠 ضروري
                             </span>
                           )}
                         </div>
+
+                        {req.matchedCode && (
+                          <div className="mt-1">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                              كود: {req.matchedCode}
+                            </span>
+                          </div>
+                        )}
+
                         {req.activeIngredient && (
-                          <div className="text-[10px] text-blue-700 font-mono mt-0.5">
+                          <div className="text-[10px] text-blue-700 font-mono mt-1 line-clamp-1">
                             🧪 {req.activeIngredient}
                           </div>
                         )}
-                        <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
-                          &ldquo;{req.rawMessage}&rdquo;
-                        </div>
-                      </td>
+                      </div>
+                    </div>
 
-                      {/* Quantity & Unit (Editable by Procurement Manager) */}
-                      <td className="py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <input
-                            type="number"
-                            min="1"
-                            value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
-                            }}
-                            placeholder="أدخل الكمية..."
-                            className={`w-28 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
-                              (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
-                                ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
-                                : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
-                            }`}
-                          />
-                          <span className="text-[11px] font-bold text-slate-500">{req.unit || 'عبوة'}</span>
-                        </div>
-                        {(req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '') && (
-                          <div className="text-[9px] text-amber-600 font-bold mt-1">
-                            ✍️ بانتظار تحديد الكمية
-                          </div>
-                        )}
-                      </td>
+                    {/* Sender & Timestamp */}
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-100">
+                      <span className="font-bold text-slate-800">{req.senderName || 'صيدلية بيتك'}</span>
+                      <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
+                      {req.status === 'ORDERED' ? (
+                        <span className="text-emerald-600 font-black">✅ في الطلبية</span>
+                      ) : (
+                        <span className="text-amber-600 font-bold">⏳ بانتظار الطلب</span>
+                      )}
+                    </div>
 
-                      {/* Urgency */}
-                      <td className="py-3 text-center">
-                        {req.urgency === 'CRITICAL' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black">
-                            🔴 عاجل جداً
-                          </span>
-                        ) : req.urgency === 'HIGH' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                            🟠 ضروري
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                            🔵 عادي
-                          </span>
-                        )}
-                      </td>
+                    {/* Quantity Input Row (Mobile Touch Friendly) */}
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                      <label className="text-[11px] font-bold text-slate-700 shrink-0">
+                        الكمية المطلوبة:
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="1"
+                          value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
+                          }}
+                          placeholder="أدخل الكمية..."
+                          className={`w-32 h-11 px-3 text-center text-xs font-black rounded-xl border transition-all ${
+                            (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
+                              ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
+                              : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                          }`}
+                        />
+                        <span className="text-[11px] font-bold text-slate-600">{req.unit || 'عبوة'}</span>
+                      </div>
+                    </div>
 
-                      {/* Sender & Group */}
-                      <td className="py-3 text-xs">
-                        <div className="font-bold text-slate-800 flex items-center gap-1">
-                          <span>{req.senderName || 'عضو المجموعة'}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                          <span>{req.groupName || 'واتساب'}</span>
-                          <span>•</span>
-                          <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      </td>
+                    {/* Action Row for Mobile */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {req.status === 'PENDING' && (
+                        <button
+                          onClick={() => handleAddWhatsAppToCart(req)}
+                          className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>ضم للطلبية</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
+                        className="h-11 px-4 bg-white border border-slate-200 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                        title="تغيير حالة الطلب"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteWhatsAppRequest(req.id)}
+                        className="h-11 px-4 bg-white border border-slate-200 hover:bg-rose-50 active:scale-95 text-slate-400 hover:text-rose-600 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                        title="حذف من النواقص"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-                      {/* Status */}
-                      <td className="py-3">
-                        {req.status === 'ORDERED' ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>مضموم للطلبية</span>
-                          </span>
-                        ) : req.status === 'RECEIVED' ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                            <Check className="w-3.5 h-3.5" />
-                            <span>تم الاستلام</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>في انتظار الطلب</span>
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 text-left pl-4">
-                        <div className="flex items-center gap-1.5 justify-end">
-                          {req.status === 'PENDING' && (
-                            <button
-                              onClick={() => handleAddWhatsAppToCart(req)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 cursor-pointer transition-all"
-                              title="إضافة الصنف مباشرة لسلة طلبية الشراء"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>ضم للطلبية</span>
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
-                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all cursor-pointer"
-                            title="تغيير حالة الطلب"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteWhatsAppRequest(req.id)}
-                            className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
-                            title="حذف من النواقص"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+              {/* 2. Desktop Table View (Visible on Medium & Large Screens) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
+                    <tr>
+                      <th className="py-3.5 pr-4">الصورة / المعاينة</th>
+                      <th className="py-3.5">اسم الصنف المستخرج</th>
+                      <th className="py-3.5 text-center">الكمية المطلوبة</th>
+                      <th className="py-3.5 text-center">الأهمية</th>
+                      <th className="py-3.5">المرسل والمجموعة</th>
+                      <th className="py-3.5">الحالة</th>
+                      <th className="py-3.5 text-left pl-4">الإجراءات</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {whatsappRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                        {/* Photo / Thumbnail Preview */}
+                        <td className="py-3 pr-4">
+                          {req.imageUrl ? (
+                            <div
+                              onClick={() => setImagePreviewModal(req.imageUrl)}
+                              className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-200 cursor-pointer group shadow-xs hover:border-emerald-500 transition-all"
+                              title="انقر لتكبير صورة الواتساب"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[9px] font-bold">
+                                🔍 تكبير
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Product Name & Extraction */}
+                        <td className="py-3">
+                          <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                            <span>{req.productName}</span>
+                            {req.matchedCode && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                                كود: {req.matchedCode}
+                              </span>
+                            )}
+                          </div>
+                          {req.activeIngredient && (
+                            <div className="text-[10px] text-blue-700 font-mono mt-0.5">
+                              🧪 {req.activeIngredient}
+                            </div>
+                          )}
+                          <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
+                            &ldquo;{req.rawMessage}&rdquo;
+                          </div>
+                        </td>
+
+                        {/* Quantity & Unit (Editable by Procurement Manager) */}
+                        <td className="py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <input
+                              type="number"
+                              min="1"
+                              value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
+                              }}
+                              placeholder="أدخل الكمية..."
+                              className={`w-28 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
+                                (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
+                                  ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
+                                  : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                              }`}
+                            />
+                            <span className="text-[11px] font-bold text-slate-500">{req.unit || 'عبوة'}</span>
+                          </div>
+                          {(req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '') && (
+                            <div className="text-[9px] text-amber-600 font-bold mt-1">
+                              ✍️ بانتظار تحديد الكمية
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Urgency */}
+                        <td className="py-3 text-center">
+                          {req.urgency === 'CRITICAL' ? (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black">
+                              🔴 عاجل جداً
+                            </span>
+                          ) : req.urgency === 'HIGH' ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                              🟠 ضروري
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                              🔵 عادي
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Sender & Group */}
+                        <td className="py-3 text-xs">
+                          <div className="font-bold text-slate-800 flex items-center gap-1">
+                            <span>{req.senderName || 'عضو المجموعة'}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                            <span>{req.groupName || 'واتساب'}</span>
+                            <span>•</span>
+                            <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3">
+                          {req.status === 'ORDERED' ? (
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>مضموم للطلبية</span>
+                            </span>
+                          ) : req.status === 'RECEIVED' ? (
+                            <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>تم الاستلام</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>في انتظار الطلب</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3 text-left pl-4">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            {req.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleAddWhatsAppToCart(req)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                                title="إضافة الصنف مباشرة لسلة طلبية الشراء"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>ضم للطلبية</span>
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all cursor-pointer"
+                              title="تغيير حالة الطلب"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteWhatsAppRequest(req.id)}
+                              className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                              title="حذف من النواقص"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1229,6 +1357,31 @@ export default function PharmacyShortagesPage() {
               </a>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Mobile Cart Pill (For Phone View) */}
+      {cartItemsList.length > 0 && (
+        <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden no-print">
+          <button
+            onClick={() => setIsOrderModalOpen(true)}
+            className="w-full h-14 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-2xl shadow-xl shadow-emerald-950/30 flex items-center justify-between px-4 font-black text-xs transition-all cursor-pointer border border-emerald-400/30"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4" />
+              </div>
+              <span>معاينة وتأكيد طلبية الشراء</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-700/90 px-2 py-1 rounded-lg text-[11px] font-mono">
+                {cartItemsList.length} صنف
+              </span>
+              <span className="font-mono text-xs font-black">
+                {totalCartEstimatedCost.toFixed(2)} د.ل
+              </span>
+            </div>
+          </button>
         </div>
       )}
     </div>
