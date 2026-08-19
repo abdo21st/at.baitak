@@ -27,6 +27,19 @@ export interface ExtractedImageDrugData {
  */
 const VISUAL_MEDICINE_PATTERNS = [
   {
+    keywords: ['vaseline', 'petroleum jelly', 'healing jelly', 'skin protectant', 'فازلين', 'بتروليوم', 'جيلي'],
+    brandName: 'Vaseline Original Pure Skin Jelly (فازلين بتروليوم أصلي نقي)',
+    activeIngredient: 'White Petrolatum 100% (بتروليوم نقي مرطب وحامي للجلد)',
+    matchedCode: 'VAS-ORIG-JELLY',
+    strength: '100% Pure',
+    dosageForm: 'Skin Protectant Jelly (مرهم جل حامي للجلد)',
+    packSize: 1,
+    unit: 'عبوة (مرهم جل)',
+    manufacturer: 'Unilever',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مرطب وحامي حاجز الجلد ومطري للتشققات والجفاف الشديد والحروق السطحية • معتمد من الجمعية الوطنية للإكزيما • BNF 83 p.1240'
+  },
+  {
     keywords: ['panadol', 'actifast', 'paracetamol', 'بانادول', 'أكتيفاست'],
     brandName: 'Panadol ActiFast 500mg 20 Tablets (بانادول أكتيفاست)',
     activeIngredient: 'Paracetamol 500mg (Analgesic & Antipyretic)',
@@ -77,6 +90,58 @@ const VISUAL_MEDICINE_PATTERNS = [
     manufacturer: 'Rameda',
     urgency: 'HIGH' as const,
     clinicalNotes: 'مضاد لتقلصات القولون العصبي ومحسن للحالة المزاجية والاضطرابات الهضمية العصبية'
+  },
+  {
+    keywords: ['flagyl', 'metronidazole', 'فلاجيل'],
+    brandName: 'Flagyl 500mg 20 Tablets (فلاجيل 500 مجم)',
+    activeIngredient: 'Metronidazole 500mg',
+    matchedCode: 'FLAG-500',
+    strength: '500mg',
+    dosageForm: 'Film-Coated Tablets',
+    packSize: 20,
+    unit: 'عبوة (20 قرص)',
+    manufacturer: 'Sanofi',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مضاد للطفيليات والبكتيريا اللاهوائية وعلاج الدوسنتاريا والتهابات الأسنان والأمعاء • BNF 83 p.610'
+  },
+  {
+    keywords: ['antinal', 'nifuroxazide', 'انتينال', 'أنتينال'],
+    brandName: 'Antinal 200mg 24 Capsules (أنتينال مطهر معوي)',
+    activeIngredient: 'Nifuroxazide 200mg',
+    matchedCode: 'ANTINAL-200',
+    strength: '200mg',
+    dosageForm: 'Hard Capsules',
+    packSize: 24,
+    unit: 'عبوة (24 كبسولة)',
+    manufacturer: 'Amoun',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مطهر معوي واسع المجال للإسهال الحاد والنزلات المعوية البكتيرية'
+  },
+  {
+    keywords: ['cataflam', 'voltaren', 'diclofenac', 'كتافلام', 'فولتارين'],
+    brandName: 'Cataflam 50mg 20 Tablets (كتافلام 50 مجم مسكن)',
+    activeIngredient: 'Diclofenac Potassium 50mg',
+    matchedCode: 'CAT-50',
+    strength: '50mg',
+    dosageForm: 'Sugar-Coated Tablets',
+    packSize: 20,
+    unit: 'عبوة (20 قرص)',
+    manufacturer: 'Novartis',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مسكن سريع ومضاد للالتهاب لآلام الأسنان والمفاصل والصداع والطمث • BNF 83 p.1172'
+  },
+  {
+    keywords: ['otrivin', 'xylometazoline', 'اوتريفين', 'أوتريفين'],
+    brandName: 'Otrivin 0.1% Adult Nasal Drops (أوتريفين للأنف)',
+    activeIngredient: 'Xylometazoline Hydrochloride 0.1%',
+    matchedCode: 'OTRIV-01',
+    strength: '0.1%',
+    dosageForm: 'Nasal Drops',
+    packSize: 1,
+    unit: 'عبوة (10 مل)',
+    manufacturer: 'GSK',
+    urgency: 'MEDIUM' as const,
+    clinicalNotes: 'مزيل سريع لاحتقان الأنف والجيوب الأنفية • لا يستخدم لأكثر من 5 أيام متتالية'
   }
 ];
 

@@ -36,6 +36,7 @@ import {
 
 import PrintReportLayout from '@/components/PrintReportLayout';
 import { generatePurchaseOrderPdf } from '@/lib/pdfEngine';
+import ClinicalCapsuleModal from '@/components/ClinicalCapsuleModal';
 
 export default function PharmacyShortagesPage() {
   const [activeTab, setActiveTab] = useState<'inventory' | 'whatsapp'>('inventory');
@@ -48,10 +49,25 @@ export default function PharmacyShortagesPage() {
   // WhatsApp Group Shortages State
   const [whatsappRequests, setWhatsappRequests] = useState<any[]>([]);
   const [whatsappLoading, setWhatsappLoading] = useState(false);
-  const [whatsappFilter, setWhatsappFilter] = useState<'ALL' | 'PENDING' | 'ORDERED'>('PENDING');
-  const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
+  const [whatsappFilter, setWhatsappFilter] = useState<'PENDING' | 'ORDERED' | 'ALL'>('PENDING');
   const [imagePreviewModal, setImagePreviewModal] = useState<string | null>(null);
-  const [customQuantities, setCustomQuantities] = useState<Record<string, number | string>>({});
+  const [customQuantities, setCustomQuantities] = useState<Record<string, string>>({});
+  const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState<number>(0);
+
+  // Clinical Knowledge & Web/DB Lookup Modal
+  const [selectedCapsuleProduct, setSelectedCapsuleProduct] = useState<any>(null);
+  const [isCapsuleModalOpen, setIsCapsuleModalOpen] = useState(false);
+
+  const handleOpenClinicalLookup = (req: any) => {
+    setSelectedCapsuleProduct({
+      id: req.id,
+      name: req.productName,
+      code: req.matchedCode || '',
+      category: req.activeIngredient || '',
+      description: req.clinicalNotes || req.rawMessage || ''
+    });
+    setIsCapsuleModalOpen(true);
+  };
 
   // PDF Generation State
   const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -949,6 +965,17 @@ export default function PharmacyShortagesPage() {
                             🧪 {req.activeIngredient}
                           </div>
                         )}
+
+                        <div className="pt-1.5">
+                          <button
+                            onClick={() => handleOpenClinicalLookup(req)}
+                            className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer w-fit shadow-2xs"
+                            title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
+                          >
+                            <Search className="w-3 h-3 text-blue-600" />
+                            <span>🔍 بحث بالإنترنت والمراجع</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -1071,8 +1098,18 @@ export default function PharmacyShortagesPage() {
                               🧪 {req.activeIngredient}
                             </div>
                           )}
-                          <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
-                            &ldquo;{req.rawMessage}&rdquo;
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() => handleOpenClinicalLookup(req)}
+                              className="px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                              title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
+                            >
+                              <Search className="w-3 h-3 text-blue-600" />
+                              <span>🔍 بحث سريري والمراجع</span>
+                            </button>
+                            <span className="text-[10px] text-slate-400 line-clamp-1 italic">
+                              &ldquo;{req.rawMessage}&rdquo;
+                            </span>
                           </div>
                         </td>
 
@@ -1383,6 +1420,16 @@ export default function PharmacyShortagesPage() {
             </div>
           </button>
         </div>
+      )}
+
+      {/* Clinical Capsule & Drug Knowledge Lookup Modal */}
+      {isCapsuleModalOpen && selectedCapsuleProduct && (
+        <ClinicalCapsuleModal
+          isOpen={isCapsuleModalOpen}
+          onClose={() => setIsCapsuleModalOpen(false)}
+          initialProduct={selectedCapsuleProduct}
+          productsList={[]}
+        />
       )}
     </div>
   );

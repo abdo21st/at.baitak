@@ -59,6 +59,9 @@ export interface LiveDrugInfo {
  * (السوق الليبي، المصري EDA، السعودي SFDA، التركي İTS، والأوروبي Vidal/Torrinomedica)
  */
 const REGIONAL_BRAND_MOLECULE_MAP: Record<string, { ingredient: string; classDesc: string; drugBankId?: string }> = {
+  // العناية والجلدية والمطريات
+  'vaseline': { ingredient: 'White Soft Paraffin / 100% Pure Petroleum Jelly', classDesc: 'مرطب وحامي حاجز الجلد ومطري للتشققات والحروق السطحية (Skin Protectant & Emollient)', drugBankId: 'DB11058' },
+  'petroleum jelly': { ingredient: 'White Petrolatum (100% Pure Petroleum Jelly)', classDesc: 'مرطب وحامي حاجز الجلد ومطري للتشققات والحروق السطحية (Skin Protectant & Emollient)', drugBankId: 'DB11058' },
   // الجهاز الهضمي والقولون العصبي
   'colona': { ingredient: 'Mebeverine Hydrochloride 100mg + Sulpiride 25mg', classDesc: 'مهدئ ومضاد لتشنجات القولون العصبي واضطرابات الهضم (Antispasmodic & Anxiolytic)', drugBankId: 'DB01254' },
   'librax': { ingredient: 'Chlordiazepoxide 5mg + Clidinium Bromide 2.5mg', classDesc: 'مهدئ ومضاد لتقلصات القولون العصبي وقرحة المعدة (Sedative & Antispasmodic)', drugBankId: 'DB00475' },
