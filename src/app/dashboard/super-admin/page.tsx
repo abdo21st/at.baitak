@@ -146,17 +146,32 @@ export default function SuperAdminPage() {
     <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8" dir="rtl">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
           <div>
-            <div className="flex items-center gap-3">
-              <span className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 border border-white/20">
+                  {/* HodoorK Attendance & Time Tracker Distinctive Logo */}
+                  <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                    <path d="M16 2v4" />
+                    <path d="M8 2v4" />
+                    <path d="M9 16l2 2 4-4" />
+                  </svg>
+                </div>
+                <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center text-[10px] text-white font-bold">
+                  ✓
+                </span>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">لوحة التحكم الفائقة بالأنشطة (Super Admin)</h1>
-                <p className="text-sm text-slate-500 mt-0.5">إدارة الشركات المشتركة، الباقات، وتراخيص الاستخدام السحابي</p>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">حضورك السحابية (HodoorK Multi-Tenant)</h1>
+                  <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200/60 font-mono">
+                    v2.5 SaaS Hub
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mt-0.5 font-medium">المركز السحابي الموحد لإدارة تراخيص واشتراكات الأنشطة التجارية</p>
               </div>
             </div>
           </div>
