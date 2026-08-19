@@ -90,14 +90,29 @@ export default function AdminDashboard() {
   const [empRate, setEmpRate] = useState('50');
   const [userMsg, setUserMsg] = useState<string | null>(null);
 
+  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null; slug: string }>({
+    name: '',
+    logo: null,
+    slug: '',
+  });
+
   const fetchDashboardData = async () => {
     try {
-      const [empRes, depRes, attRes, setRes] = await Promise.all([
+      const [empRes, depRes, attRes, setRes, tenantRes] = await Promise.all([
         fetch('/api/employees').then((r) => r.json()),
         fetch('/api/departments').then((r) => r.json()),
         fetch('/api/attendance').then((r) => r.json()),
-        fetch('/api/settings').then((r) => r.json())
+        fetch('/api/settings').then((r) => r.json()),
+        fetch('/api/tenant/info').then((r) => r.json()).catch(() => ({}))
       ]);
+
+      if (tenantRes.success && tenantRes.tenant) {
+        setTenantInfo({
+          name: tenantRes.tenant.name || '',
+          logo: tenantRes.tenant.logo || null,
+          slug: tenantRes.tenant.slug || '',
+        });
+      }
 
       if (empRes.success && empRes.users) setUsers(empRes.users);
       if (depRes.success && depRes.departments) setDepartments(depRes.departments);
@@ -579,13 +594,16 @@ export default function AdminDashboard() {
         {/* Sidebar Header: Brand & Collapse Toggle */}
         <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon-192.png" alt="صيدلية بيتك" className="w-full h-full object-contain" />
+            <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0 border border-slate-700">
+              {tenantInfo.logo ? (
+                <img src={tenantInfo.logo} alt={tenantInfo.name} className="w-full h-full object-contain rounded-xl" />
+              ) : (
+                <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
+              )}
             </div>
             {!sidebarCollapsed && (
               <div className="min-w-0">
-                <h1 className="text-sm font-black text-white truncate tracking-tight">حضورك • صيدلية بيتك</h1>
+                <h1 className="text-sm font-black text-white truncate tracking-tight">{tenantInfo.name || 'حضورك'}</h1>
                 <p className="text-[10px] text-blue-400 font-bold truncate">لوحة التحكم المركزية</p>
               </div>
             )}

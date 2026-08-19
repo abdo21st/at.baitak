@@ -28,6 +28,25 @@ export default function EmployeeDashboard() {
   const [pageLoading, setPageLoading] = useState(true);
   const [isCapsuleModalOpen, setIsCapsuleModalOpen] = useState(false);
 
+  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null }>({
+    name: '',
+    logo: null,
+  });
+
+  useEffect(() => {
+    fetch('/api/tenant/info')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.tenant) {
+          setTenantInfo({
+            name: data.tenant.name || '',
+            logo: data.tenant.logo || null,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // GPS & Geofencing State
   const [gpsConfig, setGpsConfig] = useState<CompanySettings | null>(null);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -559,11 +578,16 @@ export default function EmployeeDashboard() {
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-white border border-slate-200 rounded-xl p-1 flex items-center justify-center shadow-sm shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon-192.png" alt="صيدلية بيتك" className="w-full h-full object-contain" />
+              {tenantInfo.logo ? (
+                <img src={tenantInfo.logo} alt={tenantInfo.name || 'شعار النشاط'} className="w-full h-full object-contain rounded-lg" />
+              ) : (
+                <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
+              )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-slate-900">تسجيل دوام الموظف ({user.name})</h1>
+              <h1 className="text-lg font-black text-slate-900">
+                {tenantInfo.name ? `${tenantInfo.name} • ` : ''}تسجيل دوام الموظف ({user.name})
+              </h1>
               <p className="text-slate-500 text-xs font-semibold">
                 رقم الموظف: <span className="font-mono text-blue-700 font-bold">{user.employeeCode}</span>
                 {' | '}أجر الساعة: <span className="font-mono text-slate-900 font-bold">{user.hourlyRate} د.ل</span>

@@ -4,6 +4,8 @@ import { AttendanceRecord } from '@/lib/types';
 import { calculateGpsDistanceMeters } from '@/lib/utils';
 import { calculateShiftWithRateRules } from '@/lib/rateEngine';
 
+import { resolveTenantId } from '@/lib/tenantResolver';
+
 let memoryRecords: AttendanceRecord[] = [];
 const MAX_MEMORY_RECORDS = 500;
 
@@ -27,11 +29,15 @@ function isValidTimeRange(checkInTime: string, checkOutTime: string): boolean {
   return false; // وقت متطابق تمامًا — رفض
 }
 
-// Fetch or seed records in PostgreSQL
-async function getOrSeedRecords(userIdFilter?: string | null): Promise<AttendanceRecord[]> {
+// Fetch or seed records in PostgreSQL with Tenant Isolation
+async function getOrSeedRecords(userIdFilter?: string | null, tenantId?: string | null): Promise<AttendanceRecord[]> {
   try {
+    const targetTenantId = tenantId || 'default-tenant';
     const dbRecords = await prisma.attendanceRecord.findMany({
-      where: userIdFilter ? { userId: userIdFilter } : undefined,
+      where: {
+        tenantId: targetTenantId,
+        ...(userIdFilter ? { userId: userIdFilter } : {}),
+      },
       include: { user: { include: { jobRoles: true, departments: true } } },
       orderBy: { createdAt: 'desc' }
     });
@@ -130,12 +136,13 @@ async function getOrSeedRecords(userIdFilter?: string | null): Promise<Attendanc
   }
 }
 
-// 1. GET Attendance Records from PostgreSQL
+// 1. GET Attendance Records from PostgreSQL with Tenant Isolation
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
+  const tenantId = await resolveTenantId(req);
 
-  const records = await getOrSeedRecords(userId);
+  const records = await getOrSeedRecords(userId, tenantId);
   return NextResponse.json({ success: true, records });
 }
 
@@ -296,8 +303,10 @@ export async function POST(req: NextRequest) {
 
     let newRecord: AttendanceRecord;
     try {
+      const tenantId = await resolveTenantId(req);
       const created = await prisma.attendanceRecord.create({
         data: {
+          tenantId,
           userId,
           jobRoleId: resolvedJobRoleId,
           date: todayDate,

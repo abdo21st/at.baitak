@@ -3,11 +3,14 @@ import { prisma } from '@/lib/prisma';
 import { initialUsers } from '@/lib/data-store';
 import { User } from '@/lib/types';
 import bcrypt from 'bcryptjs';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
-// Helper to sync initial users into PostgreSQL if empty
-async function getOrSeedUsers(): Promise<User[]> {
+// Helper to sync initial users into PostgreSQL if empty for default tenant
+async function getOrSeedUsers(tenantId?: string): Promise<User[]> {
   try {
+    const targetTenantId = tenantId || 'default-tenant';
     const dbUsers = await prisma.user.findMany({
+      where: { tenantId: targetTenantId },
       include: { departments: true, jobRoles: true },
       orderBy: { createdAt: 'asc' }
     });
@@ -30,7 +33,7 @@ async function getOrSeedUsers(): Promise<User[]> {
           role: u.role as any,
           phone: u.phone || null,
           hourlyRate: u.hourlyRate || 0,
-          jobTitle: hasRoles ? jobRoleTitles.join(' + ') : 'بدون وظيفة خاصة',
+          jobTitle: hasRoles ? jobRoleTitles.join(' + ') : (u.jobTitle || 'بدون وظيفة خاصة'),
           departments: assignedDeps,
           departmentNames: departmentNames.length > 0 ? departmentNames : ['غير محدد'],
           jobRoles: assignedRoles,
@@ -38,42 +41,47 @@ async function getOrSeedUsers(): Promise<User[]> {
           jobRoleTitles: jobRoleTitles,
           jobRoleId: primaryRole?.id,
           jobRoleTitle: primaryRole?.title,
-          monthlySalary: hasRoles ? assignedRoles.reduce((sum, r) => sum + r.monthlySalary, 0) : 0,
-          targetMonthlyHours: primaryRole?.targetMonthlyHours || 0,
-          isHourly: primaryRole ? primaryRole.isHourly !== false : true
+          monthlySalary: hasRoles ? assignedRoles.reduce((sum, r) => sum + r.monthlySalary, 0) : (u.monthlySalary || 0),
+          targetMonthlyHours: primaryRole?.targetMonthlyHours || u.targetMonthlyHours || 0,
+          isHourly: primaryRole ? primaryRole.isHourly !== false : (u.isHourly !== false)
         };
       });
     }
 
-    // Seed database — تشفير PIN بـ bcrypt عند البذر الأولي
-    for (const u of initialUsers) {
-      const hashedPin = await bcrypt.hash(u.pinCode, 10);
-      await prisma.user.create({
-        data: {
-          id: u.id,
-          employeeCode: u.employeeCode,
-          name: u.name,
-          email: `${u.employeeCode}@hodoork.ly`,
-          password: hashedPin,
-          role: u.role as any,
-          hourlyRate: u.hourlyRate,
-          monthlySalary: 0,
-          targetMonthlyHours: 0,
-          jobTitle: u.jobTitle || 'موظف'
-        }
-      });
+    // Seed only if default-tenant is completely empty
+    if (targetTenantId === 'default-tenant') {
+      for (const u of initialUsers) {
+        const hashedPin = await bcrypt.hash(u.pinCode, 10);
+        await prisma.user.create({
+          data: {
+            id: u.id,
+            tenantId: 'default-tenant',
+            employeeCode: u.employeeCode,
+            name: u.name,
+            email: `${u.employeeCode}@hodoork.ly`,
+            password: hashedPin,
+            role: u.role as any,
+            hourlyRate: u.hourlyRate,
+            monthlySalary: 0,
+            targetMonthlyHours: 0,
+            jobTitle: u.jobTitle || 'موظف'
+          }
+        }).catch(() => {});
+      }
+      return initialUsers;
     }
 
-    return initialUsers;
+    return [];
   } catch (err) {
     console.error('PostgreSQL connection error:', err);
     return [];
   }
 }
 
-// 1. GET Employees
-export async function GET() {
-  const users = await getOrSeedUsers();
+// 1. GET Employees filtered by Tenant
+export async function GET(req: NextRequest) {
+  const tenantId = await resolveTenantId(req);
+  const users = await getOrSeedUsers(tenantId);
   return NextResponse.json({ success: true, users });
 }
 
@@ -112,12 +120,15 @@ export async function POST(req: NextRequest) {
 
     const finalHourlyRate = Number(hourlyRate) || 0;
 
-    const existingUser = await prisma.user.findUnique({
-      where: { employeeCode: codeStr }
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        tenantId,
+        employeeCode: codeStr,
+      }
     });
 
     if (existingUser) {
-      return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل في هذا النشاط' }, { status: 400 });
     }
 
     // تشفير PIN بـ bcrypt قبل الحفظ
@@ -125,10 +136,11 @@ export async function POST(req: NextRequest) {
 
     await prisma.user.create({
       data: {
+        tenantId,
         employeeCode: codeStr,
         name: nameStr,
         phone: phone ? String(phone).trim() : null,
-        email: `${codeStr}-${Date.now()}@hodoork.ly`,
+        email: `${codeStr}-${tenantId.slice(0, 6)}-${Date.now()}@hodoork.ly`,
         password: hashedPin,
         role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
         monthlySalary: finalMonthlySalary,
@@ -140,7 +152,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const allUsers = await getOrSeedUsers();
+    const allUsers = await getOrSeedUsers(tenantId);
     return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     console.error('Create user error:', error);
@@ -151,6 +163,7 @@ export async function POST(req: NextRequest) {
 // 3. PUT Edit Employee in PostgreSQL
 export async function PUT(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const { id, name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours, phone } = body;
 
@@ -159,11 +172,35 @@ export async function PUT(req: NextRequest) {
     }
 
     const codeStr = employeeCode ? String(employeeCode).trim() : undefined;
-    const pinStr = pinCode ? String(pinCode).trim() : undefined;
     const nameStr = name ? String(name).trim() : undefined;
 
-    const depIds: string[] | undefined = Array.isArray(departmentIds) ? departmentIds : (departmentId ? [departmentId] : undefined);
-    const roleIds: string[] | undefined = Array.isArray(jobRoleIds) ? jobRoleIds : (jobRoleId ? [jobRoleId] : undefined);
+    // Check duplicate code
+    if (codeStr) {
+      const duplicate = await prisma.user.findFirst({
+        where: {
+          tenantId,
+          employeeCode: codeStr,
+          NOT: { id }
+        }
+      });
+      if (duplicate) {
+        return NextResponse.json({ success: false, error: 'رقم الموظف مستخدم بالفعل لموظف آخر' }, { status: 400 });
+      }
+    }
+
+    const updateData: any = {};
+    if (nameStr) updateData.name = nameStr;
+    if (codeStr) updateData.employeeCode = codeStr;
+    if (hourlyRate !== undefined) updateData.hourlyRate = Number(hourlyRate) || 0;
+    if (role) updateData.role = role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE';
+    if (phone !== undefined) updateData.phone = phone ? String(phone).trim() : null;
+
+    if (pinCode && String(pinCode).trim().length > 0 && String(pinCode).trim() !== '••••') {
+      updateData.password = await bcrypt.hash(String(pinCode).trim(), 10);
+    }
+
+    const depIds: string[] = Array.isArray(departmentIds) ? departmentIds : (departmentId ? [departmentId] : []);
+    const roleIds: string[] = Array.isArray(jobRoleIds) ? jobRoleIds : (jobRoleId ? [jobRoleId] : []);
 
     let finalMonthlySalary = monthlySalary !== undefined ? Number(monthlySalary) : undefined;
     let finalTargetHours = targetMonthlyHours !== undefined ? Number(targetMonthlyHours) : undefined;

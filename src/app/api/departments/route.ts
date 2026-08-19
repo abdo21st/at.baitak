@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
-// Default initial departments if DB is empty
+// Default initial departments if DB is empty for default tenant
 const initialDepartments = [
   {
     name: 'قسم الإدارة',
@@ -26,33 +27,38 @@ const initialDepartments = [
   }
 ];
 
-async function getOrSeedDepartments() {
+async function getOrSeedDepartments(tenantId?: string) {
   try {
+    const targetTenantId = tenantId || 'default-tenant';
     let deps = await prisma.department.findMany({
+      where: { tenantId: targetTenantId },
       include: { jobRoles: true, users: true },
       orderBy: { createdAt: 'asc' }
     });
 
-    if (deps.length === 0) {
-      // Seed default departments & roles
+    if (deps.length === 0 && targetTenantId === 'default-tenant') {
+      // Seed default departments & roles for default-tenant only
       for (const d of initialDepartments) {
         const createdDep = await prisma.department.create({
-          data: { name: d.name }
-        });
+          data: { name: d.name, tenantId: 'default-tenant' }
+        }).catch(() => null);
 
-        for (const r of d.roles) {
-          await prisma.jobRole.create({
-            data: {
-              title: r.title,
-              monthlySalary: r.monthlySalary,
-              targetMonthlyHours: r.targetMonthlyHours,
-              departmentId: createdDep.id
-            }
-          });
+        if (createdDep) {
+          for (const r of d.roles) {
+            await prisma.jobRole.create({
+              data: {
+                title: r.title,
+                monthlySalary: r.monthlySalary,
+                targetMonthlyHours: r.targetMonthlyHours,
+                departmentId: createdDep.id
+              }
+            }).catch(() => {});
+          }
         }
       }
 
       deps = await prisma.department.findMany({
+        where: { tenantId: 'default-tenant' },
         include: { jobRoles: true, users: true },
         orderBy: { createdAt: 'asc' }
       });
@@ -83,14 +89,16 @@ async function getOrSeedDepartments() {
 }
 
 // 1. GET Departments & Job Roles
-export async function GET() {
-  const departments = await getOrSeedDepartments();
+export async function GET(req: NextRequest) {
+  const tenantId = await resolveTenantId(req);
+  const departments = await getOrSeedDepartments(tenantId);
   return NextResponse.json({ success: true, departments });
 }
 
 // 2. POST Create Department or Job Role
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const { action, departmentName, departmentId, roleTitle, monthlySalary, targetMonthlyHours, isHourly, hasCommission, commissionType, commissionRate } = body;
 
@@ -99,12 +107,34 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'اسم القسم مطلوب' }, { status: 400 });
       }
 
-      await prisma.department.create({
-        data: { name: String(departmentName).trim() }
+      const existing = await prisma.department.findFirst({
+        where: { name: String(departmentName).trim(), tenantId }
       });
-    } else if (action === 'CREATE_JOB_ROLE') {
+      if (existing) {
+        return NextResponse.json({ success: false, error: 'اسم القسم موجود بالفعل في هذا النشاط' }, { status: 400 });
+      }
+
+      await prisma.department.create({
+        data: {
+          name: String(departmentName).trim(),
+          tenantId
+        }
+      });
+
+      const updatedDeps = await getOrSeedDepartments(tenantId);
+      return NextResponse.json({ success: true, departments: updatedDeps });
+    }
+
+    if (action === 'CREATE_ROLE') {
       if (!departmentId || !roleTitle) {
-        return NextResponse.json({ success: false, error: 'القسم ومسمى الوظيفة مطلوبان' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'القسم والمسمى الوظيفي مطلوبان' }, { status: 400 });
+      }
+
+      const existing = await prisma.jobRole.findFirst({
+        where: { departmentId, title: String(roleTitle).trim() }
+      });
+      if (existing) {
+        return NextResponse.json({ success: false, error: 'المسمى الوظيفي موجود بالفعل في هذا القسم' }, { status: 400 });
       }
 
       await prisma.jobRole.create({
@@ -114,56 +144,27 @@ export async function POST(req: NextRequest) {
           targetMonthlyHours: Number(targetMonthlyHours) || 0,
           isHourly: isHourly !== false,
           hasCommission: Boolean(hasCommission),
-          commissionType: String(commissionType || 'SALES'),
+          commissionType: commissionType || 'SALES',
           commissionRate: Number(commissionRate) || 0,
           departmentId
-        } as any
+        }
       });
+
+      const updatedDeps = await getOrSeedDepartments(tenantId);
+      return NextResponse.json({ success: true, departments: updatedDeps });
     }
 
-    const departments = await getOrSeedDepartments();
-    return NextResponse.json({ success: true, departments });
+    return NextResponse.json({ success: false, error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || 'خطأ في معالجة طلب الأقسام' }, { status: 500 });
+    console.error('Department/Role POST error:', error);
+    return NextResponse.json({ success: false, error: error.message || 'خطأ في العملية' }, { status: 500 });
   }
 }
 
-// 3. PUT Edit Department or Job Role
-export async function PUT(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { action, id, name, title, monthlySalary, targetMonthlyHours, isHourly, hasCommission, commissionType, commissionRate } = body;
-
-    if (action === 'EDIT_DEPARTMENT') {
-      await prisma.department.update({
-        where: { id },
-        data: { name: String(name).trim() }
-      });
-    } else if (action === 'EDIT_JOB_ROLE') {
-      await prisma.jobRole.update({
-        where: { id },
-        data: {
-          ...(title && { title: String(title).trim() }),
-          ...(monthlySalary !== undefined && { monthlySalary: Number(monthlySalary) }),
-          ...(targetMonthlyHours !== undefined && { targetMonthlyHours: Number(targetMonthlyHours) }),
-          ...(isHourly !== undefined && { isHourly: Boolean(isHourly) }),
-          ...(hasCommission !== undefined && { hasCommission: Boolean(hasCommission) }),
-          ...(commissionType !== undefined && { commissionType: String(commissionType) }),
-          ...(commissionRate !== undefined && { commissionRate: Number(commissionRate) })
-        } as any
-      });
-    }
-
-    const departments = await getOrSeedDepartments();
-    return NextResponse.json({ success: true, departments });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || 'خطأ في التعديل' }, { status: 500 });
-  }
-}
-
-// 4. DELETE Department or Job Role
+// 3. DELETE Department or Job Role
 export async function DELETE(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const action = searchParams.get('action');
     const id = searchParams.get('id');
@@ -174,13 +175,19 @@ export async function DELETE(req: NextRequest) {
 
     if (action === 'DELETE_DEPARTMENT') {
       await prisma.department.delete({ where: { id } });
-    } else if (action === 'DELETE_JOB_ROLE') {
-      await prisma.jobRole.delete({ where: { id } });
+      const updatedDeps = await getOrSeedDepartments(tenantId);
+      return NextResponse.json({ success: true, departments: updatedDeps });
     }
 
-    const departments = await getOrSeedDepartments();
-    return NextResponse.json({ success: true, departments });
+    if (action === 'DELETE_ROLE') {
+      await prisma.jobRole.delete({ where: { id } });
+      const updatedDeps = await getOrSeedDepartments(tenantId);
+      return NextResponse.json({ success: true, departments: updatedDeps });
+    }
+
+    return NextResponse.json({ success: false, error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error: any) {
+    console.error('Department/Role DELETE error:', error);
     return NextResponse.json({ success: false, error: error.message || 'خطأ في الحذف' }, { status: 500 });
   }
 }

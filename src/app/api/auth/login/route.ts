@@ -4,53 +4,82 @@ import bcrypt from 'bcryptjs';
 
 /**
  * POST /api/auth/login
- * مقارنة PIN الموظف بشكل آمن على الـ server-side
- * يدعم كلا الوضعين: PIN مشفر (bcrypt) وPIN نص صريح (للمستخدمين القدامى مع ترقية تلقائية)
+ * مقارنة PIN الموظف بشكل آمن على الـ server-side مع العزل الصارم للأنشطة
  */
 export async function POST(req: NextRequest) {
   try {
     const { employeeCode, pinCode } = await req.json();
 
-    const tenantSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
-    const host = (req.headers.get('host') || '').split(':')[0].toLowerCase();
+    const hostHeader = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase().trim();
+    const injectedSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
 
-    // تحديد النشاط التجاري التابع لهذا الرابط
+    // 1. تحديد الـ slug المستهدف
+    let targetSlug = '';
+    if (injectedSlug && injectedSlug !== 'baytak' && injectedSlug !== 'default-tenant') {
+      targetSlug = injectedSlug;
+    } else if (hostHeader.endsWith('.mtapp.ly')) {
+      const sub = hostHeader.replace('.mtapp.ly', '').trim();
+      if (sub === 'at.baitak' || sub === 'baitak') {
+        targetSlug = 'baytak';
+      } else if (sub === 'at') {
+        targetSlug = 'super-admin';
+      } else {
+        targetSlug = sub;
+      }
+    }
+
+    // 2. البحث عن النشاط التجاري
     let tenant = null;
-    if (tenantSlug && tenantSlug !== 'super-admin') {
+    if (targetSlug && targetSlug !== 'super-admin') {
       tenant = await prisma.tenant.findFirst({
         where: {
           OR: [
-            { slug: tenantSlug },
-            { slug: tenantSlug.replace(/^at\./, '') },
-            { slug: `at.${tenantSlug}` },
-            { customDomain: host },
-            { customDomain: `https://${host}` },
+            { slug: targetSlug },
+            { slug: targetSlug.replace(/^at\./, '') },
+            { slug: `at.${targetSlug}` },
+            { customDomain: hostHeader },
+            { customDomain: `https://${hostHeader}` },
           ],
         },
-        select: { id: true },
+        select: { id: true, name: true, slug: true },
+      });
+    }
+
+    // افتراضي: صيدلية بيتك إذا كان الرابط هو at.baitak أو محلي
+    if (!tenant) {
+      tenant = await prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { id: 'default-tenant' },
+            { slug: 'baytak' },
+            { slug: 'at.baitak' },
+          ],
+        },
+        select: { id: true, name: true, slug: true },
       });
     }
 
     const tenantId = tenant?.id || 'default-tenant';
     const inputCode = String(employeeCode).trim();
 
-    // البحث عن الموظف ضمن النشاط التجاري أولاً
+    // 3. البحث الحصري عن الموظف داخل النشاط التجاري التابع لهذا الرابط فقط (Strict Tenant Isolation)
     const user = await prisma.user.findFirst({
       where: {
         tenantId: tenantId,
         OR: [
           { employeeCode: inputCode },
-          { employeeCode: `${tenantSlug}-${inputCode}` },
+          { employeeCode: `${targetSlug}-${inputCode}` },
+          { employeeCode: `at.mt-${inputCode}` },
         ],
       },
-      include: { departments: true, jobRoles: true }
-    }) || await prisma.user.findFirst({
-      where: { employeeCode: inputCode },
       include: { departments: true, jobRoles: true }
     });
 
     if (!user) {
-      return NextResponse.json({ success: false, error: 'رقم الموظف أو الرقم السري غير صحيح' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: `رقم الموظف (${inputCode}) غير مسجل في ${tenant?.name || 'هذا النشاط التجاري'}` },
+        { status: 401 }
+      );
     }
 
     const storedPassword = user.password || '';
@@ -64,45 +93,45 @@ export async function POST(req: NextRequest) {
     } else {
       // نص صريح (مستخدم قديم) — مقارنة مباشرة ثم ترقية تلقائية
       isValid = storedPassword === inputPin;
-      if (isValid) {
-        // ترقية PIN إلى bcrypt للأمان
-        const hashed = await bcrypt.hash(inputPin, 10);
-        await prisma.user.update({ where: { id: user.id }, data: { password: hashed } }).catch(() => {});
+      if (isValid && inputPin.length > 0) {
+        const newHashed = await bcrypt.hash(inputPin, 10);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: newHashed }
+        }).catch(() => {});
       }
     }
 
     if (!isValid) {
-      return NextResponse.json({ success: false, error: 'رقم الموظف أو الرقم السري غير صحيح' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'الرقم السري (PIN) غير صحيح' }, { status: 401 });
     }
 
-    // إعداد بيانات المستخدم للإرجاع
-    const assignedRoles = user.jobRoles || [];
-    const assignedDeps = user.departments || [];
-    const primaryRole = assignedRoles[0];
-
-    const userData = {
-      id: user.id,
-      employeeCode: user.employeeCode,
-      name: user.name,
-      role: user.role,
-      phone: user.phone || null,
-      hourlyRate: user.hourlyRate || 0,
-      jobTitle: assignedRoles.length > 0 ? assignedRoles.map(r => r.title).join(' + ') : 'بدون وظيفة',
-      departments: assignedDeps,
-      departmentNames: assignedDeps.map(d => d.name),
-      jobRoles: assignedRoles,
-      jobRoleIds: assignedRoles.map(r => r.id),
-      jobRoleTitles: assignedRoles.map(r => r.title),
-      jobRoleId: primaryRole?.id,
-      jobRoleTitle: primaryRole?.title,
-      monthlySalary: assignedRoles.reduce((s, r) => s + r.monthlySalary, 0),
-      targetMonthlyHours: primaryRole?.targetMonthlyHours || 0,
-      isHourly: primaryRole ? primaryRole.isHourly !== false : true
-    };
-
-    return NextResponse.json({ success: true, user: userData });
+    // إرجاع بيانات المستخدم مع tenantId للتوثيق في الواجهة
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        employeeCode: user.employeeCode,
+        name: user.name,
+        role: user.role,
+        phone: user.phone,
+        hourlyRate: user.hourlyRate,
+        jobTitle: user.jobTitle,
+        tenantId: user.tenantId,
+        departments: user.departments,
+        departmentNames: user.departments.map(d => d.name),
+        jobRoles: user.jobRoles,
+        jobRoleIds: user.jobRoles.map(j => j.id),
+        jobRoleTitles: user.jobRoles.map(j => j.title),
+        monthlySalary: user.monthlySalary,
+        targetMonthlyHours: user.targetMonthlyHours,
+        isHourly: user.isHourly
+      }
+    });
   } catch (error: any) {
-    console.error('Login error:', error);
-    return NextResponse.json({ success: false, error: 'خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message || 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }
