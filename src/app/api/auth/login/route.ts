@@ -37,8 +37,11 @@ export async function POST(req: NextRequest) {
     // البحث عن الموظف ضمن النشاط التجاري أولاً
     const user = await prisma.user.findFirst({
       where: {
-        employeeCode: inputCode,
         tenantId: tenantId,
+        OR: [
+          { employeeCode: inputCode },
+          { employeeCode: `${tenantSlug}-${inputCode}` },
+        ],
       },
       include: { departments: true, jobRoles: true }
     }) || await prisma.user.findFirst({

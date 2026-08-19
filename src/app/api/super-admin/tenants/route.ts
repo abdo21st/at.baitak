@@ -148,10 +148,13 @@ export async function POST(req: Request) {
 
     // 2. إنشاء حساب المدير الأساسي للنشاط الجديد
     const managerUserId = crypto.randomUUID();
+    const managerEmail = `admin-${cleanSlug}-${Date.now()}@mtapp.ly`;
     await prisma.user.create({
       data: {
         id: managerUserId,
-        employeeCode: empCode,
+        employeeCode: `${cleanSlug}-${empCode}`,
+        email: managerEmail,
+        jobTitle: 'المدير العام',
         password: hashedPin,
         name: managerName ? String(managerName).trim() : 'مدير النشاط',
         phone: managerPhone || phone || '',
