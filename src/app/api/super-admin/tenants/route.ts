@@ -39,11 +39,25 @@ export async function GET() {
   }
 }
 
-// POST: إنشاء نشاط تجاري جديد مع باقة اشتراك وشعار
+import bcrypt from 'bcryptjs';
+
+// POST: إنشاء نشاط تجاري جديد مع باقة اشتراك وتوليد بيئة العمل وحساب المدير فوراً
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, slug, logo, planId, managerName, managerPhone, phone, billingCycle, amountPaid } = body;
+    const {
+      name,
+      slug,
+      logo,
+      planId,
+      managerName,
+      managerPhone,
+      phone,
+      managerEmployeeCode,
+      managerPinCode,
+      billingCycle,
+      amountPaid
+    } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -53,8 +67,9 @@ export async function POST(req: Request) {
     }
 
     // تحقق من عدم تكرار الـ slug
+    const cleanSlug = slug.toLowerCase().trim();
     const existing = await prisma.tenant.findUnique({
-      where: { slug: slug.toLowerCase().trim() },
+      where: { slug: cleanSlug },
     });
 
     if (existing) {
@@ -73,15 +88,20 @@ export async function POST(req: Request) {
       endDate.setMonth(endDate.getMonth() + 1);
     }
 
+    const tenantId = crypto.randomUUID();
+    const empCode = String(managerEmployeeCode || '101').trim();
+    const rawPin = String(managerPinCode || '1234').trim();
+    const hashedPin = await bcrypt.hash(rawPin, 10);
+
     const newTenant = await prisma.tenant.create({
       data: {
-        id: crypto.randomUUID(),
+        id: tenantId,
         name,
-        slug: slug.toLowerCase().trim(),
+        slug: cleanSlug,
         logo: logo || null,
         planId: planId || null,
-        managerName: managerName || '',
-        managerPhone: managerPhone || '',
+        managerName: managerName || 'مدير النشاط',
+        managerPhone: managerPhone || phone || '',
         phone: phone || '',
         status: 'ACTIVE',
         subscriptions: planId
@@ -106,13 +126,60 @@ export async function POST(req: Request) {
       },
     });
 
+    // 1. إنشاء الأقسام الافتراضية للنشاط الجديد
+    const adminDeptId = crypto.randomUUID();
+    await prisma.department.createMany({
+      data: [
+        {
+          id: adminDeptId,
+          name: 'الإدارة العامة',
+          description: 'إدارة وتسيير أعمال النشاط التجاري',
+          tenantId: tenantId,
+        },
+        {
+          id: crypto.randomUUID(),
+          name: 'الصيادلة والتشغيل',
+          description: 'فريق العمليات والصرف والمبيعات',
+          tenantId: tenantId,
+        },
+      ],
+    }).catch(() => {});
+
+    // 2. إنشاء حساب المدير الأساسي للنشاط الجديد
+    const managerUserId = crypto.randomUUID();
+    await prisma.user.create({
+      data: {
+        id: managerUserId,
+        employeeCode: empCode,
+        password: hashedPin,
+        name: managerName ? String(managerName).trim() : 'مدير النشاط',
+        phone: managerPhone || phone || '',
+        role: 'ADMIN',
+        tenantId: tenantId,
+        departments: {
+          connect: { id: adminDeptId },
+        },
+      },
+    }).catch((err) => {
+      console.warn('Could not create default admin user:', err.message);
+    });
+
     return NextResponse.json({
       success: true,
       tenant: newTenant,
+      credentials: {
+        employeeCode: empCode,
+        pinCode: rawPin,
+        url: `https://${cleanSlug}.mtapp.ly`,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
       { status: 500 }
     );
   }

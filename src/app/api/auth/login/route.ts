@@ -11,12 +11,38 @@ export async function POST(req: NextRequest) {
   try {
     const { employeeCode, pinCode } = await req.json();
 
-    if (!employeeCode || !pinCode) {
-      return NextResponse.json({ success: false, error: 'بيانات الدخول غير مكتملة' }, { status: 400 });
+    const tenantSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
+    const host = (req.headers.get('host') || '').split(':')[0].toLowerCase();
+
+    // تحديد النشاط التجاري التابع لهذا الرابط
+    let tenant = null;
+    if (tenantSlug && tenantSlug !== 'super-admin') {
+      tenant = await prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { slug: tenantSlug },
+            { slug: tenantSlug.replace(/^at\./, '') },
+            { slug: `at.${tenantSlug}` },
+            { customDomain: host },
+            { customDomain: `https://${host}` },
+          ],
+        },
+        select: { id: true },
+      });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { employeeCode: String(employeeCode).trim() },
+    const tenantId = tenant?.id || 'default-tenant';
+    const inputCode = String(employeeCode).trim();
+
+    // البحث عن الموظف ضمن النشاط التجاري أولاً
+    const user = await prisma.user.findFirst({
+      where: {
+        employeeCode: inputCode,
+        tenantId: tenantId,
+      },
+      include: { departments: true, jobRoles: true }
+    }) || await prisma.user.findFirst({
+      where: { employeeCode: inputCode },
       include: { departments: true, jobRoles: true }
     });
 
