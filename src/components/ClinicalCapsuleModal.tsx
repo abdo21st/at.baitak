@@ -46,6 +46,8 @@ export default function ClinicalCapsuleModal({
   const [internalProducts, setInternalProducts] = useState<any[]>(
     productsList.length > 0 ? productsList : DEFAULT_CLINICAL_PRODUCTS
   );
+  // useRef لضمان أن handleBarcodeScanned يقرأ آخر نسخة من المنتجات دائماً (حل مشكلة stale closure)
+  const internalProductsRef = useRef<any[]>(productsList.length > 0 ? productsList : DEFAULT_CLINICAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<any>(
     initialProduct || (productsList.length > 0 ? productsList[0] : DEFAULT_CLINICAL_PRODUCTS[0])
   );
@@ -53,6 +55,8 @@ export default function ClinicalCapsuleModal({
   const [search, setSearch] = useState('');
   const [isRolling, setIsRolling] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [isSearchingBarcode, setIsSearchingBarcode] = useState(false);
+  const [barcodeNotFoundNotice, setBarcodeNotFoundNotice] = useState<string | null>(null);
   const [totalDbCount, setTotalDbCount] = useState<number>(0);
 
   // Leaflet Photo & Manual Data Enrichment
@@ -62,7 +66,6 @@ export default function ClinicalCapsuleModal({
   const [manualIngredient, setManualIngredient] = useState('');
   const [isSavingLeafletData, setIsSavingLeafletData] = useState(false);
   const [leafletSaveSuccess, setLeafletSaveSuccess] = useState(false);
-  const [barcodeNotFoundNotice, setBarcodeNotFoundNotice] = useState<string | null>(null);
 
   // Generated Capsule Data
   const [capsuleData, setCapsuleData] = useState<ClinicalCapsuleData | null>(null);
@@ -83,6 +86,7 @@ export default function ClinicalCapsuleModal({
   useEffect(() => {
     if (productsList && productsList.length > 0) {
       setInternalProducts(productsList);
+      internalProductsRef.current = productsList;
       setTotalDbCount(productsList.length);
     } else {
       fetch('/api/pharmacy/inventory?pageSize=5000')
@@ -90,18 +94,26 @@ export default function ClinicalCapsuleModal({
         .then((data) => {
           if (data.success && Array.isArray(data.products) && data.products.length > 0) {
             setInternalProducts(data.products);
+            internalProductsRef.current = data.products;
             setTotalDbCount(data.totalCount || data.products.length);
           } else {
             setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+            internalProductsRef.current = DEFAULT_CLINICAL_PRODUCTS;
             setTotalDbCount(DEFAULT_CLINICAL_PRODUCTS.length);
           }
         })
         .catch(() => {
           setInternalProducts(DEFAULT_CLINICAL_PRODUCTS);
+          internalProductsRef.current = DEFAULT_CLINICAL_PRODUCTS;
           setTotalDbCount(DEFAULT_CLINICAL_PRODUCTS.length);
         });
     }
   }, [productsList, isOpen]);
+
+  // مزامنة الـ ref مع آخر نسخة من internalProducts (لحل stale closure في handleBarcodeScanned)
+  useEffect(() => {
+    internalProductsRef.current = internalProducts;
+  }, [internalProducts]);
 
   // بحث ديناميكي مباشر في قاعدة البيانات بالاسم التجاري أو التركيبة الكيميائية
   useEffect(() => {
@@ -272,18 +284,27 @@ export default function ClinicalCapsuleModal({
     const clean = scannedCode.trim();
     if (!clean) return;
     setBarcodeNotFoundNotice(null);
-    setIsBarcodeScannerOpen(false); // أغلق الماسح فوراً بعد قراءة ناجحة
+    setIsSearchingBarcode(true);
+    // ملاحظة: BarcodeScannerModal يستدعي onClose() تلقائياً بعد onScanSuccess
 
-    // 1. البحث المحلي أولاً عبر كافة الباركودات والرموز المسجلة
-    const matched = internalProducts.find((p: any) => checkProductMatchesBarcode(p, clean));
+    // 1. البحث المحلي أولاً — نستخدم ref لضمان رؤية أحدث نسخة من المنتجات
+    const currentProducts = internalProductsRef.current;
+    const matched = currentProducts.find((p: any) => checkProductMatchesBarcode(p, clean));
     if (matched) {
-      setSelectedProduct(matched);
+      const normalized = {
+        ...matched,
+        name: matched.name || matched.productName || '',
+        scientificName: matched.scientificName || matched.activeIngredient || '',
+        activeIngredient: matched.activeIngredient || matched.scientificName || '',
+      };
+      setSelectedProduct(normalized);
+      setSearch(normalized.name);
+      setIsSearchingBarcode(false);
       return;
     }
 
-    // 2. البحث السحابي الدقيق بحقل الباركود تحديداً (barcode= بدل search= للمطابقة الدقيقة)
+    // 2. البحث السحابي الدقيق بحقل الباركود تحديداً
     try {
-      // محاولة بالباركود الخام أولاً
       const noZero = clean.replace(/^0+/, '');
       const withZero = clean.length === 12 ? '0' + clean : '';
       const queries = [clean, noZero, withZero].filter(Boolean);
@@ -294,9 +315,8 @@ export default function ClinicalCapsuleModal({
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.products) && data.products.length > 0) {
-            // تحقق من أن النتيجة تحتوي على باركود مطابق
             const exactMatch = data.products.find((p: any) => checkProductMatchesBarcode(p, clean))
-              || data.products[0]; // أو خذ الأول إن كانت نتيجة واحدة
+              || data.products[0];
             dbProduct = exactMatch;
             break;
           }
@@ -304,7 +324,6 @@ export default function ClinicalCapsuleModal({
       }
 
       if (dbProduct) {
-        // توحيد أسماء الحقول من القاعدة السحابية للتوافق مع المكونات
         const normalized = {
           ...dbProduct,
           name: dbProduct.name || dbProduct.productName || '',
@@ -313,6 +332,8 @@ export default function ClinicalCapsuleModal({
         };
         setInternalProducts((prev) => [normalized, ...prev.filter((x: any) => x.id !== normalized.id)]);
         setSelectedProduct(normalized);
+        setSearch(normalized.name);
+        setIsSearchingBarcode(false);
         return;
       }
     } catch (e) {
@@ -320,8 +341,10 @@ export default function ClinicalCapsuleModal({
     }
 
     // 3. في حال لم يتم العثور على باركود الصنف في قاعدة البيانات:
+    setIsSearchingBarcode(false);
+    setSearch(clean);
     setBarcodeNotFoundNotice(clean);
-  }, [internalProducts, checkProductMatchesBarcode]);
+  }, [checkProductMatchesBarcode]);
 
   // 📸 التقاط ورفع صورة نشرة المنتج
   const handleLeafletPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -513,6 +536,14 @@ export default function ClinicalCapsuleModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {/* 🔍 جاري البحث عن الباركود */}
+              {isSearchingBarcode && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl flex items-center gap-3 text-xs text-emerald-950 font-bold shadow-sm animate-pulse">
+                  <Loader2 className="w-4 h-4 text-emerald-600 animate-spin shrink-0" />
+                  <span>🔍 جاري التحقق من الباركود والبحث عن بيانات الصنف في قاعدة البيانات والمراجع السريرية...</span>
+                </div>
+              )}
+
               {/* ⚠️ تنبيه عند عدم توفر باركود الصنف في قاعدة البيانات */}
               {barcodeNotFoundNotice && (
                 <div className="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl flex items-start justify-between gap-3 text-xs text-rose-950 font-bold shadow-md">
