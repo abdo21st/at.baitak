@@ -1,7 +1,7 @@
 /**
  * Intelligent WhatsApp Medicine Image OCR & Clinical Extractor
- * Reads text from medicine box / leaflet / prescription photos,
- * matches with BNF 83 & Global Clinical Repositories, and returns enriched shortage data.
+ * Reads text automatically from any medicine box / leaflet / bottle / prescription photos,
+ * matches with BNF 83, Global Clinical Repositories & Local Database, and returns enriched shortage data.
  */
 
 import { resolveRegionalBrand } from './liveDrugFetcher';
@@ -20,6 +20,8 @@ export interface ExtractedImageDrugData {
   manufacturer?: string;
   urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM';
   clinicalNotes: string;
+  ocrConfidence?: number;
+  rawOcrText?: string;
 }
 
 /**
@@ -142,24 +144,114 @@ const VISUAL_MEDICINE_PATTERNS = [
     manufacturer: 'GSK',
     urgency: 'MEDIUM' as const,
     clinicalNotes: 'مزيل سريع لاحتقان الأنف والجيوب الأنفية • لا يستخدم لأكثر من 5 أيام متتالية'
+  },
+  {
+    keywords: ['brufen', 'ibuprofen', 'بروفين'],
+    brandName: 'Brufen 400mg 30 Tablets (بروفين 400 مجم)',
+    activeIngredient: 'Ibuprofen 400mg',
+    matchedCode: 'BRU-400',
+    strength: '400mg',
+    dosageForm: 'Film-Coated Tablets',
+    packSize: 30,
+    unit: 'عبوة (30 قرص)',
+    manufacturer: 'Abbott',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مسكن ومضاد للالتهاب وخافض حرارة للآلام الحادة والمزمنة • BNF 83 p.1174'
+  },
+  {
+    keywords: ['concor', 'bisoprolol', 'كونكور'],
+    brandName: 'Concor 5mg 30 Tablets (كونكور 5 مجم للضغط)',
+    activeIngredient: 'Bisoprolol Fumarate 5mg',
+    matchedCode: 'CONCOR-5',
+    strength: '5mg',
+    dosageForm: 'Film-Coated Tablets',
+    packSize: 30,
+    unit: 'عبوة (30 قرص)',
+    manufacturer: 'Merck',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'حاصر لمستقبلات بيتا لعلاج ارتفاع ضغط الدم والذبحة الصدرية وقصور القلب • BNF 83 p.161'
+  },
+  {
+    keywords: ['nexium', 'esomeprazole', 'نكسيوم'],
+    brandName: 'Nexium 40mg 14 Tablets (نكسيوم 40 مجم للمعدة)',
+    activeIngredient: 'Esomeprazole 40mg',
+    matchedCode: 'NEX-40',
+    strength: '40mg',
+    dosageForm: 'Gastro-Resistant Tablets',
+    packSize: 14,
+    unit: 'عبوة (14 قرص)',
+    manufacturer: 'AstraZeneca',
+    urgency: 'HIGH' as const,
+    clinicalNotes: 'مثبط مضخة البروتون لعلاج قرحة المعدة والارتجاع المريئي الشديد • BNF 83 p.87'
   }
 ];
 
 /**
- * Parses raw text or visual tokens from a WhatsApp image
+ * Executes multi-engine OCR on image base64
+ */
+async function performImageOCR(base64Image: string): Promise<string> {
+  if (!base64Image) return '';
+
+  try {
+    // Ensure standard data URI format
+    const formattedBase64 = base64Image.startsWith('data:')
+      ? base64Image
+      : `data:image/jpeg;base64,${base64Image}`;
+
+    const formData = new URLSearchParams();
+    formData.append('base64Image', formattedBase64);
+    formData.append('language', 'eng');
+    formData.append('isOverlayRequired', 'false');
+    formData.append('OCREngine', '2');
+
+    const res = await fetch('https://api.ocr.space/parse/image', {
+      method: 'POST',
+      headers: {
+        'apikey': 'K88661642888957',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData.toString()
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.ParsedResults && data.ParsedResults.length > 0) {
+        const text = data.ParsedResults[0].ParsedText || '';
+        if (text.trim().length > 0) {
+          return text.trim();
+        }
+      }
+    }
+  } catch (e) {
+    // Fallback gracefully to visual pattern tokenization
+  }
+
+  return '';
+}
+
+/**
+ * Analyzes medicine image text, OCR output, and captions automatically
  */
 export async function analyzeMedicineImageText(imageTextOrCaption: string, base64Image?: string): Promise<ExtractedImageDrugData> {
-  const clean = (imageTextOrCaption || '').toLowerCase();
+  // 1. Run live OCR on base64 image if provided
+  let ocrRecognizedText = '';
+  if (base64Image) {
+    ocrRecognizedText = await performImageOCR(base64Image);
+  }
 
-  // Extract explicit quantity from caption if written by the user
+  // Combined text corpus for lexical extraction
+  const combinedText = `${imageTextOrCaption || ''} ${ocrRecognizedText}`.trim();
+  const clean = combinedText.toLowerCase();
+
+  // Extract explicit quantity from caption if written by the pharmacist
   let explicitQty: number | null = null;
-  const qtyMatch = imageTextOrCaption?.match(/\b(\d+(?:\.\d+)?)\s*(?:علبة|علب|باكت|بكيت|كرتونة|كرتون|شريط|أمبول|امبولات|فيال|قطعة|حبة|كبسولة|packs?|boxes?|bottles?)/i)
-    || imageTextOrCaption?.match(/(?:عدد|كمية|مطلوب|x|×)\s*[:=]?\s*(\d+)/i);
+  const qtyMatch = combinedText.match(/\b(\d+(?:\.\d+)?)\s*(?:علبة|علب|باكت|بكيت|كرتونة|كرتون|شريط|أمبول|امبولات|فيال|قطعة|حبة|كبسولة|packs?|boxes?|bottles?)/i)
+    || combinedText.match(/(?:عدد|كمية|مطلوب|x|×)\s*[:=]?\s*(\d+)/i);
   if (qtyMatch) {
     explicitQty = parseFloat(qtyMatch[1]) || null;
   }
 
-  // 1. Check direct pattern match
+  // 2. Check direct pattern match (Visual Knowledge Engine)
   for (const pat of VISUAL_MEDICINE_PATTERNS) {
     if (pat.keywords.some(k => clean.includes(k))) {
       return {
@@ -173,25 +265,59 @@ export async function analyzeMedicineImageText(imageTextOrCaption: string, base6
         unit: pat.unit,
         manufacturer: pat.manufacturer,
         urgency: pat.urgency,
-        clinicalNotes: pat.clinicalNotes
+        clinicalNotes: pat.clinicalNotes,
+        rawOcrText: ocrRecognizedText || undefined
       };
     }
   }
 
-  // 2. Query BNF 83 & Regional Knowledge Engine
-  const regional = resolveRegionalBrand(imageTextOrCaption);
-  const bnf = queryBnfMonograph(imageTextOrCaption);
-  const mol = extractActiveChemicalMolecule(imageTextOrCaption);
+  // 3. Query BNF 83 & Regional Knowledge Engine
+  const regional = resolveRegionalBrand(combinedText);
+  const bnf = queryBnfMonograph(combinedText);
+  const mol = extractActiveChemicalMolecule(combinedText);
 
-  const activeIngredient = regional?.ingredient || bnf?.drugName || mol?.normalizedChemicalName || 'مادة فعالة قيد المطابقة';
-  const clinicalNotes = bnf ? `توثيق الدليل البريطاني 🇬🇧 BNF 83: ${bnf.indicationsAndDose?.slice(0, 100)}...` : 'تم التحليل والمطابقة مع المصادر الدوائية المعتمدة';
+  if (regional) {
+    const brandTitle = imageTextOrCaption || ocrRecognizedText || 'صنف دوائي مطابق إقليمياً';
+    return {
+      productName: brandTitle,
+      activeIngredient: regional.ingredient,
+      matchedCode: 'REG-' + brandTitle.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10),
+      requestedQty: explicitQty,
+      unit: 'عبوة',
+      urgency: 'HIGH',
+      clinicalNotes: regional.classDesc || 'صنف دوائي معتمد ومطابق مع الدليل الإقليمي',
+      rawOcrText: ocrRecognizedText || undefined
+    };
+  }
+
+  if (bnf) {
+    return {
+      productName: `${bnf.drugName} (مرجع BNF 83)`,
+      activeIngredient: bnf.drugName,
+      matchedCode: `BNF-${bnf.drugName.replace(/\s+/g, '-').toUpperCase().slice(0, 10)}`,
+      requestedQty: explicitQty,
+      unit: 'عبوة',
+      urgency: 'HIGH',
+      clinicalNotes: `🇬🇧 مونوغراف رسمي BNF 83: ${bnf.indicationsAndDose?.slice(0, 120)}...`,
+      rawOcrText: ocrRecognizedText || undefined
+    };
+  }
+
+  // 4. Heuristic fallback from OCR text tokens
+  const fallbackTitle = ocrRecognizedText
+    ? ocrRecognizedText.split('\n')[0].slice(0, 60).trim()
+    : (imageTextOrCaption || 'صنف دوائي مستخرج من الصورة');
+
+  const activeIngredient = mol?.normalizedChemicalName || 'مادة فعالة قيد المطابقة';
+  const clinicalNotes = 'تم تحليل الصورة عبر محرك OCR • انقر على زر (🔍 بحث سريري والمراجع) للمطابقة الشاملة';
 
   return {
-    productName: imageTextOrCaption || 'صنف دوائي مستخرج من الصورة',
+    productName: fallbackTitle,
     activeIngredient,
     requestedQty: explicitQty,
     unit: 'عبوة',
     urgency: 'HIGH',
-    clinicalNotes
+    clinicalNotes,
+    rawOcrText: ocrRecognizedText || undefined
   };
 }
