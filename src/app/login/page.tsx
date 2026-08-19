@@ -67,13 +67,17 @@ export default function LoginPage() {
       <div className="bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
         {/* App Branding Logo */}
         <div className="text-center space-y-2">
-          <div className="w-20 h-20 bg-white rounded-3xl p-2 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/10 border border-slate-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icon-192.png"
-              alt="صيدلية بيتك"
-              className="w-full h-full object-contain"
-            />
+          <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl p-4 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+            <svg className="w-12 h-12 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
+              <path d="M3 21h18" />
+              <path d="M9 7h1" />
+              <path d="M9 11h1" />
+              <path d="M9 15h1" />
+              <path d="M14 7h1" />
+              <path d="M14 11h1" />
+              <path d="M14 15h1" />
+            </svg>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             حضورك | صيدلية بيتك
