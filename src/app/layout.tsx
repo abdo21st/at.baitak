@@ -7,13 +7,17 @@ export const metadata: Metadata = {
   description: 'نظام إدارة وتدوين ساعات العمل والمشاريع المخصص لصيدلية بيتك بدعم الساعات المرنة والمشاريع وتنبيهات الموقع الجغرافي.',
   manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
     apple: '/apple-touch-icon.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'حضورك',
+    title: 'حضورك | صيدلية بيتك',
   },
 };
 
@@ -30,7 +34,8 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="alternate icon" href="/favicon.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="theme-color" content="#2563eb" />
         <meta name="mobile-web-app-capable" content="yes" />

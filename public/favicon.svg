@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#1e1b4b" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background Rounded Shield / App Icon Frame -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Outer Ring / Clock Track -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="16" />
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#38bdf8" stroke-width="16" stroke-dasharray="280 850" stroke-linecap="round" />
+
+  <!-- Pharmacy House & Smart Attendance Emblem -->
+  <!-- Roof / House Contour for "Baytak" -->
+  <path d="M140 240 L256 130 L372 240" fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" filter="url(#dropShadow)" />
+
+  <!-- Medical / Pharmacy Cross in Center -->
+  <rect x="236" y="210" width="40" height="110" rx="14" fill="#ffffff" filter="url(#dropShadow)" />
+  <rect x="201" y="245" width="110" height="40" rx="14" fill="#ffffff" filter="url(#dropShadow)" />
+
+  <!-- Smart Clock Hands / Checkmark Overlay -->
+  <!-- Verification Glow Badge Bottom Right -->
+  <circle cx="360" cy="360" r="54" fill="url(#glowGrad)" stroke="#ffffff" stroke-width="12" filter="url(#dropShadow)" />
+  <path d="M342 360 L354 372 L378 348" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Center Pulse Dot -->
+  <circle cx="256" cy="265" r="10" fill="#2563eb" />
+</svg>
