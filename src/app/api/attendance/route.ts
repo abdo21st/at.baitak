@@ -35,7 +35,7 @@ async function getOrSeedRecords(userIdFilter?: string | null, tenantId?: string 
     const targetTenantId = tenantId || 'default-tenant';
     const dbRecords = await prisma.attendanceRecord.findMany({
       where: {
-        tenantId: targetTenantId,
+        user: { tenantId: targetTenantId },
         ...(userIdFilter ? { userId: userIdFilter } : {}),
       },
       include: { user: { include: { jobRoles: true, departments: true } } },
@@ -303,10 +303,8 @@ export async function POST(req: NextRequest) {
 
     let newRecord: AttendanceRecord;
     try {
-      const tenantId = await resolveTenantId(req);
       const created = await prisma.attendanceRecord.create({
         data: {
-          tenantId,
           userId,
           jobRoleId: resolvedJobRoleId,
           date: todayDate,
