@@ -76,8 +76,43 @@ export async function POST(req: NextRequest) {
       if (imageUrl) mediaType = 'IMAGE';
     }
 
-    // Always associate group messages with "صيدلية بيتك"
+    // 1.5 Strict Group Filtering: Accept ONLY messages from "صيدلية بيتك" (Baitak Pharmacy)
+    const ALLOWED_BAITAK_GROUP_JIDS = [
+      '120363044711297774@g.us',
+      '120363045076046006@g.us',
+      '120363028470615058@g.us',
+      '120363420679229765@g.us',
+      '120363424241099883@g.us'
+    ];
+
+    const isGroupMessage = chatId.includes('@g.us');
+    const isWhitelistedJid = ALLOWED_BAITAK_GROUP_JIDS.includes(chatId);
+    const hasBaitakInName = (groupName || '').includes('بيتك') || (rawBody.payload?._data?.chat?.name || '').includes('بيتك');
+
+    // If message is from a group that is NOT "صيدلية بيتك", reject immediately
+    if (isGroupMessage && !isWhitelistedJid && !hasBaitakInName) {
+      return NextResponse.json({
+        success: true,
+        ignored: true,
+        reason: 'NOT_FROM_BAITAK_PHARMACY',
+        message: `تم تجاهل الرسالة لأنها واردة من مجموعة غير معتمدة (${chatId}) وليست من [صيدلية بيتك] 🔒`,
+        storedCount: 0
+      });
+    }
+
     groupName = 'صيدلية بيتك';
+
+    // 1.6 Reject non-pharmacy conversational / spam text (e.g. fuel / cars / gossip)
+    const NON_PHARMACY_KEYWORDS = ['بنزين', 'وقود', 'محطة', 'طوابير', 'سوق سيارات', 'بيع سيارات', 'شحن شدات', 'تفريغ وعبي'];
+    if (NON_PHARMACY_KEYWORDS.some(kw => messageText.includes(kw))) {
+      return NextResponse.json({
+        success: true,
+        ignored: true,
+        reason: 'NON_PHARMACY_CONTENT',
+        message: 'تم تجاهل الرسالة لأن محتواها غير متعلق بالأدوية أو الصيدلية 🔒',
+        storedCount: 0
+      });
+    }
 
     // If message contains an attached photo (Medicine Box / Prescription / Leaflet)
     if (imageUrl) {
