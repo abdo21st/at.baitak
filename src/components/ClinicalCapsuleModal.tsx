@@ -865,6 +865,7 @@ export default function ClinicalCapsuleModal({
 
                       <div className="flex items-center gap-3">
                         <a href={leafletImage} target="_blank" rel="noopener noreferrer" className="shrink-0 relative group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={leafletImage}
                             alt="نشرة الدواء"

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AttendanceRecord, Department, JobRole, CompanySettings } from '@/lib/types';
-import { initialUsers, initialAttendanceRecords } from '@/lib/data-store';
 import { 
   Clock, ShieldCheck, CheckCircle2, Edit3, X, Calendar, Coins, LogOut, 
   UserPlus, Users, Trash2, Key, Hash, UserCheck, BarChart3, Building2, 
