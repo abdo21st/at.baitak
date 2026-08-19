@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
         jobRoleTitles: user.jobRoles.map(j => j.title),
         monthlySalary: user.monthlySalary,
         targetMonthlyHours: user.targetMonthlyHours,
-        isHourly: user.isHourly
+        isHourly: user.jobRoles?.[0]?.isHourly !== false
       }
     });
   } catch (error: any) {
