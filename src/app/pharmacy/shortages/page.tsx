@@ -51,6 +51,7 @@ export default function PharmacyShortagesPage() {
   const [whatsappFilter, setWhatsappFilter] = useState<'ALL' | 'PENDING' | 'ORDERED'>('PENDING');
   const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState(0);
   const [imagePreviewModal, setImagePreviewModal] = useState<string | null>(null);
+  const [customQuantities, setCustomQuantities] = useState<Record<string, number | string>>({});
 
   // PDF Generation State
   const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -164,6 +165,14 @@ export default function PharmacyShortagesPage() {
   };
 
   const handleAddWhatsAppToCart = (req: any) => {
+    const rawQty = customQuantities[req.id] !== undefined ? customQuantities[req.id] : req.requestedQty;
+    const finalQty = Number(rawQty);
+
+    if (!finalQty || isNaN(finalQty) || finalQty <= 0) {
+      alert(`⚠️ يُرجى إدخال الكمية المطلوبة لصنف (${req.productName}) أولاً في الخانة المخصصة قبل ضمه للطلبية.`);
+      return;
+    }
+
     const matchedInShortages = shortages.find(
       (s) => (req.matchedCode && s.code === req.matchedCode) || s.name.toLowerCase().includes(req.productName.toLowerCase())
     );
@@ -181,7 +190,7 @@ export default function PharmacyShortagesPage() {
       orderUnit: req.unit || 'عبوة',
       inventoryUnit: req.unit || 'عبوة',
       packSize: 1,
-      suggestedOrderPackages: req.requestedQty || 1,
+      suggestedOrderPackages: finalQty,
       supplierName: 'مورد الواتساب'
     };
 
@@ -189,7 +198,7 @@ export default function PharmacyShortagesPage() {
       ...prev,
       [productId]: {
         item: itemToAdd,
-        requestedQty: req.requestedQty || 1
+        requestedQty: finalQty
       }
     }));
 
@@ -940,11 +949,31 @@ export default function PharmacyShortagesPage() {
                         </div>
                       </td>
 
-                      {/* Quantity & Unit */}
+                      {/* Quantity & Unit (Editable by Procurement Manager) */}
                       <td className="py-3 text-center">
-                        <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono font-black text-xs">
-                          {req.requestedQty} {req.unit || 'عبوة'}
-                        </span>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
+                            }}
+                            placeholder="أدخل الكمية..."
+                            className={`w-28 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
+                              (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
+                                ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
+                                : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                            }`}
+                          />
+                          <span className="text-[11px] font-bold text-slate-500">{req.unit || 'عبوة'}</span>
+                        </div>
+                        {(req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '') && (
+                          <div className="text-[9px] text-amber-600 font-bold mt-1">
+                            ✍️ بانتظار تحديد الكمية
+                          </div>
+                        )}
                       </td>
 
                       {/* Urgency */}

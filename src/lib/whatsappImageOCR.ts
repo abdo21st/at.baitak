@@ -15,6 +15,7 @@ export interface ExtractedImageDrugData {
   strength?: string;
   dosageForm?: string;
   packSize?: number;
+  requestedQty?: number | null;
   unit: string;
   manufacturer?: string;
   urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM';
@@ -85,6 +86,14 @@ const VISUAL_MEDICINE_PATTERNS = [
 export async function analyzeMedicineImageText(imageTextOrCaption: string, base64Image?: string): Promise<ExtractedImageDrugData> {
   const clean = (imageTextOrCaption || '').toLowerCase();
 
+  // Extract explicit quantity from caption if written by the user
+  let explicitQty: number | null = null;
+  const qtyMatch = imageTextOrCaption?.match(/\b(\d+(?:\.\d+)?)\s*(?:علبة|علب|باكت|بكيت|كرتونة|كرتون|شريط|أمبول|امبولات|فيال|قطعة|حبة|كبسولة|packs?|boxes?|bottles?)/i)
+    || imageTextOrCaption?.match(/(?:عدد|كمية|مطلوب|x|×)\s*[:=]?\s*(\d+)/i);
+  if (qtyMatch) {
+    explicitQty = parseFloat(qtyMatch[1]) || null;
+  }
+
   // 1. Check direct pattern match
   for (const pat of VISUAL_MEDICINE_PATTERNS) {
     if (pat.keywords.some(k => clean.includes(k))) {
@@ -95,6 +104,7 @@ export async function analyzeMedicineImageText(imageTextOrCaption: string, base6
         strength: pat.strength,
         dosageForm: pat.dosageForm,
         packSize: pat.packSize,
+        requestedQty: explicitQty, // null unless explicitly written by user
         unit: pat.unit,
         manufacturer: pat.manufacturer,
         urgency: pat.urgency,
@@ -114,6 +124,7 @@ export async function analyzeMedicineImageText(imageTextOrCaption: string, base6
   return {
     productName: imageTextOrCaption || 'صنف دوائي مستخرج من الصورة',
     activeIngredient,
+    requestedQty: explicitQty,
     unit: 'عبوة',
     urgency: 'HIGH',
     clinicalNotes

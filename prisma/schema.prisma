@@ -325,7 +325,7 @@ model WhatsAppShortageRequest {
   productName      String   // اسم الصنف المستخرج
   matchedCode      String?  // كود الصنف المطابق في المنظومة
   activeIngredient String?  // المادة الفعالة
-  requestedQty     Float    @default(1.0) // الكمية المطلوبة
+  requestedQty     Float?   // الكمية المطلوبة (فارغة في حال عدم ذكرها صراحة ليحددها مسؤول المشتريات)
   unit             String?  @default("عبوة")
   urgency          String   @default("HIGH") // CRITICAL | HIGH | MEDIUM | LOW
   status           String   @default("PENDING") // PENDING | ORDERED | RECEIVED | CANCELLED

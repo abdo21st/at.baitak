@@ -14,7 +14,7 @@ export interface ParsedShortageItem {
   productName: string;
   matchedCode?: string | null;
   activeIngredient?: string | null;
-  requestedQty: number;
+  requestedQty?: number | null;
   unit: string;
   urgency: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   notes?: string;
@@ -60,8 +60,8 @@ export async function parseWhatsAppMessageToShortages(messageText: string): Prom
       urgency = 'MEDIUM';
     }
 
-    // Extract quantity and unit
-    let requestedQty = 1;
+    // Extract quantity and unit - Nullable if not explicitly mentioned
+    let requestedQty: number | null = null;
     let unit = 'عبوة';
     let cleanName = line;
 
@@ -71,7 +71,7 @@ export async function parseWhatsAppMessageToShortages(messageText: string): Prom
       || line.match(/\b(\d+)\s*(علبة|علب|باكت|بكيت|كرتونة|كرتون|شريط|أمبول|امبولات|فيال|قطعة|حبة|كبسولة|packs?|boxes?)/i);
 
     if (qtyMatch) {
-      requestedQty = parseFloat(qtyMatch[1]) || 1;
+      requestedQty = parseFloat(qtyMatch[1]) || null;
       if (qtyMatch[2]) {
         unit = qtyMatch[2].trim();
       }

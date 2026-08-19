@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           productName: extractedDrug.productName,
           matchedCode: extractedDrug.matchedCode,
           activeIngredient: extractedDrug.activeIngredient,
-          requestedQty: extractedDrug.packSize ? 10 : 1,
+          requestedQty: extractedDrug.requestedQty ?? null,
           unit: extractedDrug.unit || 'عبوة',
           urgency: extractedDrug.urgency || 'HIGH',
           status: 'PENDING',
