@@ -180,10 +180,6 @@ export async function POST(req: Request) {
     );
   }
 }
-      { status: 500 }
-    );
-  }
-}
 
 // PATCH: تحديث بيانات ورابط وشعار نشاط تجاري قائم
 export async function PATCH(req: Request) {
