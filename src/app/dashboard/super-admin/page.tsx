@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
 interface Tenant {
@@ -65,7 +65,7 @@ export default function SuperAdminPage() {
     amountPaid: 0,
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/super-admin/tenants');
@@ -82,11 +82,11 @@ export default function SuperAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [form.planId]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
