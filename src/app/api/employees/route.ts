@@ -43,7 +43,7 @@ async function getOrSeedUsers(tenantId?: string): Promise<User[]> {
           jobRoleTitle: primaryRole?.title,
           monthlySalary: hasRoles ? assignedRoles.reduce((sum, r) => sum + r.monthlySalary, 0) : (u.monthlySalary || 0),
           targetMonthlyHours: primaryRole?.targetMonthlyHours || u.targetMonthlyHours || 0,
-          isHourly: primaryRole ? primaryRole.isHourly !== false : (u.isHourly !== false)
+          isHourly: primaryRole ? primaryRole.isHourly !== false : true
         };
       });
     }
