@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseWhatsAppMessageToShortages } from '@/lib/whatsappShortageParser';
+import { analyzeMedicineImageText } from '@/lib/whatsappImageOCR';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,70 +79,46 @@ export async function POST(req: NextRequest) {
     // Always associate group messages with "صيدلية بيتك"
     groupName = 'صيدلية بيتك';
 
-    // If message is an image without caption or with general comment
-    if (!messageText || !messageText.trim() || messageText.includes('نجرب') || messageText.includes('تجربة')) {
-      if (imageUrl) {
-        const imageRecord = await prisma.whatsAppShortageRequest.create({
-          data: {
-            chatId,
-            groupName,
-            senderName,
-            senderPhone,
-            rawMessage: messageText || '[صورة علبة دواء / روشتة مرفقة من مجموعة صيدلية بيتك]',
-            productName: `صورة دواء مرفقة (${senderName})`,
-            requestedQty: 10,
-            unit: 'عبوة',
-            urgency: 'HIGH',
-            status: 'PENDING',
-            imageUrl,
-            mediaType: 'IMAGE',
-            notes: 'تم استلام صورة علبة دواء من مجموعة صيدلية بيتك للمراجعة السريرية 📸'
-          }
-        });
+    // If message contains an attached photo (Medicine Box / Prescription / Leaflet)
+    if (imageUrl) {
+      const extractedDrug = await analyzeMedicineImageText(messageText, imageUrl);
 
-        return NextResponse.json({
-          success: true,
-          message: 'تم حفظ صورة الدواء/الروشتة في قائمة النواقص للمراجعة البصرية 📸',
-          storedCount: 1,
-          items: [imageRecord]
-        });
-      }
+      const imageRecord = await prisma.whatsAppShortageRequest.create({
+        data: {
+          chatId,
+          groupName,
+          senderName,
+          senderPhone,
+          rawMessage: messageText || `[صورة علبة دواء: ${extractedDrug.productName}]`,
+          productName: extractedDrug.productName,
+          matchedCode: extractedDrug.matchedCode,
+          activeIngredient: extractedDrug.activeIngredient,
+          requestedQty: extractedDrug.packSize ? 10 : 1,
+          unit: extractedDrug.unit || 'عبوة',
+          urgency: extractedDrug.urgency || 'HIGH',
+          status: 'PENDING',
+          imageUrl,
+          mediaType: 'IMAGE',
+          notes: extractedDrug.clinicalNotes || 'تم استخراج البيانات ومطابقتها مع BNF 83 والمصادر الدوائية 📸'
+        }
+      });
 
-      if (!messageText || !messageText.trim()) {
-        return NextResponse.json({ success: false, error: 'لم يتم استلام أي نص أو صورة' }, { status: 400 });
-      }
+      return NextResponse.json({
+        success: true,
+        message: `تم التعرف على الصنف (${extractedDrug.productName}) وحفظه مع الصورة والبيانات السريرية بنجاح 📸🌿`,
+        storedCount: 1,
+        items: [imageRecord]
+      });
+    }
+
+    if (!messageText || !messageText.trim()) {
+      return NextResponse.json({ success: false, error: 'لم يتم استلام أي نص أو صورة' }, { status: 400 });
     }
 
     // 2. Parse shortage items using clinical NLP parser
     const parsedItems = await parseWhatsAppMessageToShortages(messageText);
 
     if (parsedItems.length === 0) {
-      if (imageUrl) {
-        const imageRecord = await prisma.whatsAppShortageRequest.create({
-          data: {
-            chatId,
-            groupName,
-            senderName,
-            senderPhone,
-            rawMessage: messageText,
-            productName: messageText.slice(0, 50),
-            requestedQty: 10,
-            unit: 'عبوة',
-            urgency: 'HIGH',
-            status: 'PENDING',
-            imageUrl,
-            mediaType: 'IMAGE',
-            notes: 'صورة صنف مع تعليق نصي'
-          }
-        });
-        return NextResponse.json({
-          success: true,
-          message: 'تم حفظ صورة الصنف مع النص في قائمة النواقص 📸',
-          storedCount: 1,
-          items: [imageRecord]
-        });
-      }
-
       return NextResponse.json({
         success: true,
         message: 'تم استلام الرسالة ولكن لم يتم العثور على أصناف نواقص واضحة فيها.',
