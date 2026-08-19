@@ -9,8 +9,21 @@ datasource db {
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   EMPLOYEE
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }
 
 enum AttendanceMethod {
@@ -32,14 +45,103 @@ enum LeaveType {
   EXCUSE
 }
 
+// ==========================================
+// نماذج المنصة السحابية وتعدد الأنشطة (SAAS & TENANCY)
+// ==========================================
+
+model Tenant {
+  id               String            @id @default("default-tenant")
+  name             String            @default("النشاط الرئيسي")
+  slug             String            @unique @default("main")
+  customDomain     String?           @unique
+  logo             String?
+  phone            String?
+  managerName      String?
+  managerPhone     String?
+  status           TenantStatus      @default(ACTIVE)
+  trialEndsAt      DateTime?
+  
+  planId           String?
+  plan             SubscriptionPlan? @relation(fields: [planId], references: [id])
+  subscriptions    Subscription[]
+
+  // العلاقات مع بيانات النشاط التجاري
+  users            User[]
+  departments      Department[]
+  projects         Project[]
+  rateRules        RateRule[]
+  pharmacyProducts PharmacyProduct[]
+  pharmacySuppliers PharmacySupplier[]
+  purchasingTrips  PurchasingTrip[]
+  inventoryAudits  InventoryAudit[]
+  shortageRequests WhatsAppShortageRequest[]
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+model SubscriptionPlan {
+  id                  String         @id @default(uuid())
+  name                String         // أساسية / احترافية / مؤسسية
+  code                String         @unique // BASIC / PRO / ENTERPRISE
+  description         String?
+  priceMonthly        Float          @default(0.0) // بالدينار (د.ل)
+  priceYearly         Float          @default(0.0) // بالدينار (د.ل)
+  
+  // قيود الاستخدام
+  maxEmployees        Int            @default(10)
+  maxBranches         Int            @default(1)
+  maxProducts         Int            @default(1000)
+  
+  // الميزات الحصرية
+  hasAdvancedOcr      Boolean        @default(false)
+  hasWhatsAppAlerts   Boolean        @default(false)
+  hasInventoryPredict Boolean        @default(false)
+  
+  isActive            Boolean        @default(true)
+  tenants             Tenant[]
+  subscriptions       Subscription[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+}
+
+model Subscription {
+  id              String           @id @default(uuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  billingCycle    BillingCycle     @default(MONTHLY)
+  startDate       DateTime         @default(now())
+  endDate         DateTime
+  amountPaid      Float            @default(0.0) // بالدينار (د.ل)
+  paymentMethod   String?          // CASH / BANK_TRANSFER / CARD
+  referenceNumber String?          // رقم إيصال الدفع أو الحوالة
+  isActive        Boolean          @default(true)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([endDate])
+}
+
 model Department {
   id        String    @id @default(uuid())
-  name      String    @unique
+  tenantId  String    @default("default-tenant")
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
   code      String?
   jobRoles  JobRole[]
   users     User[]    @relation("UserDepartments")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model JobRole {
@@ -63,6 +165,8 @@ model JobRole {
 
 model Project {
   id           String             @id @default(uuid())
+  tenantId     String             @default("default-tenant")
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   clientName   String?
   hourlyRate   Float              @default(0.0)
@@ -71,13 +175,17 @@ model Project {
   attendances  AttendanceRecord[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+
+  @@index([tenantId])
 }
 
 model User {
   id                 String             @id @default(uuid())
-  employeeCode       String             @unique
+  tenantId           String             @default("default-tenant")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeCode       String
   name               String
-  email              String             @unique
+  email              String
   password           String             @default("")
   role               UserRole           @default(EMPLOYEE)
   avatar             String?
@@ -92,6 +200,10 @@ model User {
   leaves             LeaveRequest[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
+
+  @@unique([tenantId, employeeCode])
+  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model AttendanceRecord {
@@ -149,6 +261,8 @@ model LeaveRequest {
 
 model CompanySettings {
   id                        String   @id @default("default")
+  tenantId                  String   @unique @default("default-tenant")
+  tenant                    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyName               String   @default("نظام تدوين ساعات العمل المخصص")
   logoUrl                   String?
   managerPhone              String?  @default("")
@@ -175,6 +289,8 @@ enum RateIncreaseType {
 
 model RateRule {
   id           String           @id @default(uuid())
+  tenantId     String           @default("default-tenant")
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   ruleType     RuleType         @default(RECURRING)
   daysOfWeek   Int[]            // [0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat]
@@ -188,6 +304,8 @@ model RateRule {
   isActive     Boolean          @default(true)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
+
+  @@index([tenantId])
 }
 
 // ==========================================
@@ -196,6 +314,8 @@ model RateRule {
 
 model PharmacyProduct {
   id               Int      @id @default(autoincrement())
+  tenantId         String   @default("default-tenant")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchCode       String   @default("MAIN_BRANCH") // كود الفرع أو مصدر البيانات
   branchName       String?  @default("الفرع الرئيسي")
   productCode      String
@@ -231,11 +351,14 @@ model PharmacyProduct {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  @@unique([productCode, branchCode])
+  @@unique([tenantId, productCode, branchCode])
+  @@index([tenantId])
 }
 
 model PharmacySupplier {
   id                 Int      @id @default(autoincrement())
+  tenantId           String   @default("default-tenant")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchCode         String   @default("MAIN_BRANCH")
   branchName         String?  @default("الفرع الرئيسي")
   supplierIdPk       Int
@@ -251,11 +374,14 @@ model PharmacySupplier {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  @@unique([supplierIdPk, branchCode])
+  @@unique([tenantId, supplierIdPk, branchCode])
+  @@index([tenantId])
 }
 
 model PurchasingTrip {
   id                  String   @id @default(uuid())
+  tenantId            String   @default("default-tenant")
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   officerId           String?
   officerName         String
   date                String   // YYYY-MM-DD
@@ -268,10 +394,14 @@ model PurchasingTrip {
   notes               String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model InventoryAudit {
   id                String   @id @default(uuid())
+  tenantId          String   @default("default-tenant")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   officerId         String?
   officerName       String
   date              String   // YYYY-MM-DD
@@ -282,6 +412,8 @@ model InventoryAudit {
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model PharmacySettings {
@@ -317,6 +449,8 @@ model ClinicalDrugReference {
 
 model WhatsAppShortageRequest {
   id               String   @id @default(uuid())
+  tenantId         String   @default("default-tenant")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   chatId           String?  // e.g. "12036302@g.us" or sender phone
   groupName        String?  // اسم المجموعة إن وجد
   senderName       String?  // اسم العضو المرسل
@@ -336,6 +470,7 @@ model WhatsAppShortageRequest {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  @@index([tenantId])
   @@index([status])
   @@index([productName])
   @@index([createdAt])
