@@ -3,12 +3,12 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
-  const hostname = request.headers.get('host') || '';
+  const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  const hostClean = hostname.split(':')[0].toLowerCase().trim();
 
-  // Exclude static assets, api routes, and system files from rewriting
+  // Exclude static assets and next internal files from rewrite/redirect
   if (
     url.pathname.startsWith('/_next') ||
-    url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/static') ||
     url.pathname.includes('.')
   ) {
@@ -18,8 +18,7 @@ export function middleware(request: NextRequest) {
   // Route Mapping:
   // 1. at.mtapp.ly -> Super Admin Dashboard Control Panel
   // 2. at.baitak.mtapp.ly -> صيدلية بيتك (Baytak Pharmacy)
-  // 3. *.mtapp.ly -> Sub-tenant businesses
-  const hostClean = hostname.split(':')[0].toLowerCase();
+  // 3. *.mtapp.ly -> Sub-tenant businesses (e.g. at.mt.mtapp.ly -> at.mt)
   let tenantSlug = 'baytak';
   let isSuperAdminHost = false;
 
@@ -54,5 +53,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

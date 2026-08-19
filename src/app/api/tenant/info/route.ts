@@ -3,32 +3,58 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantSlug = (req.headers.get('x-tenant-slug') || 'baytak').toLowerCase().trim();
-    const host = (req.headers.get('host') || '').split(':')[0].toLowerCase();
-    
-    // Find tenant by slug (or slug variations) or customDomain
-    let tenant = await prisma.tenant.findFirst({
-      where: {
-        OR: [
-          { slug: tenantSlug },
-          { slug: tenantSlug.replace(/^at\./, '') },
-          { slug: `at.${tenantSlug}` },
-          { customDomain: host },
-          { customDomain: `https://${host}` },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logo: true,
-        status: true,
-      },
-    });
+    const hostHeader = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase().trim();
+    const injectedSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
 
+    // 1. Determine the target slug from host or header
+    let targetSlug = '';
+
+    if (injectedSlug && injectedSlug !== 'baytak' && injectedSlug !== 'default-tenant') {
+      targetSlug = injectedSlug;
+    } else if (hostHeader.endsWith('.mtapp.ly')) {
+      const sub = hostHeader.replace('.mtapp.ly', '').trim();
+      if (sub === 'at.baitak' || sub === 'baitak') {
+        targetSlug = 'baytak';
+      } else if (sub === 'at') {
+        targetSlug = 'super-admin';
+      } else {
+        targetSlug = sub;
+      }
+    }
+
+    let tenant = null;
+
+    // 2. Search for the specific tenant by slug, prefix, or custom domain
+    if (targetSlug && targetSlug !== 'super-admin') {
+      tenant = await prisma.tenant.findFirst({
+        where: {
+          OR: [
+            { slug: targetSlug },
+            { slug: targetSlug.replace(/^at\./, '') },
+            { slug: `at.${targetSlug}` },
+            { customDomain: hostHeader },
+            { customDomain: `https://${hostHeader}` },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true,
+          status: true,
+        },
+      });
+    }
+
+    // 3. Fallback to default tenant (Baytak Pharmacy) only if no custom tenant found
     if (!tenant) {
       tenant = await prisma.tenant.findFirst({
-        where: { id: 'default-tenant' },
+        where: {
+          OR: [
+            { id: 'default-tenant' },
+            { slug: 'baytak' },
+          ],
+        },
         select: {
           id: true,
           name: true,
@@ -60,8 +86,9 @@ export async function GET(req: NextRequest) {
           logo: null,
           status: 'ACTIVE',
         },
+        error: error.message,
       },
-      { status: 200 }
+      { status: 500 }
     );
   }
 }
