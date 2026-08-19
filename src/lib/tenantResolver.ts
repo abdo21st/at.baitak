@@ -8,6 +8,9 @@ export interface ResolvedTenant {
   logo?: string | null;
   customDomain?: string | null;
   status: string;
+  hasClinicalCapsule: boolean;
+  hasInventory: boolean;
+  hasPurchases: boolean;
 }
 
 /**
@@ -51,6 +54,9 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
         logo: true,
         customDomain: true,
         status: true,
+        hasClinicalCapsule: true,
+        hasInventory: true,
+        hasPurchases: true,
       },
     });
 
@@ -73,6 +79,9 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
       logo: true,
       customDomain: true,
       status: true,
+      hasClinicalCapsule: true,
+      hasInventory: true,
+      hasPurchases: true,
     },
   });
 
@@ -83,6 +92,9 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
     logo: null,
     customDomain: null,
     status: 'ACTIVE',
+    hasClinicalCapsule: true,
+    hasInventory: true,
+    hasPurchases: true,
   };
 }
 

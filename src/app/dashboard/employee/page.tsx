@@ -28,9 +28,14 @@ export default function EmployeeDashboard() {
   const [pageLoading, setPageLoading] = useState(true);
   const [isCapsuleModalOpen, setIsCapsuleModalOpen] = useState(false);
 
-  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null }>({
+  const [tenantInfo, setTenantInfo] = useState<{
+    name: string;
+    logo: string | null;
+    hasClinicalCapsule?: boolean;
+  }>({
     name: '',
     logo: null,
+    hasClinicalCapsule: true,
   });
 
   useEffect(() => {
@@ -41,6 +46,7 @@ export default function EmployeeDashboard() {
           setTenantInfo({
             name: data.tenant.name || '',
             logo: data.tenant.logo || null,
+            hasClinicalCapsule: data.tenant.hasClinicalCapsule !== false,
           });
         }
       })
@@ -595,15 +601,17 @@ export default function EmployeeDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsCapsuleModalOpen(true)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
-              title="مسح باركود الدواء بكاميرا الهاتف وعرض الكبسولة السريرية"
-            >
-              <Camera className="w-4 h-4" />
-              <span className="hidden sm:inline">📷 مسح باركود الدواء</span>
-              <span className="sm:hidden">الكبسولة 💊</span>
-            </button>
+            {tenantInfo.hasClinicalCapsule !== false && (
+              <button
+                onClick={() => setIsCapsuleModalOpen(true)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
+                title="مسح باركود الدواء بكاميرا الهاتف وعرض الكبسولة السريرية"
+              >
+                <Camera className="w-4 h-4" />
+                <span className="hidden sm:inline">📷 مسح باركود الدواء</span>
+                <span className="sm:hidden">الكبسولة 💊</span>
+              </button>
+            )}
             <button onClick={handleLogout} className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer">
               <LogOut className="w-4 h-4" />خروج
             </button>

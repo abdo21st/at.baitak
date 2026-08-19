@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 // GET: جلب كافة الأنشطة التجارية والاشتراكات
 export async function GET() {
@@ -39,8 +40,6 @@ export async function GET() {
   }
 }
 
-import bcrypt from 'bcryptjs';
-
 // POST: إنشاء نشاط تجاري جديد مع باقة اشتراك وتوليد بيئة العمل وحساب المدير فوراً
 export async function POST(req: Request) {
   try {
@@ -56,7 +55,10 @@ export async function POST(req: Request) {
       managerEmployeeCode,
       managerPinCode,
       billingCycle,
-      amountPaid
+      amountPaid,
+      hasClinicalCapsule,
+      hasInventory,
+      hasPurchases,
     } = body;
 
     if (!name || !slug) {
@@ -104,6 +106,9 @@ export async function POST(req: Request) {
         managerPhone: managerPhone || phone || '',
         phone: phone || '',
         status: 'ACTIVE',
+        hasClinicalCapsule: hasClinicalCapsule !== undefined ? Boolean(hasClinicalCapsule) : true,
+        hasInventory: hasInventory !== undefined ? Boolean(hasInventory) : true,
+        hasPurchases: hasPurchases !== undefined ? Boolean(hasPurchases) : true,
         subscriptions: planId
           ? {
               create: {
@@ -127,7 +132,6 @@ export async function POST(req: Request) {
     });
 
     // 1. إنشاء الأقسام الافتراضية للنشاط الجديد
-    // 1. إنشاء الأقسام الافتراضية للنشاط الجديد
     const adminDeptId = crypto.randomUUID();
     await prisma.department.createMany({
       data: [
@@ -139,7 +143,7 @@ export async function POST(req: Request) {
         },
         {
           id: crypto.randomUUID(),
-          name: `الصيادلة والتشغيل (${name})`,
+          name: `التشغيل والموظفين (${name})`,
           code: 'OPS',
           tenantId: tenantId,
         },
@@ -185,11 +189,25 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH: تحديث بيانات ورابط وشعار نشاط تجاري قائم
+// PATCH: تحديث بيانات ورابط وشعار ونطاق ومزايا نشاط تجاري قائم
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, slug, customDomain, logo, planId, managerName, managerPhone, phone, status } = body;
+    const {
+      id,
+      name,
+      slug,
+      customDomain,
+      logo,
+      planId,
+      managerName,
+      managerPhone,
+      phone,
+      status,
+      hasClinicalCapsule,
+      hasInventory,
+      hasPurchases,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -223,6 +241,9 @@ export async function PATCH(req: Request) {
         ...(managerPhone !== undefined && { managerPhone }),
         ...(phone !== undefined && { phone }),
         ...(status !== undefined && { status }),
+        ...(hasClinicalCapsule !== undefined && { hasClinicalCapsule: Boolean(hasClinicalCapsule) }),
+        ...(hasInventory !== undefined && { hasInventory: Boolean(hasInventory) }),
+        ...(hasPurchases !== undefined && { hasPurchases: Boolean(hasPurchases) }),
       },
       include: {
         plan: true,

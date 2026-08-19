@@ -13,6 +13,9 @@ interface Tenant {
   managerName?: string;
   managerPhone?: string;
   status: 'ACTIVE' | 'TRIAL' | 'SUSPENDED' | 'EXPIRED';
+  hasClinicalCapsule?: boolean;
+  hasInventory?: boolean;
+  hasPurchases?: boolean;
   createdAt: string;
   plan?: {
     id: string;
@@ -68,6 +71,9 @@ export default function SuperAdminPage() {
     managerPinCode: '1234',
     billingCycle: 'MONTHLY',
     amountPaid: 0,
+    hasClinicalCapsule: true,
+    hasInventory: true,
+    hasPurchases: true,
   });
 
   // Edit / Logo Modal State
@@ -83,6 +89,9 @@ export default function SuperAdminPage() {
     managerPhone: '',
     phone: '',
     status: 'ACTIVE',
+    hasClinicalCapsule: true,
+    hasInventory: true,
+    hasPurchases: true,
   });
 
   // Created Credentials Success Dialog State
@@ -150,7 +159,7 @@ export default function SuperAdminPage() {
         const credentials = data.credentials || {
           employeeCode: form.managerEmployeeCode || '101',
           pinCode: form.managerPinCode || '1234',
-          url: `https://${form.slug}.mtapp.ly`,
+          url: `https://${form.slug.toLowerCase().trim()}.mtapp.ly`,
         };
         setCreatedCredentials({
           name: form.name,
@@ -171,6 +180,9 @@ export default function SuperAdminPage() {
           managerPinCode: '1234',
           billingCycle: 'MONTHLY',
           amountPaid: plans[0]?.priceMonthly || 0,
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
         });
         fetchData();
       } else {
@@ -195,6 +207,9 @@ export default function SuperAdminPage() {
       managerPhone: tenant.managerPhone || '',
       phone: tenant.phone || '',
       status: tenant.status,
+      hasClinicalCapsule: tenant.hasClinicalCapsule !== false,
+      hasInventory: tenant.hasInventory !== false,
+      hasPurchases: tenant.hasPurchases !== false,
     });
     setIsEditModalOpen(true);
   };
@@ -253,248 +268,193 @@ export default function SuperAdminPage() {
   }, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8" dir="rtl">
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-cairo" dir="rtl">
       {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 border border-white/20">
-                  {/* HodoorK Attendance & Time Tracker Distinctive Logo */}
-                  <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                    <path d="M16 2v4" />
-                    <path d="M8 2v4" />
-                    <path d="M9 16l2 2 4-4" />
-                  </svg>
-                </div>
-                <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center text-[10px] text-white font-bold">
-                  ✓
+      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/20 text-white">
+              H
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-white flex items-center gap-2">
+                لوحة الإدارة المركزية للمنصة
+                <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-mono font-normal">
+                  Super Admin
                 </span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">حضورك السحابية (HodoorK Multi-Tenant)</h1>
-                  <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200/60 font-mono">
-                    v2.5 SaaS Hub
-                  </span>
-                </div>
-                <p className="text-sm text-slate-500 mt-0.5 font-medium">المركز السحابي الموحد لإدارة تراخيص واشتراكات وشعارات الأنشطة التجارية</p>
-              </div>
+              </h1>
+              <p className="text-xs text-slate-400">إدارة كافة الأنشطة والمشتركين والاشتراكات والمزايا</p>
             </div>
           </div>
-
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              إضافة نشاط تجاري جديد
-            </button>
             <Link
               href="/dashboard/admin"
-              className="h-11 px-4 border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium rounded-xl flex items-center gap-2 transition"
+              className="h-10 px-4 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition flex items-center gap-2 border border-slate-700"
             >
-              العودة للمنظومة الرئيسية
+              <span>← العودة للوحة النشاط الحالي</span>
             </Link>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="h-10 px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center gap-2 cursor-pointer"
+            >
+              <span>+ إضافة نشاط تجاري جديد</span>
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* KPI Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500">إجمالي الأنشطة</span>
-              <span className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-semibold">SaaS</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold text-slate-900">{totalTenants}</span>
-              <span className="text-xs text-slate-400 mr-2">شركة ومؤسسة</span>
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-xs text-slate-400 font-medium">إجمالي الأنشطة المسجلة</div>
+            <div className="text-2xl font-black text-white mt-1 font-mono">{totalTenants}</div>
+            <div className="text-[11px] text-slate-500 mt-1">مشترك في المنصة</div>
           </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500">الاشتراكات النشطة</span>
-              <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-semibold">Active</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold text-emerald-600">{activeTenants}</span>
-              <span className="text-xs text-slate-400 mr-2">من أصل {totalTenants}</span>
-            </div>
+          <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-xs text-emerald-400 font-medium">الأنشطة النشطة (Active)</div>
+            <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">{activeTenants}</div>
+            <div className="text-[11px] text-slate-500 mt-1">اشتراكات مفعلة بالكامل</div>
           </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500">إجمالي الموظفين المسجلين</span>
-              <span className="p-2 bg-purple-50 text-purple-600 rounded-lg text-xs font-semibold">Users</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold text-purple-600">{totalEmployeesAcrossTenants}</span>
-              <span className="text-xs text-slate-400 mr-2">موظف في جميع الأنشطة</span>
-            </div>
+          <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-xs text-blue-400 font-medium">إجمالي الموظفين في المنظومة</div>
+            <div className="text-2xl font-black text-blue-400 mt-1 font-mono">{totalEmployeesAcrossTenants}</div>
+            <div className="text-[11px] text-slate-500 mt-1">موظف مسجل بجميع الأنشطة</div>
           </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500">الدخل الشهري المتوقع (MRR)</span>
-              <span className="p-2 bg-amber-50 text-amber-600 rounded-lg text-xs font-semibold">Revenue</span>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold text-slate-900">{totalMonthlyRevenue.toLocaleString('en-US')}</span>
-              <span className="text-xs text-slate-500 mr-2 font-medium">د.ل شهرياً</span>
-            </div>
+          <div className="bg-slate-950/60 border border-slate-800 p-5 rounded-2xl">
+            <div className="text-xs text-purple-400 font-medium">العائد الشهري المتكرر (MRR)</div>
+            <div className="text-2xl font-black text-purple-400 mt-1 font-mono">{totalMonthlyRevenue} د.ل</div>
+            <div className="text-[11px] text-slate-500 mt-1">بناءً على باقات الاشتراك الحالية</div>
           </div>
         </div>
 
         {/* Filters & Search */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="w-full md:w-96 relative">
-            <input
-              type="text"
-              placeholder="بحث بالاسم، النطاق الفرعي (slug)، أو المدير..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pr-10 pl-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <svg
-              className="w-5 h-5 text-slate-400 absolute right-3 top-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-80">
+              <input
+                type="text"
+                placeholder="بحث بالاسم أو الرابط الفرعي أو اسم المدير..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-11 bg-slate-950/60 border border-slate-800 rounded-xl px-4 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-11 bg-slate-950/60 border border-slate-800 rounded-xl px-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <span className="text-xs font-medium text-slate-500 whitespace-nowrap">الحالة:</span>
-            {['ALL', 'ACTIVE', 'TRIAL', 'SUSPENDED', 'EXPIRED'].map((st) => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`h-9 px-3 text-xs font-medium rounded-lg transition ${
-                  statusFilter === st
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {st === 'ALL' && 'الكل'}
-                {st === 'ACTIVE' && 'نشط'}
-                {st === 'TRIAL' && 'تجريبي'}
-                {st === 'SUSPENDED' && 'موقوف'}
-                {st === 'EXPIRED' && 'منتهي'}
-              </button>
-            ))}
+              <option value="ALL">كافة الحالات</option>
+              <option value="ACTIVE">نشط فقط</option>
+              <option value="TRIAL">تجريبي</option>
+              <option value="SUSPENDED">موقوف</option>
+              <option value="EXPIRED">منتهي</option>
+            </select>
           </div>
         </div>
 
-        {/* Tenants List Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">سجل الأنشطة التجارية ({filteredTenants.length})</h2>
-            <button onClick={fetchData} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              تحديث البيانات
-            </button>
-          </div>
-
+        {/* Tenants Table */}
+        <div className="bg-slate-950/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           {loading ? (
-            <div className="p-12 text-center text-slate-400">جاري تحميل بيانات الأنشطة...</div>
+            <div className="p-12 text-center text-slate-400 text-sm">جاري تحميل الأنشطة والمشتركين...</div>
           ) : filteredTenants.length === 0 ? (
-            <div className="p-12 text-center text-slate-400">لا توجد أنشطة تجارية مطابقة للبحث</div>
+            <div className="p-12 text-center text-slate-400 text-sm">لم يتم العثور على أي أنشطة تطابق معايير البحث</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
-                  <tr>
-                    <th className="py-3.5 px-4">النشاط التجاري والشعار</th>
-                    <th className="py-3.5 px-4">النطاق الفرعي والرابط</th>
-                    <th className="py-3.5 px-4">الباقة الحالية</th>
-                    <th className="py-3.5 px-4">الموظفين</th>
-                    <th className="py-3.5 px-4">المدير المسؤول</th>
-                    <th className="py-3.5 px-4">حالة الاشتراك</th>
-                    <th className="py-3.5 px-4 text-center">الإجراءات</th>
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/40 text-slate-400 font-semibold">
+                    <th className="py-4 px-4">النشاط التجاري والشعار</th>
+                    <th className="py-4 px-4">رابط الدخول (Subdomain)</th>
+                    <th className="py-4 px-4">المدير والاتصال</th>
+                    <th className="py-4 px-4 text-center">المزايا المفعلة</th>
+                    <th className="py-4 px-4 text-center">الموظفين</th>
+                    <th className="py-4 px-4">الباقة</th>
+                    <th className="py-4 px-4 text-center">الحالة</th>
+                    <th className="py-4 px-4 text-center">الإجراءات</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
                   {filteredTenants.map((tenant) => (
-                    <tr key={tenant.id} className="hover:bg-slate-50/70 transition">
+                    <tr key={tenant.id} className="hover:bg-slate-900/30 transition">
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          {tenant.logo ? (
-                            <img
-                              src={tenant.logo}
-                              alt={tenant.name}
-                              className="w-10 h-10 rounded-xl object-contain border border-slate-200 bg-white p-0.5 shadow-sm"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                              {tenant.name.slice(0, 2)}
-                            </div>
-                          )}
+                          <div className="w-11 h-11 rounded-xl bg-white border border-slate-700 p-1 flex items-center justify-center shrink-0 shadow-sm">
+                            {tenant.logo ? (
+                              <img src={tenant.logo} alt={tenant.name} className="w-full h-full object-contain rounded-lg" />
+                            ) : (
+                              <span className="text-slate-800 font-bold text-sm">
+                                {tenant.name.slice(0, 2)}
+                              </span>
+                            )}
+                          </div>
                           <div>
-                            <div className="font-semibold text-slate-900">{tenant.name}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">
-                              تاريخ الانضمام: {new Date(tenant.createdAt).toLocaleDateString('en-GB')}
+                            <div className="font-bold text-white text-sm">{tenant.name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              {new Date(tenant.createdAt).toLocaleDateString('ar-LY')}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-blue-700 font-medium">
-                          {tenant.slug}.mtapp.ly
-                        </span>
+                      <td className="py-4 px-4 font-mono">
+                        <a
+                          href={`https://${tenant.slug}.mtapp.ly`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 font-bold"
+                        >
+                          {tenant.slug}.mtapp.ly ↗
+                        </a>
                         {tenant.customDomain && (
-                          <div className="text-[11px] text-emerald-600 font-mono mt-1">
-                            🌐 {tenant.customDomain}
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {tenant.customDomain}
                           </div>
                         )}
                       </td>
                       <td className="py-4 px-4">
-                        {tenant.plan ? (
-                          <div>
-                            <span className="font-medium text-slate-800">{tenant.plan.name}</span>
-                            <div className="text-xs text-slate-500">
-                              {tenant.plan.priceMonthly} د.ل / شهر
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">بدون باقة</span>
-                        )}
+                        <div className="font-semibold text-slate-200">{tenant.managerName || 'غير محدد'}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{tenant.managerPhone || tenant.phone || '-'}</div>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="font-medium text-slate-800">
-                          {tenant._count?.users || 0}{' '}
-                          <span className="text-xs text-slate-400">
-                            / {tenant.plan?.maxEmployees || 10}
-                          </span>
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1 flex-wrap max-w-[170px] mx-auto">
+                          {tenant.hasClinicalCapsule !== false && (
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">
+                              💊 كبسولة
+                            </span>
+                          )}
+                          {tenant.hasInventory !== false && (
+                            <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-medium">
+                              📦 مخزون
+                            </span>
+                          )}
+                          {tenant.hasPurchases !== false && (
+                            <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full font-medium">
+                              🛒 مشتريات
+                            </span>
+                          )}
+                          {tenant.hasClinicalCapsule === false && tenant.hasInventory === false && tenant.hasPurchases === false && (
+                            <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">
+                              حضور ورواتب فقط
+                            </span>
+                          )}
                         </div>
-                        <div className="text-xs text-slate-400">
-                          {tenant._count?.pharmacyProducts || 0} صنف
-                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center font-mono font-bold text-slate-200">
+                        {tenant._count?.users || 0}
                       </td>
                       <td className="py-4 px-4">
-                        <div className="text-slate-800 font-medium">{tenant.managerName || '—'}</div>
-                        <div className="text-xs text-slate-400 font-mono">{tenant.managerPhone || tenant.phone || ''}</div>
+                        <div className="font-semibold text-white">{tenant.plan?.name || 'مخصصة'}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{tenant.plan?.priceMonthly || 0} د.ل/شهر</div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 text-center">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${
                             tenant.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               : tenant.status === 'TRIAL'
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'bg-rose-50 text-rose-700'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
                           }`}
                         >
                           {tenant.status === 'ACTIVE' && '● نشط'}
@@ -507,15 +467,15 @@ export default function SuperAdminPage() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => openEditModal(tenant)}
-                            className="h-8 px-3 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition flex items-center gap-1 cursor-pointer"
+                            className="h-8 px-3 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg transition flex items-center gap-1 cursor-pointer border border-slate-700"
                           >
-                            تعديل النشاط والرابط ✏️
+                            تعديل والمزايا ✏️
                           </button>
                           <a
                             href={`https://${tenant.slug}.mtapp.ly`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-lg transition flex items-center gap-1"
+                            className="h-8 px-3 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-medium rounded-lg transition flex items-center gap-1 border border-blue-500/30"
                           >
                             دخول ↗
                           </a>
@@ -532,16 +492,16 @@ export default function SuperAdminPage() {
 
       {/* Add Tenant Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 text-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">إضافة نشاط تجاري جديد (New Tenant)</h3>
-                <p className="text-xs text-slate-400 mt-0.5">تأسيس النشاط مع الرابط وحساب المدير والأقسام فوراً</p>
+                <h3 className="text-lg font-bold text-white">إضافة نشاط تجاري جديد (New Tenant)</h3>
+                <p className="text-xs text-slate-400 mt-0.5">تأسيس النشاط مع الرابط وحساب المدير وتحديد المزايا فوراً</p>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
+                className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -549,19 +509,19 @@ export default function SuperAdminPage() {
 
             <form onSubmit={handleCreateTenant} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">اسم النشاط التجاري *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">اسم النشاط التجاري *</label>
                 <input
                   type="text"
                   required
-                  placeholder="مثلاً: صيدلية النقاء الكبرى"
+                  placeholder="مثلاً: صيدلية النقاء الكبرى أو شركة مدار التقنية"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   رابط النشاط والنطاق الفرعي (Subdomain Slug) *
                 </label>
                 <div className="flex items-center">
@@ -576,9 +536,9 @@ export default function SuperAdminPage() {
                         slug: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''),
                       })
                     }
-                    className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                   />
-                  <span className="h-11 px-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-xs text-slate-500 flex items-center font-mono">
+                  <span className="h-11 px-3 bg-slate-800 border border-r-0 border-slate-700 rounded-l-xl text-xs text-slate-300 flex items-center font-mono">
                     .mtapp.ly
                   </span>
                 </div>
@@ -587,16 +547,16 @@ export default function SuperAdminPage() {
 
               {/* Logo Upload & Preview */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">شعار النشاط التجاري (Logo)</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">شعار النشاط التجاري (Logo)</label>
                 <div className="flex items-center gap-3">
                   {form.logo ? (
                     <img
                       src={form.logo}
                       alt="Logo Preview"
-                      className="w-12 h-12 rounded-xl object-contain border border-slate-200 bg-slate-50 p-1"
+                      className="w-12 h-12 rounded-xl object-contain border border-slate-700 bg-white p-1"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs">
+                    <div className="w-12 h-12 rounded-xl bg-slate-950 border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs">
                       شعار
                     </div>
                   )}
@@ -604,62 +564,128 @@ export default function SuperAdminPage() {
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleLogoUpload(e, false)}
-                    className="text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/20 file:text-blue-300 hover:file:bg-blue-600/30"
                   />
                 </div>
               </div>
 
-              {/* Manager Details & Credentials Section */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              {/* Feature Modules Selection */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="text-xs font-bold text-white flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    الوحدات والمزايا المتاحة للنشاط (Feature Modules)
+                  </span>
+                  <span className="text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                    تخصيص الميزات
+                  </span>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  {/* Clinical Capsule */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">💊</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">الكبسولة الدوائية والذكاء السريري</div>
+                        <div className="text-[10px] text-slate-400">مسح باركود الأدوية، مونوغرافات BNF 83، والتحذيرات السريرية</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.hasClinicalCapsule}
+                      onChange={(e) => setForm({ ...form, hasClinicalCapsule: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+
+                  {/* Inventory & Shortages */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">📦</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">إدارة المخزون وتتبع النواقص</div>
+                        <div className="text-[10px] text-slate-400">جرد الأصناف، تنبيهات الصلاحيات، واستخراج نواقص واتساب</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.hasInventory}
+                      onChange={(e) => setForm({ ...form, hasInventory: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+
+                  {/* Purchasing & Orders */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-purple-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">🛒</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">المشتريات وأوامر التوريد والموردين</div>
+                        <div className="text-[10px] text-slate-400">إنشاء طلبيات الشراء، تصدير PDF، وتتبع حسابات الموردين</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.hasPurchases}
+                      onChange={(e) => setForm({ ...form, hasPurchases: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Manager Details Section */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   بيانات وحساب المدير الأولي للدخول
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">اسم المدير المسئول</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">اسم المدير المسئول</label>
                     <input
                       type="text"
                       placeholder="د. محمد"
                       value={form.managerName}
                       onChange={(e) => setForm({ ...form, managerName: e.target.value })}
-                      className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                      className="w-full h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">رقم هاتف المدير (واتساب)</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">رقم هاتف المدير (واتساب)</label>
                     <input
                       type="text"
                       placeholder="0910000000"
                       value={form.managerPhone}
                       onChange={(e) => setForm({ ...form, managerPhone: e.target.value })}
-                      className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white font-mono"
+                      className="w-full h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl text-sm font-mono text-white"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">رقم الموظف للمدير (ID) *</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">رقم الموظف للمدير (ID) *</label>
                     <input
                       type="text"
                       required
                       placeholder="101"
                       value={form.managerEmployeeCode}
                       onChange={(e) => setForm({ ...form, managerEmployeeCode: e.target.value })}
-                      className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white font-mono font-bold"
+                      className="w-full h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl text-sm font-mono font-bold text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">الرقم السري (PIN) *</label>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">الرقم السري (PIN) *</label>
                     <input
                       type="text"
                       required
                       placeholder="1234"
                       value={form.managerPinCode}
                       onChange={(e) => setForm({ ...form, managerPinCode: e.target.value })}
-                      className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white font-mono font-bold"
+                      className="w-full h-11 px-3 bg-slate-900 border border-slate-800 rounded-xl text-sm font-mono font-bold text-white"
                     />
                   </div>
                 </div>
@@ -667,7 +693,7 @@ export default function SuperAdminPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">باقة الاشتراك</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">باقة الاشتراك</label>
                   <select
                     value={form.planId}
                     onChange={(e) => {
@@ -681,7 +707,7 @@ export default function SuperAdminPage() {
                             : selectedPlan?.priceMonthly || 0,
                       });
                     }}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                   >
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -692,7 +718,7 @@ export default function SuperAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">دورة الفوترة</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">دورة الفوترة</label>
                   <select
                     value={form.billingCycle}
                     onChange={(e) => {
@@ -707,7 +733,7 @@ export default function SuperAdminPage() {
                             : selectedPlan?.priceMonthly || 0,
                       });
                     }}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                   >
                     <option value="MONTHLY">شهري</option>
                     <option value="YEARLY">سنوي (خصم خاص)</option>
@@ -716,29 +742,29 @@ export default function SuperAdminPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   المبلغ المدفوع عند التأسيس (د.ل)
                 </label>
                 <input
                   type="number"
                   value={form.amountPaid}
                   onChange={(e) => setForm({ ...form, amountPaid: parseFloat(e.target.value) || 0 })}
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white font-mono"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="h-11 px-4 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium cursor-pointer"
+                  className="h-11 px-4 text-slate-400 hover:bg-slate-800 rounded-xl text-sm font-medium cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm cursor-pointer"
+                  className="h-11 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium shadow-sm cursor-pointer"
                 >
                   {submitting ? 'جاري التأسيس والربط...' : 'تأسيس النشاط والربط الفوري 🚀'}
                 </button>
@@ -748,18 +774,18 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* Edit Tenant & Logo Modal */}
+      {/* Edit Tenant & Features Modal */}
       {isEditModalOpen && editingTenant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 text-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">تعديل النشاط والرابط</h3>
+                <h3 className="text-lg font-bold text-white">تعديل النشاط والمزايا والرابط</h3>
                 <p className="text-xs text-slate-400 mt-0.5">{editingTenant.name}</p>
               </div>
               <button
                 onClick={() => setIsEditModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold cursor-pointer"
+                className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -767,19 +793,19 @@ export default function SuperAdminPage() {
 
             <form onSubmit={handleUpdateTenant} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">اسم النشاط التجاري *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">اسم النشاط التجاري *</label>
                 <input
                   type="text"
                   required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                 />
               </div>
 
               {/* Edit Subdomain Slug */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   رابط النشاط والنطاق الفرعي (Subdomain Slug) *
                 </label>
                 <div className="flex items-center">
@@ -794,9 +820,9 @@ export default function SuperAdminPage() {
                         slug: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''),
                       })
                     }
-                    className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                   />
-                  <span className="h-11 px-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-xs text-slate-500 flex items-center font-mono">
+                  <span className="h-11 px-3 bg-slate-800 border border-r-0 border-slate-700 rounded-l-xl text-xs text-slate-300 flex items-center font-mono">
                     .mtapp.ly
                   </span>
                 </div>
@@ -805,7 +831,7 @@ export default function SuperAdminPage() {
 
               {/* Edit Custom Domain */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
                   نطاق مخصص إضافي (Custom Domain - اختياري)
                 </label>
                 <input
@@ -813,22 +839,22 @@ export default function SuperAdminPage() {
                   placeholder="مثلاً: at.mycompany.com"
                   value={editForm.customDomain}
                   onChange={(e) => setEditForm({ ...editForm, customDomain: e.target.value })}
-                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm font-mono text-white"
                 />
               </div>
 
               {/* Logo Upload */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">شعار ورمز التطبيق (Logo Icon)</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">شعار ورمز التطبيق (Logo Icon)</label>
                 <div className="flex items-center gap-3">
                   {editForm.logo ? (
                     <img
                       src={editForm.logo}
                       alt="Logo Preview"
-                      className="w-14 h-14 rounded-2xl object-contain border border-slate-200 bg-slate-50 p-1 shadow-sm"
+                      className="w-14 h-14 rounded-2xl object-contain border border-slate-700 bg-white p-1 shadow-sm"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400 text-xs">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-950 border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-xs">
                       بدون شعار
                     </div>
                   )}
@@ -837,41 +863,107 @@ export default function SuperAdminPage() {
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleLogoUpload(e, true)}
-                      className="text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/20 file:text-blue-300 hover:file:bg-blue-600/30"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">يظهر الشعار كأيقونة رئيسية للتطبيق في صفحة تسجيل الدخول واللوحة</p>
+                    <p className="text-[11px] text-slate-400 mt-1">يظهر الشعار كأيقونة رئيسية للتطبيق في صفحة الدخول واللوحة</p>
                   </div>
                 </div>
               </div>
 
+              {/* Feature Modules Selection */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="text-xs font-bold text-white flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    الوحدات والمزايا المتاحة للنشاط
+                  </span>
+                  <span className="text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                    تفعيل / تعطيل
+                  </span>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  {/* Clinical Capsule */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">💊</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">الكبسولة الدوائية والذكاء السريري</div>
+                        <div className="text-[10px] text-slate-400">مسح باركود الأدوية، مونوغرافات BNF 83، والتحذيرات السريرية</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.hasClinicalCapsule}
+                      onChange={(e) => setEditForm({ ...editForm, hasClinicalCapsule: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+
+                  {/* Inventory & Shortages */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">📦</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">إدارة المخزون وتتبع النواقص</div>
+                        <div className="text-[10px] text-slate-400">جرد الأصناف، تنبيهات الصلاحيات، واستخراج نواقص واتساب</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.hasInventory}
+                      onChange={(e) => setEditForm({ ...editForm, hasInventory: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+
+                  {/* Purchasing & Orders */}
+                  <label className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 hover:border-purple-500/40 transition cursor-pointer">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">🛒</span>
+                      <div>
+                        <div className="text-xs font-bold text-slate-100">المشتريات وأوامر التوريد والموردين</div>
+                        <div className="text-[10px] text-slate-400">إنشاء طلبيات الشراء، تصدير PDF، وتتبع حسابات الموردين</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.hasPurchases}
+                      onChange={(e) => setEditForm({ ...editForm, hasPurchases: e.target.checked })}
+                      className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">اسم المدير</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">اسم المدير</label>
                   <input
                     type="text"
                     value={editForm.managerName}
                     onChange={(e) => setEditForm({ ...editForm, managerName: e.target.value })}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">رقم الهاتف</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">رقم الهاتف</label>
                   <input
                     type="text"
                     value={editForm.managerPhone}
                     onChange={(e) => setEditForm({ ...editForm, managerPhone: e.target.value })}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm font-mono"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm font-mono text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">باقة الاشتراك</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">باقة الاشتراك</label>
                   <select
                     value={editForm.planId}
                     onChange={(e) => setEditForm({ ...editForm, planId: e.target.value })}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                   >
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -882,11 +974,11 @@ export default function SuperAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">حالة النشاط</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">حالة النشاط</label>
                   <select
                     value={editForm.status}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
-                    className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm bg-white"
+                    className="w-full h-11 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white"
                   >
                     <option value="ACTIVE">نشط (Active)</option>
                     <option value="TRIAL">فترة تجريبية (Trial)</option>
@@ -896,18 +988,18 @@ export default function SuperAdminPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="h-11 px-4 text-slate-600 hover:bg-slate-100 rounded-xl text-sm font-medium cursor-pointer"
+                  className="h-11 px-4 text-slate-400 hover:bg-slate-800 rounded-xl text-sm font-medium cursor-pointer"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="h-11 px-6 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm cursor-pointer"
+                  className="h-11 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium shadow-sm cursor-pointer"
                 >
                   {submitting ? 'جاري الحفظ...' : 'حفظ التعديلات والشعار'}
                 </button>
@@ -919,20 +1011,20 @@ export default function SuperAdminPage() {
 
       {/* Success Credentials Card Modal */}
       {createdCredentials && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 text-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-800 space-y-5">
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto text-2xl font-bold">
+              <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-2xl font-bold border border-emerald-500/30">
                 ✓
               </div>
-              <h3 className="text-xl font-bold text-slate-900">تم تأسيس وربط النشاط بنجاح!</h3>
-              <p className="text-xs text-slate-500">تم إنشاء بيئة العمل ورابط الدخول وحساب المدير فورياً</p>
+              <h3 className="text-xl font-bold text-white">تم تأسيس وربط النشاط بنجاح!</h3>
+              <p className="text-xs text-slate-400">تم إنشاء بيئة العمل وتحديد المزايا ورابط الدخول وحساب المدير فورياً</p>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 font-mono text-sm">
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 font-mono text-sm">
               <div>
                 <span className="text-xs text-slate-400 block font-cairo">اسم النشاط:</span>
-                <span className="font-bold text-slate-900 font-cairo">{createdCredentials.name}</span>
+                <span className="font-bold text-white font-cairo">{createdCredentials.name}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-400 block font-cairo">رابط الدخول المباشر:</span>
@@ -940,51 +1032,33 @@ export default function SuperAdminPage() {
                   href={createdCredentials.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 font-bold hover:underline break-all"
+                  className="text-blue-400 font-bold hover:underline break-all"
                 >
                   {createdCredentials.url} ↗
                 </a>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
                 <div>
                   <span className="text-xs text-slate-400 block font-cairo">رقم الموظف (ID):</span>
-                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded inline-block mt-0.5">
-                    {createdCredentials.employeeCode}
-                  </span>
+                  <span className="text-blue-400 font-bold text-base">{createdCredentials.employeeCode}</span>
                 </div>
                 <div>
                   <span className="text-xs text-slate-400 block font-cairo">الرقم السري (PIN):</span>
-                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded inline-block mt-0.5">
-                    {createdCredentials.pinCode}
-                  </span>
+                  <span className="text-emerald-400 font-bold text-base">{createdCredentials.pinCode}</span>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={copyCredentialsToClipboard}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition"
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/30"
               >
-                {copied ? '✓ تم النسخ بنجاح!' : '📋 نسخ رسالة بيانات الدخول'}
+                {copied ? '✓ تم النسخ للحافظة!' : '📋 نسخ بيانات الدخول للعميل (واتساب)'}
               </button>
-
-              {createdCredentials.managerPhone && (
-                <a
-                  href={`https://wa.me/${createdCredentials.managerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                    `مرحباً بكم في منظومة حضورك السحابية 🌟\n\n🏢 اسم النشاط: ${createdCredentials.name}\n🌐 رابط الدخول المباشر: ${createdCredentials.url}\n👤 رقم الموظف (ID): ${createdCredentials.employeeCode}\n🔐 الرقم السري (PIN): ${createdCredentials.pinCode}\n\nنتمنى لكم تجربة عمل متميزة! 🚀`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition"
-                >
-                  💬 إرسال البيانات عبر واتساب للمدير
-                </a>
-              )}
-
               <button
                 onClick={() => setCreatedCredentials(null)}
-                className="w-full h-10 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-semibold cursor-pointer"
+                className="h-11 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer"
               >
                 إغلاق
               </button>

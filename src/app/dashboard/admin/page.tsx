@@ -90,10 +90,20 @@ export default function AdminDashboard() {
   const [empRate, setEmpRate] = useState('50');
   const [userMsg, setUserMsg] = useState<string | null>(null);
 
-  const [tenantInfo, setTenantInfo] = useState<{ name: string; logo: string | null; slug: string }>({
+  const [tenantInfo, setTenantInfo] = useState<{
+    name: string;
+    logo: string | null;
+    slug: string;
+    hasClinicalCapsule?: boolean;
+    hasInventory?: boolean;
+    hasPurchases?: boolean;
+  }>({
     name: '',
     logo: null,
     slug: '',
+    hasClinicalCapsule: true,
+    hasInventory: true,
+    hasPurchases: true,
   });
 
   const fetchDashboardData = async () => {
@@ -111,6 +121,9 @@ export default function AdminDashboard() {
           name: tenantRes.tenant.name || '',
           logo: tenantRes.tenant.logo || null,
           slug: tenantRes.tenant.slug || '',
+          hasClinicalCapsule: tenantRes.tenant.hasClinicalCapsule !== false,
+          hasInventory: tenantRes.tenant.hasInventory !== false,
+          hasPurchases: tenantRes.tenant.hasPurchases !== false,
         });
       }
 
@@ -790,42 +803,46 @@ export default function AdminDashboard() {
           </button>
 
           {/* Clinical Drug Capsule Button */}
-          <button
-            onClick={() => { setIsClinicalModalOpen(true); setMobileSidebarOpen(false); }}
-            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
-              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
-            } bg-teal-600/20 border-teal-500/40 text-teal-300 hover:bg-teal-600 hover:text-white shadow-sm`}
-            title="الكبسولة الدوائية والتدريب السريري الذكي للموظفين"
-          >
-            <Pill className="w-5 h-5 shrink-0 text-teal-400" />
-            {!sidebarCollapsed && (
-              <>
-                <span className="flex-1 text-right truncate">الكبسولة الدوائية والتدريب</span>
-                <span className="px-2 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold">
-                  سريري 💊
-                </span>
-              </>
-            )}
-          </button>
+          {tenantInfo.hasClinicalCapsule !== false && (
+            <button
+              onClick={() => { setIsClinicalModalOpen(true); setMobileSidebarOpen(false); }}
+              className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+                sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+              } bg-teal-600/20 border-teal-500/40 text-teal-300 hover:bg-teal-600 hover:text-white shadow-sm`}
+              title="الكبسولة الدوائية والتدريب السريري الذكي للموظفين"
+            >
+              <Pill className="w-5 h-5 shrink-0 text-teal-400" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="flex-1 text-right truncate">الكبسولة الدوائية والتدريب</span>
+                  <span className="px-2 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold">
+                    سريري 💊
+                  </span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Pharmacy Portal Link */}
-          <button
-            onClick={() => router.push('/pharmacy')}
-            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
-              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
-            } bg-emerald-950/60 border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/80 hover:text-white hover:border-emerald-500`}
-            title="منظومة المشتريات والمخزون الصيدلاني"
-          >
-            <Package className="w-5 h-5 shrink-0 text-emerald-400" />
-            {!sidebarCollapsed && (
-              <>
-                <span className="flex-1 text-right truncate">المشتريات والمخزون</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30">
-                  صيدلية 🌿
-                </span>
-              </>
-            )}
-          </button>
+          {(tenantInfo.hasInventory !== false || tenantInfo.hasPurchases !== false) && (
+            <button
+              onClick={() => router.push('/pharmacy')}
+              className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+                sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+              } bg-emerald-950/60 border-emerald-700/40 text-emerald-300 hover:bg-emerald-900/80 hover:text-white hover:border-emerald-500`}
+              title="منظومة المشتريات والمخزون الصيدلاني"
+            >
+              <Package className="w-5 h-5 shrink-0 text-emerald-400" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="flex-1 text-right truncate">المشتريات والمخزون</span>
+                  <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/30">
+                    صيدلية 🌿
+                  </span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Sidebar Footer: User profile & Logout */}

@@ -65,6 +65,11 @@ model Tenant {
   plan             SubscriptionPlan? @relation(fields: [planId], references: [id])
   subscriptions    Subscription[]
 
+  // المزايا والوحدات القابلة للتفعيل
+  hasClinicalCapsule Boolean           @default(true) // الكبسولة الدوائية والذكاء السريري
+  hasInventory       Boolean           @default(true) // إدارة المخزون والنواقص
+  hasPurchases       Boolean           @default(true) // أوامر الشراء وإدارة الموردين
+
   // العلاقات مع بيانات النشاط التجاري
   companySettings  CompanySettings?
   users            User[]

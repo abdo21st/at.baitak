@@ -42,6 +42,9 @@ export async function GET(req: NextRequest) {
           slug: true,
           logo: true,
           status: true,
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
         },
       });
     }
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
           OR: [
             { id: 'default-tenant' },
             { slug: 'baytak' },
+            { slug: 'at.baitak' },
           ],
         },
         select: {
@@ -61,6 +65,9 @@ export async function GET(req: NextRequest) {
           slug: true,
           logo: true,
           status: true,
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
         },
       });
     }
@@ -73,6 +80,9 @@ export async function GET(req: NextRequest) {
         slug: 'baytak',
         logo: null,
         status: 'ACTIVE',
+        hasClinicalCapsule: true,
+        hasInventory: true,
+        hasPurchases: true,
       },
     });
   } catch (error: any) {
@@ -85,6 +95,9 @@ export async function GET(req: NextRequest) {
           slug: 'baytak',
           logo: null,
           status: 'ACTIVE',
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
         },
         error: error.message,
       },
