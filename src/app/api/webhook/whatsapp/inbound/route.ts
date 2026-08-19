@@ -27,16 +27,38 @@ export async function POST(req: NextRequest) {
       const p = rawBody.payload || rawBody;
       messageText = p.body || p.text || p.caption || '';
       chatId = p.from || p.chatId || '';
-      senderName = p.pushName || p._data?.notifyName || 'صيدلي / عضو المجموعة';
+      senderName = p.pushName || p._data?.notifyName || 'صيدلي بيتك';
       senderPhone = (p.from || '').replace(/[^0-9]/g, '');
-      if (chatId.includes('@g.us')) {
-        groupName = p._data?.chat?.name || p.groupName || 'مجموعة نواقص وطلبيات الواتساب';
-      }
+      groupName = p._data?.chat?.name || p.groupName || 'صيدلية بيتك';
 
       // Check for attached photo / media
       if (p.hasMedia || p.media || p.mimetype?.startsWith('image/') || p.type === 'image') {
         mediaType = 'IMAGE';
-        imageUrl = p.mediaUrl || p.media?.url || (p.media?.data ? `data:${p.media.mimetype || 'image/jpeg'};base64,${p.media.data}` : null);
+        const rawMediaUrl = p.mediaUrl || p.media?.url || (p.media?.filename ? `http://127.0.0.1:3000/api/files/default/${p.media.filename}` : null);
+        
+        if (p.media?.data) {
+          imageUrl = `data:${p.media.mimetype || 'image/jpeg'};base64,${p.media.data}`;
+        } else if (rawMediaUrl) {
+          try {
+            // Convert remote WAHA file URL to self-contained Base64
+            const wahaApiKey = process.env.WAHA_API_KEY || 'hodoork_waha_secure_2026';
+            const fetchUrl = rawMediaUrl.replace('127.0.0.1:3000', '102.203.201.52:3008').replace('localhost:3000', '102.203.201.52:3008');
+            const imgRes = await fetch(fetchUrl, {
+              headers: { 'X-Api-Key': wahaApiKey }
+            });
+            if (imgRes.ok) {
+              const arrayBuffer = await imgRes.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              const mime = imgRes.headers.get('content-type') || 'image/jpeg';
+              imageUrl = `data:${mime};base64,${buffer.toString('base64')}`;
+            } else {
+              imageUrl = rawMediaUrl;
+            }
+          } catch (e) {
+            imageUrl = rawMediaUrl;
+          }
+        }
+
         if (!messageText && p.caption) {
           messageText = p.caption;
         }
@@ -46,40 +68,18 @@ export async function POST(req: NextRequest) {
     else if (rawBody.message || rawBody.text || rawBody.imageUrl) {
       messageText = rawBody.message || rawBody.text || '';
       chatId = rawBody.chatId || rawBody.from || '';
-      groupName = rawBody.groupName || 'مجموعة نواقص الواتساب';
+      groupName = rawBody.groupName || 'صيدلية بيتك';
       senderName = rawBody.senderName || rawBody.name || 'صيدلي';
       senderPhone = rawBody.senderPhone || rawBody.phone || '';
       imageUrl = rawBody.imageUrl || rawBody.photo || null;
       if (imageUrl) mediaType = 'IMAGE';
     }
 
-    // 1.5 Strict Group Filtering: Accept ONLY messages from "صيدلية بيتك" (Baitak Pharmacy)
-    const allowedGroupKeywords = ['صيدلية بيتك', 'بيتك', 'baitak'];
-    const normalizedGroupName = (groupName || '').toLowerCase().trim();
-    
-    // Check if the group name matches "صيدلية بيتك"
-    const isFromTargetGroup = allowedGroupKeywords.some(kw => 
-      normalizedGroupName.includes(kw.toLowerCase())
-    );
+    // Always associate group messages with "صيدلية بيتك"
+    groupName = 'صيدلية بيتك';
 
-    // If message is from a WhatsApp group (chatId contains @g.us) and not from "صيدلية بيتك", ignore it
-    if (chatId.includes('@g.us') && !isFromTargetGroup) {
-      return NextResponse.json({
-        success: true,
-        ignored: true,
-        reason: 'GROUP_FILTERED_OUT',
-        message: `تم تجاهل الرسالة لأنها واردة من (${groupName}) وليست من مجموعة [صيدلية بيتك] 🔒`,
-        storedCount: 0
-      });
-    }
-
-    // Ensure groupName displays as "صيدلية بيتك" if matched or general
-    if (!groupName || groupName === 'مجموعة الصيدلية' || groupName === 'مجموعة نواقص الواتساب') {
-      groupName = 'صيدلية بيتك';
-    }
-
-    // If message is an image without caption, create a visual review shortage record
-    if (!messageText || !messageText.trim()) {
+    // If message is an image without caption or with general comment
+    if (!messageText || !messageText.trim() || messageText.includes('نجرب') || messageText.includes('تجربة')) {
       if (imageUrl) {
         const imageRecord = await prisma.whatsAppShortageRequest.create({
           data: {
@@ -87,15 +87,15 @@ export async function POST(req: NextRequest) {
             groupName,
             senderName,
             senderPhone,
-            rawMessage: '[صورة دواء / روشتة مرفقة من الواتساب]',
-            productName: `صورة مرفقة (${senderName})`,
-            requestedQty: 1,
-            unit: 'صورة',
+            rawMessage: messageText || '[صورة علبة دواء / روشتة مرفقة من مجموعة صيدلية بيتك]',
+            productName: `صورة دواء مرفقة (${senderName})`,
+            requestedQty: 10,
+            unit: 'عبوة',
             urgency: 'HIGH',
             status: 'PENDING',
             imageUrl,
             mediaType: 'IMAGE',
-            notes: 'تم استلام صورة من المجموعة تحتاج لمراجعة الصيدلي'
+            notes: 'تم استلام صورة علبة دواء من مجموعة صيدلية بيتك للمراجعة السريرية 📸'
           }
         });
 
@@ -107,7 +107,9 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return NextResponse.json({ success: false, error: 'لم يتم استلام أي نص أو صورة' }, { status: 400 });
+      if (!messageText || !messageText.trim()) {
+        return NextResponse.json({ success: false, error: 'لم يتم استلام أي نص أو صورة' }, { status: 400 });
+      }
     }
 
     // 2. Parse shortage items using clinical NLP parser
@@ -123,13 +125,13 @@ export async function POST(req: NextRequest) {
             senderPhone,
             rawMessage: messageText,
             productName: messageText.slice(0, 50),
-            requestedQty: 1,
+            requestedQty: 10,
             unit: 'عبوة',
             urgency: 'HIGH',
             status: 'PENDING',
             imageUrl,
             mediaType: 'IMAGE',
-            notes: 'صورة مع تعليق نصي'
+            notes: 'صورة صنف مع تعليق نصي'
           }
         });
         return NextResponse.json({
