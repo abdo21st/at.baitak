@@ -118,11 +118,11 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH: تحديث بيانات وشعار نشاط تجاري قائم
+// PATCH: تحديث بيانات ورابط وشعار نشاط تجاري قائم
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, slug, logo, planId, managerName, managerPhone, phone, status } = body;
+    const { id, name, slug, customDomain, logo, planId, managerName, managerPhone, phone, status } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -131,11 +131,25 @@ export async function PATCH(req: Request) {
       );
     }
 
+    if (slug) {
+      const cleanSlug = slug.toLowerCase().trim();
+      const existing = await prisma.tenant.findFirst({
+        where: { slug: cleanSlug, NOT: { id } },
+      });
+      if (existing) {
+        return NextResponse.json(
+          { success: false, error: 'هذا الرابط / النطاق الفرعي مستخدم بالفعل من قبل نشاط تجاري آخر' },
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await prisma.tenant.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(slug !== undefined && { slug: slug.toLowerCase().trim() }),
+        ...(customDomain !== undefined && { customDomain: customDomain ? customDomain.trim().toLowerCase() : null }),
         ...(logo !== undefined && { logo }),
         ...(planId !== undefined && { planId }),
         ...(managerName !== undefined && { managerName }),

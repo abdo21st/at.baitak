@@ -73,6 +73,7 @@ export default function SuperAdminPage() {
   const [editForm, setEditForm] = useState({
     name: '',
     slug: '',
+    customDomain: '',
     logo: '',
     planId: '',
     managerName: '',
@@ -160,6 +161,7 @@ export default function SuperAdminPage() {
     setEditForm({
       name: tenant.name,
       slug: tenant.slug,
+      customDomain: (tenant as any).customDomain || '',
       logo: tenant.logo || '',
       planId: tenant.plan?.id || '',
       managerName: tenant.managerName || '',
@@ -465,9 +467,9 @@ export default function SuperAdminPage() {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => openEditModal(tenant)}
-                            className="h-8 px-3 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition"
+                            className="h-8 px-3 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition flex items-center gap-1"
                           >
-                            تعديل الشعار ✏️
+                            تعديل النشاط والرابط ✏️
                           </button>
                           <a
                             href={`https://${tenant.slug}.mtapp.ly`}
@@ -688,13 +690,53 @@ export default function SuperAdminPage() {
 
             <form onSubmit={handleUpdateTenant} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">اسم النشاط التجاري</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">اسم النشاط التجاري *</label>
                 <input
                   type="text"
                   required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm"
+                />
+              </div>
+
+              {/* Edit Subdomain Slug */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  رابط النشاط والنطاق الفرعي (Subdomain Slug) *
+                </label>
+                <div className="flex items-center">
+                  <input
+                    type="text"
+                    required
+                    placeholder="baytak"
+                    value={editForm.slug}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                      })
+                    }
+                    className="w-full h-11 px-3 border border-slate-200 rounded-r-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="h-11 px-3 bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl text-xs text-slate-500 flex items-center font-mono">
+                    .mtapp.ly
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">الرابط المباشر: https://{editForm.slug || '...'}.mtapp.ly</p>
+              </div>
+
+              {/* Edit Custom Domain */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  نطاق مخصص إضافي (Custom Domain - اختياري)
+                </label>
+                <input
+                  type="text"
+                  placeholder="مثلاً: at.mycompany.com"
+                  value={editForm.customDomain}
+                  onChange={(e) => setEditForm({ ...editForm, customDomain: e.target.value })}
+                  className="w-full h-11 px-3 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
