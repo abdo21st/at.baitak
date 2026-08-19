@@ -208,12 +208,17 @@ export default function ClinicalCapsuleModal({
     }
   }, [departments, selectedDeptId]);
 
-  // Helper to check if a product matches any of its multiple barcodes
+  // Helper to check if a product matches any of its multiple barcodes or text search
   const checkProductMatchesBarcode = useCallback((p: any, query: string): boolean => {
     if (!query || !p) return false;
     const rawQ = query.trim().toLowerCase();
+    if (!rawQ) return false;
+
+    // تمييز ما إذا كان الإدخال باركود رقمي ممسوح (4 إلى 16 رقماً)
+    const isNumericScan = /^\d{4,16}$/.test(rawQ);
     const qNoZero = rawQ.replace(/^0+/, '');
 
+    // جمع كافة الباركودات المسجلة للصنف
     const rawBarcodes = `${p.barcodes || ''},${p.barcode || ''},${p.code || ''},${p.productCode || ''}`;
     const tokens = rawBarcodes
       .split(/[\s,;|/]+/)
@@ -222,13 +227,24 @@ export default function ClinicalCapsuleModal({
 
     for (const token of tokens) {
       const tokenNoZero = token.replace(/^0+/, '');
-      if (token === rawQ || (tokenNoZero && tokenNoZero === qNoZero)) return true;
-      if (rawQ.length >= 6 && (token.includes(rawQ) || rawQ.includes(token))) return true;
+      // 1. تطابق تام مع الباركود أو الكود
+      if (token === rawQ) return true;
+      // 2. تطابق مع تجاهل الأصفار البادئة
+      if (tokenNoZero && tokenNoZero === qNoZero) return true;
+      // 3. إذا كان كلاهما باركود دولي كامل (8 أرقام فأكثر) وتطابق
+      if (token.length >= 8 && rawQ.length >= 8 && (token === rawQ || tokenNoZero === qNoZero)) return true;
     }
 
+    // إذا كان الإدخال باركود رقمي بحت من الماسح/الكاميرا، نمنع المطابقة النصية الجزئية منعاً للخلط بين الأصناف
+    if (isNumericScan) {
+      return false;
+    }
+
+    // البحث النصي العادي (الاسم التجاري أو التركيبة العلمية أو الفئة)
     const name = (p.name || p.productName || '').toLowerCase();
     const sci = (p.scientificName || p.activeIngredient || '').toLowerCase();
-    if (name.includes(rawQ) || sci.includes(rawQ)) return true;
+    const cat = (p.category || p.subCategory || '').toLowerCase();
+    if (name.includes(rawQ) || sci.includes(rawQ) || cat.includes(rawQ)) return true;
 
     return false;
   }, []);

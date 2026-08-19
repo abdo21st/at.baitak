@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
         code: p.productCode,
         barcodes: p.barcodes || p.productCode || '',
         name: p.productName,
+        scientificName: p.activeIngredient || '',
         stockOnHand: Number(p.stockOnHand),
         minStockLevel: Number(p.minStockLevel),
         maxStockLevel: Number(p.maxStockLevel),

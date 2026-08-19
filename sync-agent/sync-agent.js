@@ -272,6 +272,19 @@ async function performSync(forceFullSync = false) {
         p.ProductID_PK AS id,
         p.ProductCode AS code,
         p.ProductName AS name,
+        COALESCE(
+          (
+            SELECT STUFF((
+              SELECT DISTINCT ',' + LTRIM(RTRIM(CAST(b.BarCode AS VARCHAR(100))))
+              FROM (
+                SELECT du.BarCode FROM Inventory.Data_ProductUOMs du WHERE du.ProductID_FK = p.ProductID_PK AND du.BarCode IS NOT NULL AND LEN(LTRIM(RTRIM(du.BarCode))) > 0
+                UNION
+                SELECT p.ProductCode
+              ) b
+              FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '')
+          ),
+          p.ProductCode
+        ) AS barcodes,
         p.StockOnHand AS stockOnHand,
         p.MinStockLevel AS minStockLevel,
         p.MaxStockLevel AS maxStockLevel,

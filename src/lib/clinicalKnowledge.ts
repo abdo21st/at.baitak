@@ -703,19 +703,19 @@ ${warningsAndContraindications.map((w) => `• ${w}`).join('\n')}
 }
 
 export const DEFAULT_CLINICAL_PRODUCTS: ClinicalProductInput[] = [
-  { id: '1', name: 'Colona 30tab*3 Egept', scientificName: 'Mebeverine HCl 100mg + Sulpiride 25mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 35, sellPrice: 28.0 },
-  { id: '2', name: '1000mg/200mg amoxicillina/acid clavulanico kabi france', scientificName: 'Amoxicillin + Clavulanic Acid 1g', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 42, sellPrice: 38.0 },
-  { id: '3', name: '1, 2, 3 Cold & Flu Syrup', scientificName: 'Paracetamol + Pseudoephedrine + Chlorpheniramine', dosageForm: 'Syrup', category: 'MEDICINES', stockOnHand: 45, sellPrice: 8.5 },
-  { id: '4', name: 'Aulin 100mg sospension (Nimesulide)', scientificName: 'Nimesulide 100mg', dosageForm: 'Suspension', category: 'MEDICINES', stockOnHand: 28, sellPrice: 24.0 },
-  { id: '5', name: 'Nexium 40mg Tab (Esomeprazole)', scientificName: 'Esomeprazole 40mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 24, sellPrice: 48.0 },
-  { id: '6', name: 'Glucophage 500mg (Metformin)', scientificName: 'Metformin HCl 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 35, sellPrice: 15.5 },
-  { id: '7', name: 'Lipitor 20mg (Atorvastatin)', scientificName: 'Atorvastatin 20mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 18, sellPrice: 52.0 },
-  { id: '8', name: 'Concor 5mg (Bisoprolol)', scientificName: 'Bisoprolol Fumarate 5mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 28, sellPrice: 26.0 },
-  { id: '9', name: 'Voltaren 50mg (Diclofenac Sodium)', scientificName: 'Diclofenac Sodium 50mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 50, sellPrice: 18.0 },
-  { id: '10', name: 'Panadol Extra Tab (Paracetamol + Caffeine)', scientificName: 'Paracetamol 500mg + Caffeine 65mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 65, sellPrice: 12.0 },
-  { id: '11', name: 'Antinal 200mg (Nifuroxazide)', scientificName: 'Nifuroxazide 200mg', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 40, sellPrice: 16.0 },
-  { id: '12', name: 'Rowatinex Caps (Urinary Spasmolytic)', scientificName: 'Essential Terpenes', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 30, sellPrice: 22.0 },
-  { id: '13', name: 'Daflon 500mg (Diosmin + Hesperidin)', scientificName: 'Micronized Flavonoids 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 32, sellPrice: 36.0 },
-  { id: '14', name: 'Duspatalin 200mg Retard (Mebeverine)', scientificName: 'Mebeverine HCl 200mg', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 26, sellPrice: 35.0 },
-  { id: '15', name: 'Xarelto 20mg Tab (Rivaroxaban)', scientificName: 'Rivaroxaban 20mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 10, sellPrice: 180.0 }
+  { id: 'DEMO-COLONA', name: 'Colona 30tab*3 Egept', scientificName: 'Mebeverine HCl 100mg + Sulpiride 25mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 35, sellPrice: 28.0 },
+  { id: 'DEMO-AMOX', name: '1000mg/200mg amoxicillina/acid clavulanico kabi france', scientificName: 'Amoxicillin + Clavulanic Acid 1g', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 42, sellPrice: 38.0 },
+  { id: 'DEMO-123', name: '1, 2, 3 Cold & Flu Syrup', scientificName: 'Paracetamol + Pseudoephedrine + Chlorpheniramine', dosageForm: 'Syrup', category: 'MEDICINES', stockOnHand: 45, sellPrice: 8.5 },
+  { id: 'DEMO-AULIN', name: 'Aulin 100mg sospension (Nimesulide)', scientificName: 'Nimesulide 100mg', dosageForm: 'Suspension', category: 'MEDICINES', stockOnHand: 28, sellPrice: 24.0 },
+  { id: 'DEMO-NEXIUM', name: 'Nexium 40mg Tab (Esomeprazole)', scientificName: 'Esomeprazole 40mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 24, sellPrice: 48.0 },
+  { id: 'DEMO-GLUCO', name: 'Glucophage 500mg (Metformin)', scientificName: 'Metformin HCl 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 35, sellPrice: 15.5 },
+  { id: 'DEMO-LIPITOR', name: 'Lipitor 20mg (Atorvastatin)', scientificName: 'Atorvastatin 20mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 18, sellPrice: 52.0 },
+  { id: 'DEMO-CONCOR', name: 'Concor 5mg (Bisoprolol)', scientificName: 'Bisoprolol Fumarate 5mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 28, sellPrice: 26.0 },
+  { id: 'DEMO-VOLTAREN', name: 'Voltaren 50mg (Diclofenac Sodium)', scientificName: 'Diclofenac Sodium 50mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 50, sellPrice: 18.0 },
+  { id: 'DEMO-PANADOL', name: 'Panadol Extra Tab (Paracetamol + Caffeine)', scientificName: 'Paracetamol 500mg + Caffeine 65mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 65, sellPrice: 12.0 },
+  { id: 'DEMO-ANTINAL', name: 'Antinal 200mg (Nifuroxazide)', scientificName: 'Nifuroxazide 200mg', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 40, sellPrice: 16.0 },
+  { id: 'DEMO-ROWATINEX', name: 'Rowatinex Caps (Urinary Spasmolytic)', scientificName: 'Essential Terpenes', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 30, sellPrice: 22.0 },
+  { id: 'DEMO-DAFLON', name: 'Daflon 500mg (Diosmin + Hesperidin)', scientificName: 'Micronized Flavonoids 500mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 32, sellPrice: 36.0 },
+  { id: 'DEMO-DUSPATALIN', name: 'Duspatalin 200mg Retard (Mebeverine)', scientificName: 'Mebeverine HCl 200mg', dosageForm: 'Capsules', category: 'MEDICINES', stockOnHand: 26, sellPrice: 35.0 },
+  { id: 'DEMO-XARELTO', name: 'Xarelto 20mg Tab (Rivaroxaban)', scientificName: 'Rivaroxaban 20mg', dosageForm: 'Tablets', category: 'MEDICINES', stockOnHand: 10, sellPrice: 180.0 }
 ];

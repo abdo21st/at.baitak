@@ -45,6 +45,13 @@ export async function POST(req: NextRequest) {
         const aiInfo = classifyProduct(item.name);
         const pCode = String(item.code);
 
+        const rawBarcodesList = [item.barcodes, item.barcode, item.internationalBarcode, item.code, pCode]
+          .filter(Boolean)
+          .flatMap((b) => String(b).split(/[\s,;|/]+/))
+          .map((b) => b.trim())
+          .filter((b, idx, arr) => b.length > 0 && arr.indexOf(b) === idx);
+        const resolvedBarcodes = rawBarcodesList.join(',') || pCode;
+
         await prisma.pharmacyProduct.upsert({
           where: {
             productCode_branchCode: {
@@ -80,7 +87,7 @@ export async function POST(req: NextRequest) {
             strength: aiInfo.strength || null,
             dosageForm: aiInfo.dosageForm || null,
             genericGroupId: aiInfo.genericGroupId || null,
-            barcodes: item.barcodes ? String(item.barcodes) : (item.barcode ? String(item.barcode) : pCode),
+            barcodes: resolvedBarcodes,
             lastSalesDate: item.lastSalesDate || null,
             lastSyncedAt: new Date()
           },
@@ -114,7 +121,7 @@ export async function POST(req: NextRequest) {
             strength: aiInfo.strength || null,
             dosageForm: aiInfo.dosageForm || null,
             genericGroupId: aiInfo.genericGroupId || null,
-            barcodes: item.barcodes ? String(item.barcodes) : (item.barcode ? String(item.barcode) : pCode),
+            barcodes: resolvedBarcodes,
             lastSalesDate: item.lastSalesDate || null,
             lastSyncedAt: new Date()
           }

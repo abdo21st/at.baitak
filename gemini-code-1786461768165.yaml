@@ -1,3 +1,19 @@
-databases:
-  - name: "hodoork_db"
-    url: "postgresql://postgres:postgres_pass_2026@localhost:5432/hodoork_db?schema=public"
+sources:
+  hodoork_db:
+    kind: postgres
+    host: 127.0.0.1
+    port: 5432
+    database: hodoork_db
+    user: postgres
+    password: postgres_pass_2026
+
+tools:
+  run_query:
+    kind: postgres-sql
+    source: hodoork_db
+    description: "Run SQL query on hodoork_db"
+    statement: "{{query}}"
+    parameters:
+      - name: query
+        type: string
+        description: "The SQL query to execute"
