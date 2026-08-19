@@ -207,39 +207,38 @@ export async function PUT(req: NextRequest) {
     let finalTargetHours = targetMonthlyHours !== undefined ? Number(targetMonthlyHours) : undefined;
     let finalJobTitle = jobTitle;
 
-    if (roleIds !== undefined) {
+    if (roleIds.length > 0) {
       try {
-        const jrs = await prisma.jobRole.findMany({ where: { id: { in: roleIds } } });
-        finalMonthlySalary = jrs.reduce((sum, r) => sum + r.monthlySalary, 0);
-        finalTargetHours = jrs[0]?.targetMonthlyHours || 0; // ✅ إصلاح: تحديث ساعات الوظيفة المستهدفة
-        finalJobTitle = jrs.map((r) => r.title).join(' + ') || 'بدون وظيفة خاصة';
+        const dbRoles = await prisma.jobRole.findMany({ where: { id: { in: roleIds } } });
+        if (dbRoles.length > 0) {
+          if (finalMonthlySalary === undefined) {
+            finalMonthlySalary = dbRoles.reduce((sum, r) => sum + r.monthlySalary, 0);
+          }
+          if (finalTargetHours === undefined) {
+            finalTargetHours = dbRoles[0].targetMonthlyHours || 0;
+          }
+          finalJobTitle = dbRoles.map((r) => r.title).join(' + ');
+        }
       } catch {}
     }
 
-    // تشفير PIN الجديد إذا تم تغييره
-    let finalPassword: string | undefined;
-    if (pinStr) {
-      finalPassword = await bcrypt.hash(pinStr, 10);
+    if (finalMonthlySalary !== undefined) updateData.monthlySalary = finalMonthlySalary;
+    if (finalTargetHours !== undefined) updateData.targetMonthlyHours = finalTargetHours;
+    if (finalJobTitle) updateData.jobTitle = finalJobTitle;
+
+    if (depIds.length > 0) {
+      updateData.departments = { set: depIds.map((dId) => ({ id: dId })) };
+    }
+    if (roleIds.length > 0) {
+      updateData.jobRoles = { set: roleIds.map((rId) => ({ id: rId })) };
     }
 
     await prisma.user.update({
       where: { id },
-      data: {
-        ...(nameStr && { name: nameStr }),
-        ...(codeStr && { employeeCode: codeStr }),
-        ...(finalPassword && { password: finalPassword }), // ✅ bcrypt hashed
-        ...(phone !== undefined && { phone: phone ? String(phone).trim() : null }),
-        ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) }),
-        ...(finalMonthlySalary !== undefined && { monthlySalary: finalMonthlySalary }),
-        ...(finalTargetHours !== undefined && { targetMonthlyHours: finalTargetHours }),
-        ...(role && { role: role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE' }),
-        ...(finalJobTitle !== undefined && { jobTitle: finalJobTitle }),
-        ...(depIds !== undefined && { departments: { set: depIds.map((dId) => ({ id: dId })) } }),
-        ...(roleIds !== undefined && { jobRoles: { set: roleIds.map((rId) => ({ id: rId })) } })
-      }
+      data: updateData
     });
 
-    const allUsers = await getOrSeedUsers();
+    const allUsers = await getOrSeedUsers(tenantId);
     return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     console.error('Update user error:', error);
