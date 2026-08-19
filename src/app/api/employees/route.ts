@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
 // 2. POST Add New Employee to PostgreSQL
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const { name, employeeCode, pinCode, hourlyRate, role, jobTitle, departmentId, jobRoleId, departmentIds, jobRoleIds, monthlySalary, targetMonthlyHours, phone } = body;
 
