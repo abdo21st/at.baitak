@@ -1,22 +1,23 @@
 import sys
 from PIL import Image, ImageDraw
 
-def create_hodoork_baytak_icon(size):
+def create_hodoork_baytak_icon(size, is_maskable=False):
     img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     
     scale = size / 512.0
     
-    # Background rounded rectangle
-    # Draw smooth gradient background
-    # Blue: #2563eb (37, 99, 235), Indigo: #4f46e5 (79, 70, 229)
-    radius = int(120 * scale)
-    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=(37, 99, 235, 255))
+    # Background rounded rectangle (or full for maskable)
+    if is_maskable:
+        draw.rectangle([0, 0, size, size], fill=(37, 99, 235, 255))
+    else:
+        radius = int(120 * scale)
+        draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=(37, 99, 235, 255))
     
     # Draw inner circle (Clock ring)
     cx, cy = size / 2, size / 2
-    r = int(175 * scale)
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 255, 255, 60), width=int(14 * scale))
+    r = int(170 * scale)
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(255, 255, 255, 70), width=int(14 * scale))
     draw.arc([cx - r, cy - r, cx + r, cy + r], start=210, end=40, fill=(56, 189, 248, 255), width=int(14 * scale))
     
     # House Roof for "Baytak"
@@ -48,18 +49,25 @@ def create_hodoork_baytak_icon(size):
     
     return img
 
-print("Generating high-res favicons and icons...")
-ico_512 = create_hodoork_baytak_icon(512)
-ico_192 = create_hodoork_baytak_icon(192)
-ico_180 = create_hodoork_baytak_icon(180)
-ico_64 = create_hodoork_baytak_icon(64)
-ico_32 = create_hodoork_baytak_icon(32)
+print("Generating all high-res PWA & app icons...")
+ico_512 = create_hodoork_baytak_icon(512, False)
+ico_mask_512 = create_hodoork_baytak_icon(512, True)
+ico_192 = create_hodoork_baytak_icon(192, False)
+ico_180 = create_hodoork_baytak_icon(180, False)
+ico_64 = create_hodoork_baytak_icon(64, False)
+ico_32 = create_hodoork_baytak_icon(32, False)
 
+# Save to public/
 ico_512.save(r'i:\at\public\icon-512.png', 'PNG')
+ico_mask_512.save(r'i:\at\public\maskable-icon-512.png', 'PNG')
 ico_192.save(r'i:\at\public\icon-192.png', 'PNG')
 ico_180.save(r'i:\at\public\apple-touch-icon.png', 'PNG')
 ico_64.save(r'i:\at\public\favicon.png', 'PNG')
-
-# Multi-resolution ICO file
 ico_512.save(r'i:\at\public\favicon.ico', format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128)])
-print("All favicons and icons generated successfully!")
+
+# Save to src/app/ for Next.js App Router metadata
+ico_512.save(r'i:\at\src\app\icon.png', 'PNG')
+ico_180.save(r'i:\at\src\app\apple-icon.png', 'PNG')
+ico_512.save(r'i:\at\src\app\favicon.ico', format='ICO', sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128)])
+
+print("All PWA icons, App Router icons, and maskable icons updated successfully!")
