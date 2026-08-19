@@ -134,14 +134,13 @@ model Department {
   id        String    @id @default(uuid())
   tenantId  String    @default("default-tenant")
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
+  name      String    @unique
   code      String?
   jobRoles  JobRole[]
   users     User[]    @relation("UserDepartments")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  @@unique([tenantId, name])
   @@index([tenantId])
 }
 
@@ -350,7 +349,7 @@ model PharmacyProduct {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  @@unique([tenantId, productCode, branchCode])
+  @@unique([productCode, branchCode])
   @@index([tenantId])
 }
 
@@ -373,7 +372,7 @@ model PharmacySupplier {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  @@unique([tenantId, supplierIdPk, branchCode])
+  @@unique([supplierIdPk, branchCode])
   @@index([tenantId])
 }
 
