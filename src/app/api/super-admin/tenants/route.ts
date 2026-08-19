@@ -75,6 +75,7 @@ export async function POST(req: Request) {
 
     const newTenant = await prisma.tenant.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         slug: slug.toLowerCase().trim(),
         logo: logo || null,
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
         subscriptions: planId
           ? {
               create: {
+                id: crypto.randomUUID(),
                 planId,
                 billingCycle: billingCycle || 'MONTHLY',
                 startDate,

@@ -50,7 +50,7 @@ enum LeaveType {
 // ==========================================
 
 model Tenant {
-  id               String            @id @default("default-tenant")
+  id               String            @id @default(uuid())
   name             String            @default("النشاط الرئيسي")
   slug             String            @unique @default("main")
   customDomain     String?           @unique
