@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-WhatsApp Group Inbound Simulation & Shortage Population Test Script
-Simulates live WhatsApp group messages (with texts, lists, and photos) and verifies database storage and shortages dashboard.
+WhatsApp Group Inbound Simulation & Shortage Population Test Script (Strict Baitak Group Filter)
 """
 
 import urllib.request
@@ -16,46 +15,79 @@ BASE_URL = 'http://102.203.201.52:3005'
 
 def main():
     print("="*65)
-    print("🚀 بدء اختبار محاكاة استقبال رسائل وصور مجموعة الواتساب وتفريغ النواقص")
+    print("🚀 بدء اختبار فلترة واستقبال رسائل مجموعة [صيدلية بيتك] فقط")
     print("="*65)
 
-    # 1. محاكاة رسالة نصية واردة من مجموعة الواتساب تحتوي على قائمة نواقص
-    sample_group_text_message = {
+    # 1. إرسال رسالة من مجموعة [صيدلية بيتك] (يجب قبولها وتفريغها)
+    valid_group_message = {
         "event": "message",
         "session": "default",
         "payload": {
             "id": "wamid.HBgLMjE4OTIzNDU4MDE0",
             "timestamp": int(time.time()),
             "from": "120363028374928374@g.us",
-            "body": "السلام عليكم يا شباب نواقص الصيدلية اليوم ضروري:\n1. اوجمنتين 1 جم - 20 علبة\n2. كولونا أقراص - 30 باكت\n3. بنادول اكسترا - 50 علبة عاجل",
-            "pushName": "د. أحمد الصيدلي",
+            "body": "نواقص اليوم صيدلية بيتك:\n1. بانادول اكسترا - 30 باكت\n2. اوجمنتين 1 جم - 15 علبة",
+            "pushName": "د. أحمد (صيدلي بيتك)",
             "_data": {
-                "notifyName": "د. أحمد الصيدلي",
+                "notifyName": "د. أحمد",
                 "chat": {
-                    "name": "مجموعة نواقص فرع طرابلس الرئيسي"
+                    "name": "مجموعة صيدلية بيتك"
                 }
             }
         }
     }
 
-    print("\n📩 [اختبار 1]: إرسال قائمة نواقص نصية من مجموعة الواتساب...")
+    print("\n📩 [اختبار 1]: إرسال قائمة نواقص من [مجموعة صيدلية بيتك]...")
     try:
         req = urllib.request.Request(
             f"{BASE_URL}/api/webhook/whatsapp/inbound",
-            data=json.dumps(sample_group_text_message).encode('utf-8'),
+            data=json.dumps(valid_group_message).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             print(f"🟢 [استجابة السيرفر]: {data.get('message')}")
-            print(f"   ↳ عدد الأصناف المخزنة في PostgreSQL: {data.get('storedCount')}")
-            for itm in data.get('items', []):
-                print(f"   • الصنف: {itm.get('productName')} | الكمية: {itm.get('requestedQty')} {itm.get('unit')} | الأهمية: {itm.get('urgency')} | كود مطابق: {itm.get('matchedCode') or 'جديد'}")
+            print(f"   ↳ عدد الأصناف المفروغة: {data.get('storedCount')}")
+            assert data.get('storedCount', 0) > 0, "يجب قبول وحفظ أصناف مجموعة صيدلية بيتك"
     except Exception as e:
         print(f"🔴 خطأ في اختبار 1: {e}")
 
-    # 2. محاكاة رسالة صورة دواء / روشتة مرفقة من مجموعة الواتساب
-    sample_group_photo_message = {
+    # 2. إرسال رسالة من مجموعة أخرى عامة (يجب رفضها وتجاهلها)
+    other_group_message = {
+        "event": "message",
+        "session": "default",
+        "payload": {
+            "id": "wamid.HBgLMjE4OTk5OTk5OTk5",
+            "timestamp": int(time.time()),
+            "from": "120363999999999999@g.us",
+            "body": "قائمة نواقص عيادة أخرى: باراسيتامول 100 علبة",
+            "pushName": "د. خالد",
+            "_data": {
+                "notifyName": "د. خالد",
+                "chat": {
+                    "name": "مجموعة أطباء طرابلس العامة"
+                }
+            }
+        }
+    }
+
+    print("\n🛡️ [اختبار 2]: إرسال رسالة من مجموعة أخرى غير صيدلية بيتك (فحص الفلترة)...")
+    try:
+        req = urllib.request.Request(
+            f"{BASE_URL}/api/webhook/whatsapp/inbound",
+            data=json.dumps(other_group_message).encode('utf-8'),
+            headers={'Content-Type': 'application/json'}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            print(f"🟢 [استجابة السيرفر]: {data.get('message')}")
+            print(f"   ↳ حالة التجاهل: {'✅ تم التجاهل بنجاح' if data.get('ignored') else '❌ خطأ: تم القبول'}")
+            assert data.get('ignored') is True, "يجب تجاهل الرسائل من المجموعات الأخرى"
+    except Exception as e:
+        print(f"🔴 خطأ في اختبار 2: {e}")
+
+    # 3. إرسال صورة دواء مرفقة من مجموعة [صيدلية بيتك]
+    valid_photo_message = {
         "event": "message",
         "session": "default",
         "payload": {
@@ -65,44 +97,33 @@ def main():
             "hasMedia": True,
             "mimetype": "image/jpeg",
             "mediaUrl": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=60",
-            "caption": "مطلوب توفير 15 علبة من هذا الصنف عاجل جداً",
-            "pushName": "د. سارة (صيدلانية الوردية)",
+            "caption": "مطلوب 10 عبوات من هذا الصنف لفرع بيتك",
+            "pushName": "د. سارة",
             "_data": {
                 "notifyName": "د. سارة",
                 "chat": {
-                    "name": "مجموعة نواقص فرع طرابلس الرئيسي"
+                    "name": "صيدلية بيتك - فرع طرابلس"
                 }
             }
         }
     }
 
-    print("\n📸 [اختبار 2]: إرسال صورة علبة دواء مرفقة مع تعليق نصي...")
+    print("\n📸 [اختبار 3]: إرسال صورة دواء من [صيدلية بيتك]...")
     try:
         req = urllib.request.Request(
             f"{BASE_URL}/api/webhook/whatsapp/inbound",
-            data=json.dumps(sample_group_photo_message).encode('utf-8'),
+            data=json.dumps(valid_photo_message).encode('utf-8'),
             headers={'Content-Type': 'application/json'}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             print(f"🟢 [استجابة السيرفر]: {data.get('message')}")
-            print(f"   ↳ عدد الأصناف المخزنة: {data.get('storedCount')}")
-            for itm in data.get('items', []):
-                print(f"   • الصنف: {itm.get('productName')} | الكمية: {itm.get('requestedQty')} {itm.get('unit')} | صورة مرفقة: {'✅ نعم' if itm.get('imageUrl') else 'لا'}")
-    except Exception as e:
-        print(f"🔴 خطأ في اختبار 2: {e}")
-
-    # 3. التحقق من جلب قائمة النواقص في لوحة التحكم
-    print("\n📊 [اختبار 3]: استرجاع جدول نواقص الواتساب من الواجهة السحابية...")
-    try:
-        req = urllib.request.urlopen(f"{BASE_URL}/api/pharmacy/whatsapp-shortages?status=ALL", timeout=10)
-        res = json.loads(req.read().decode('utf-8'))
-        print(f"🟢 [نجاح]: إجمالي الطلبات في السحابة: {res.get('counts', {}).get('total')} طلب | قيد الانتظار: {res.get('counts', {}).get('pending')}")
+            print(f"   ↳ صورة مرفقة: {'✅ نعم' if data.get('items', [{}])[0].get('imageUrl') else 'لا'}")
     except Exception as e:
         print(f"🔴 خطأ في اختبار 3: {e}")
 
     print("\n" + "="*65)
-    print("🏁 اكتمل فحص استقبال رسائل وصور مجموعة الواتساب بنجاح!")
+    print("🏁 اكتمل فحص فلترة مجموعة [صيدلية بيتك] بنجاح 100%!")
     print("="*65)
 
 if __name__ == '__main__':

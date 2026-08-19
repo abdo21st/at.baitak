@@ -813,14 +813,17 @@ export default function PharmacyShortagesPage() {
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span>نواقص وطلبيات مجموعات الواتساب المستلمة</span>
+                <span>نواقص وطلبيات مجموعة صيدلية بيتك</span>
                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                   بث مباشر حي
                 </span>
+                <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
+                  🔒 مخصص لمجموعة: صيدلية بيتك
+                </span>
               </h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                استخراج وتفريغ آلي للرسائل والصور الواردة من مجموعات الصيدلية والعيادات
+                استخراج وتفريغ آلي للرسائل والصور الواردة حصراً من مجموعة [صيدلية بيتك]
               </p>
             </div>
           </div>

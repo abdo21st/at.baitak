@@ -53,6 +53,31 @@ export async function POST(req: NextRequest) {
       if (imageUrl) mediaType = 'IMAGE';
     }
 
+    // 1.5 Strict Group Filtering: Accept ONLY messages from "صيدلية بيتك" (Baitak Pharmacy)
+    const allowedGroupKeywords = ['صيدلية بيتك', 'بيتك', 'baitak'];
+    const normalizedGroupName = (groupName || '').toLowerCase().trim();
+    
+    // Check if the group name matches "صيدلية بيتك"
+    const isFromTargetGroup = allowedGroupKeywords.some(kw => 
+      normalizedGroupName.includes(kw.toLowerCase())
+    );
+
+    // If message is from a WhatsApp group (chatId contains @g.us) and not from "صيدلية بيتك", ignore it
+    if (chatId.includes('@g.us') && !isFromTargetGroup) {
+      return NextResponse.json({
+        success: true,
+        ignored: true,
+        reason: 'GROUP_FILTERED_OUT',
+        message: `تم تجاهل الرسالة لأنها واردة من (${groupName}) وليست من مجموعة [صيدلية بيتك] 🔒`,
+        storedCount: 0
+      });
+    }
+
+    // Ensure groupName displays as "صيدلية بيتك" if matched or general
+    if (!groupName || groupName === 'مجموعة الصيدلية' || groupName === 'مجموعة نواقص الواتساب') {
+      groupName = 'صيدلية بيتك';
+    }
+
     // If message is an image without caption, create a visual review shortage record
     if (!messageText || !messageText.trim()) {
       if (imageUrl) {
