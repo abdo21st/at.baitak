@@ -127,19 +127,20 @@ export async function POST(req: Request) {
     });
 
     // 1. إنشاء الأقسام الافتراضية للنشاط الجديد
+    // 1. إنشاء الأقسام الافتراضية للنشاط الجديد
     const adminDeptId = crypto.randomUUID();
     await prisma.department.createMany({
       data: [
         {
           id: adminDeptId,
-          name: 'الإدارة العامة',
-          description: 'إدارة وتسيير أعمال النشاط التجاري',
+          name: `الإدارة العامة (${name})`,
+          code: 'MGMT',
           tenantId: tenantId,
         },
         {
           id: crypto.randomUUID(),
-          name: 'الصيادلة والتشغيل',
-          description: 'فريق العمليات والصرف والمبيعات',
+          name: `الصيادلة والتشغيل (${name})`,
+          code: 'OPS',
           tenantId: tenantId,
         },
       ],
