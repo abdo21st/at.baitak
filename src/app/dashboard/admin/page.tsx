@@ -1786,11 +1786,6 @@ export default function AdminDashboard() {
         {activeTab === 'RATE_RULES' && (
           <RateRulesManagement departments={departments} users={users} />
         )}
-
-        {/* TAB 7: TASKS & PROJECTS ATTENDANCE SYSTEM */}
-        {activeTab === 'PROJECTS' && (
-          <TaskManagement />
-        )}
       </main>
       </div>
 
