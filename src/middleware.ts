@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
   const hostClean = hostname.split(':')[0].toLowerCase().trim();
 
-  // Exclude static assets and next internal files from rewrite/redirect
+  // Exclude static assets, api routes, and next internal files from rewrite/redirect
   if (
     url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/static') ||
@@ -15,10 +15,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Route Mapping:
-  // 1. at.mtapp.ly -> Super Admin Dashboard Control Panel
-  // 2. at.baitak.mtapp.ly -> صيدلية بيتك (Baytak Pharmacy)
-  // 3. *.mtapp.ly -> Sub-tenant businesses (e.g. at.mt.mtapp.ly -> at.mt)
+  // Domain & Subdomain Mapping:
+  // 1. https://at.mtapp.ly & https://at.mtapp.ly/dashboard/super-admin -> الرئيسية: لوحة التحكم المركزية للسوبر أدمن
+  // 2. https://at.baitak.mtapp.ly/ & https://baitak.mtapp.ly/ -> فرعية: نشاط صيدلية بيتك
+  // 3. https://at.mt.mtapp.ly/ & https://at.madar.mtapp.ly/ -> فرعية: نشاط شركة مدار التقنية
+  // 4. https://alnaqaa.mtapp.ly/ & https://at.alnaqaa.mtapp.ly/ -> فرعية: نشاط النقاء
+  // 5. https://[slug].mtapp.ly/ -> فرعية: أنشطة المشتركين المستقلة
   const incomingSlug = (request.headers.get('x-tenant-slug') || '').toLowerCase().trim();
   let tenantSlug = incomingSlug || 'baytak';
   let isSuperAdminHost = false;
@@ -26,7 +28,11 @@ export function middleware(request: NextRequest) {
   if (incomingSlug) {
     tenantSlug = incomingSlug;
     if (incomingSlug === 'super-admin') isSuperAdminHost = true;
-  } else if (hostClean === 'at.mtapp.ly' || hostClean === 'admin.mtapp.ly') {
+  } else if (
+    hostClean === 'at.mtapp.ly' ||
+    hostClean === 'admin.mtapp.ly' ||
+    hostClean === 'mtapp.ly'
+  ) {
     isSuperAdminHost = true;
     tenantSlug = 'super-admin';
   } else if (
@@ -36,17 +42,36 @@ export function middleware(request: NextRequest) {
     hostClean === '127.0.0.1'
   ) {
     tenantSlug = 'baytak';
+  } else if (
+    hostClean === 'at.mt.mtapp.ly' ||
+    hostClean === 'mt.mtapp.ly' ||
+    hostClean === 'at.madar.mtapp.ly' ||
+    hostClean === 'madar.mtapp.ly'
+  ) {
+    tenantSlug = 'madar';
+  } else if (
+    hostClean === 'alnaqaa.mtapp.ly' ||
+    hostClean === 'at.alnaqaa.mtapp.ly' ||
+    hostClean === 'naqaa.mtapp.ly'
+  ) {
+    tenantSlug = 'alnaqaa';
   } else if (hostClean.endsWith('.mtapp.ly')) {
-    tenantSlug = hostClean.replace('.mtapp.ly', '');
+    const sub = hostClean.replace('.mtapp.ly', '').trim();
+    tenantSlug = sub.startsWith('at.') ? sub.replace(/^at\./, '') : sub;
   }
 
-  // Clone headers and inject tenant slug
+  // Clone headers and inject tenant slug for downstream handlers
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-tenant-slug', tenantSlug);
 
-  // If user visits root / on at.mtapp.ly, redirect directly to Super Admin dashboard
+  // 1. If user visits root / on the main Super Admin host (at.mtapp.ly), redirect directly to Super Admin dashboard
   if (isSuperAdminHost && url.pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard/super-admin', request.url));
+  }
+
+  // 2. If user on a sub-tenant domain visits /dashboard/super-admin, redirect them to the main central domain
+  if (!isSuperAdminHost && hostClean.endsWith('.mtapp.ly') && url.pathname.startsWith('/dashboard/super-admin')) {
+    return NextResponse.redirect(new URL('https://at.mtapp.ly/dashboard/super-admin'));
   }
 
   return NextResponse.next({

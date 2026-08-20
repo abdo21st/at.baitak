@@ -26,30 +26,55 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
     targetSlug = injectedSlug;
   } else if (hostHeader.endsWith('.mtapp.ly')) {
     const sub = hostHeader.replace('.mtapp.ly', '').trim();
-    if (sub === 'at.baitak' || sub === 'baitak') {
-      targetSlug = 'baytak';
-    } else if (sub === 'at') {
+    if (sub === 'at' || sub === 'admin' || sub === '') {
       targetSlug = 'super-admin';
+    } else if (sub === 'at.baitak' || sub === 'baitak' || sub === 'baytak' || sub === 'at.baytak') {
+      targetSlug = 'baytak';
+    } else if (sub === 'at.mt' || sub === 'mt' || sub === 'at.madar' || sub === 'madar') {
+      targetSlug = 'madar';
+    } else if (sub === 'alnaqaa' || sub === 'at.alnaqaa' || sub === 'naqaa' || sub === 'at.naqaa') {
+      targetSlug = 'alnaqaa';
     } else {
-      targetSlug = sub;
+      targetSlug = sub.startsWith('at.') ? sub.replace(/^at\./, '') : sub;
     }
   }
 
   // 2. Query tenant from database
   if (targetSlug && targetSlug !== 'super-admin') {
     const isBaytakVariant = targetSlug === 'baytak' || targetSlug === 'baitak' || targetSlug === 'at.baitak' || targetSlug === 'at.baytak';
+    const isMadarVariant = targetSlug === 'madar' || targetSlug === 'mt' || targetSlug === 'at.mt' || targetSlug === 'at.madar';
+    const isNaqaaVariant = targetSlug === 'alnaqaa' || targetSlug === 'naqaa' || targetSlug === 'at.alnaqaa' || targetSlug === 'at.naqaa';
 
-    const slugConditions: any[] = isBaytakVariant ? [
-      { id: 'default-tenant' },
-      { slug: 'at.baitak' },
-      { slug: 'baytak' },
-      { slug: 'baitak' },
-      { slug: 'at.baytak' }
-    ] : [
-      { slug: targetSlug },
-      { slug: targetSlug.replace(/^at\./, '') },
-      { slug: `at.${targetSlug}` },
-    ];
+    let slugConditions: any[] = [];
+    if (isBaytakVariant) {
+      slugConditions = [
+        { id: 'default-tenant' },
+        { slug: 'at.baitak' },
+        { slug: 'baytak' },
+        { slug: 'baitak' },
+        { slug: 'at.baytak' }
+      ];
+    } else if (isMadarVariant) {
+      slugConditions = [
+        { slug: 'madar' },
+        { slug: 'mt' },
+        { slug: 'at.mt' },
+        { slug: 'at.madar' }
+      ];
+    } else if (isNaqaaVariant) {
+      slugConditions = [
+        { slug: 'alnaqaa' },
+        { slug: 'naqaa' },
+        { slug: 'at.alnaqaa' },
+        { slug: 'at.naqaa' }
+      ];
+    } else {
+      slugConditions = [
+        { slug: targetSlug },
+        { slug: targetSlug.replace(/^at\./, '') },
+        { slug: `at.${targetSlug}` },
+      ];
+    }
     if (hostHeader && hostHeader !== 'localhost' && !hostHeader.includes('127.0.0.1') && !hostHeader.endsWith('.mtapp.ly')) {
       slugConditions.push({ customDomain: hostHeader }, { customDomain: `https://${hostHeader}` });
     }
@@ -206,8 +231,20 @@ export function getTenantAppUrl(tenant?: { slug?: string; customDomain?: string 
   const rawSlug = tenant?.slug || 'baytak';
   const cleanSlug = rawSlug.trim().toLowerCase();
 
+  if (cleanSlug === 'super-admin' || cleanSlug === 'admin') {
+    return 'https://at.mtapp.ly';
+  }
+
   if (cleanSlug === 'baytak' || cleanSlug === 'baitak' || cleanSlug === 'at.baitak' || cleanSlug === 'default-tenant') {
     return 'https://at.baitak.mtapp.ly';
+  }
+
+  if (cleanSlug === 'madar' || cleanSlug === 'mt' || cleanSlug === 'at.mt' || cleanSlug === 'at.madar') {
+    return 'https://at.mt.mtapp.ly';
+  }
+
+  if (cleanSlug === 'alnaqaa' || cleanSlug === 'naqaa' || cleanSlug === 'at.alnaqaa') {
+    return 'https://alnaqaa.mtapp.ly';
   }
 
   const prefix = cleanSlug.startsWith('at.') ? cleanSlug : `at.${cleanSlug}`;
