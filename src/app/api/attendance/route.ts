@@ -170,24 +170,6 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const finalLat = checkInLat ?? lat ?? null;
-    const finalLng = checkInLng ?? lng ?? null;
-
-    let isOutsideGps = false;
-    let gpsDistanceMeters: number | undefined;
-
-    if (finalLat !== null && finalLng !== null) {
-      try {
-        const settings = await prisma.companySettings.findUnique({ where: { id: 'default' } });
-        if (settings && settings.gpsEnabled && settings.gpsLatitude && settings.gpsLongitude) {
-          gpsDistanceMeters = calculateGpsDistanceMeters(finalLat, finalLng, settings.gpsLatitude, settings.gpsLongitude);
-          if (gpsDistanceMeters > (settings.gpsRadiusMeters || 200)) {
-            isOutsideGps = true;
-          }
-        }
-      } catch {}
-    }
-
     let directHourlyRate = 0;
     let monthlySalary = 0;
     let targetMonthlyHours = 0;
@@ -210,6 +192,25 @@ export async function POST(req: NextRequest) {
         userDepartmentIds = u.departments.map(d => d.id);
       }
     } catch {}
+
+    const finalLat = checkInLat ?? lat ?? null;
+    const finalLng = checkInLng ?? lng ?? null;
+
+    let isOutsideGps = false;
+    let gpsDistanceMeters: number | undefined;
+
+    if (finalLat !== null && finalLng !== null) {
+      try {
+        const settings = (await prisma.companySettings.findFirst({ where: { tenantId: userTenantId } }))
+          || (await prisma.companySettings.findUnique({ where: { id: 'default' } }));
+        if (settings && settings.gpsEnabled && settings.gpsLatitude && settings.gpsLongitude) {
+          gpsDistanceMeters = calculateGpsDistanceMeters(finalLat, finalLng, settings.gpsLatitude, settings.gpsLongitude);
+          if (gpsDistanceMeters > (settings.gpsRadiusMeters || 200)) {
+            isOutsideGps = true;
+          }
+        }
+      } catch {}
+    }
 
     // استخراج jobRoleId والمهمة/المشروع من البيانات المُرسلة
     const { jobRoleId, projectId, taskNotes } = body;
