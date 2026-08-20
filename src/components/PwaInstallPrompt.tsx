@@ -11,8 +11,15 @@ export default function PwaInstallPrompt() {
   const [isIos, setIsIos] = useState<boolean>(false);
   const [showIosGuide, setShowIosGuide] = useState<boolean>(false);
   const [installed, setInstalled] = useState<boolean>(false);
+  const [tenantName, setTenantName] = useState<string>('حضورك');
 
   useEffect(() => {
+    // جلب اسم الشركة ديناميكيًا
+    fetch('/api/tenant/info')
+      .then(r => r.json())
+      .then(d => { if (d.success && d.tenant?.name) setTenantName(d.tenant.name); })
+      .catch(() => {});
+
     // Check if already installed / running in standalone PWA mode
     const checkStandalone = () => {
       const isStandaloneMode = 
@@ -131,7 +138,7 @@ export default function PwaInstallPrompt() {
                 تطبيق أندرويد الذكي
               </span>
               <span className="text-[10px] font-bold text-amber-300 flex items-center gap-0.5">
-                <Sparkles className="w-3 h-3" /> صيدلية بيتك
+                <Sparkles className="w-3 h-3" /> {tenantName}
               </span>
             </div>
 
