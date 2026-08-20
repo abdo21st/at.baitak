@@ -651,6 +651,29 @@ model SupplierReturn {
   @@index([status])
 }
 
+model MaintenanceContract {
+  id              String   @id @default(uuid())
+  tenantId        String   @default("default-tenant")
+  clientName      String
+  clientPhone     String
+  clientAddress   String?
+  equipmentName   String   // e.g. "مكيفات مركزية / مولد كهرباء / سيرفرات"
+  visitFrequency  String   @default("MONTHLY") // "MONTHLY" | "QUARTERLY" | "BIANNUAL" | "YEARLY"
+  lastVisitDate   DateTime?
+  nextVisitDate   DateTime
+  contractValue   Float    @default(0.0) // بالدينار (د.ل)
+  status          String   @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "TERMINATED"
+  slaHours        Int      @default(24) // زمن الاستجابة الأقصى بالـ SLA
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId, nextVisitDate])
+  @@index([status])
+  @@index([clientPhone])
+}
+
+
 
 
 
