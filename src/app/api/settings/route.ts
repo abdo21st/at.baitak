@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       gpsRadiusMeters,
       n8nWebhookUrl,
       autoCloseHours,
+      openShiftReminderHours,
       managerPhone,
       whatsappNotificationsEnabled,
       whatsappGroupLink,
@@ -69,7 +70,9 @@ export async function POST(req: NextRequest) {
 
     const targetId = tenantId === 'default-tenant' ? 'default' : `settings-${tenantId}`;
 
-    const updated = await prisma.companySettings.upsert({
+    const safeReminderHours = openShiftReminderHours !== undefined ? Math.max(1, Math.min(48, parseFloat(String(openShiftReminderHours)) || 8.0)) : undefined;
+
+    const updated = await (prisma.companySettings as any).upsert({
       where: { id: targetId },
       update: {
         tenantId,
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
         ...(gpsRadiusMeters !== undefined && { gpsRadiusMeters: Number(gpsRadiusMeters) }),
         ...(n8nWebhookUrl !== undefined && { n8nWebhookUrl: String(n8nWebhookUrl) }),
         ...(autoCloseHours !== undefined && { autoCloseHours: Number(autoCloseHours) }),
+        ...(safeReminderHours !== undefined && { openShiftReminderHours: safeReminderHours }),
         ...(managerPhone !== undefined && { managerPhone: String(managerPhone).trim() }),
         ...(whatsappNotificationsEnabled !== undefined && { whatsappNotificationsEnabled: Boolean(whatsappNotificationsEnabled) }),
         ...(whatsappGroupLink !== undefined && { whatsappGroupLink: rawLink }),
@@ -96,6 +100,7 @@ export async function POST(req: NextRequest) {
         gpsRadiusMeters: gpsRadiusMeters ? Number(gpsRadiusMeters) : 200,
         n8nWebhookUrl: n8nWebhookUrl || 'https://n8n.ordermt.ly/webhook/attendance-alert',
         autoCloseHours: autoCloseHours ? Number(autoCloseHours) : 12.0,
+        openShiftReminderHours: safeReminderHours !== undefined ? safeReminderHours : 8.0,
         managerPhone: managerPhone ? String(managerPhone).trim() : '',
         whatsappNotificationsEnabled: whatsappNotificationsEnabled !== undefined ? Boolean(whatsappNotificationsEnabled) : true,
         whatsappGroupLink: rawLink,

@@ -289,6 +289,7 @@ model CompanySettings {
   whatsappGroupName             String?  @default("صيدلية بيتك")
   defaultTargetMonthlyHours Float    @default(0.0)
   autoCloseHours            Float    @default(12.0)
+  openShiftReminderHours    Float    @default(8.0)
   gpsEnabled                Boolean  @default(false)
   gpsLatitude               Float?   @default(32.8872)
   gpsLongitude              Float?   @default(13.1913)

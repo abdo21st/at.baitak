@@ -48,6 +48,7 @@ export default function AdminDashboard() {
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [whatsappActionMsg, setWhatsappActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [whatsappActionLoading, setWhatsappActionLoading] = useState(false);
+  const [openShiftReminderHours, setOpenShiftReminderHours] = useState('8');
 
   // GPS Settings State
   const [gpsEnabled, setGpsEnabled] = useState(false);
@@ -146,6 +147,7 @@ export default function AdminDashboard() {
         if (s.n8nWebhookUrl) setN8nWebhookUrl(String(s.n8nWebhookUrl));
         if (s.whatsappGroupLink) setWhatsappGroupLink(String(s.whatsappGroupLink));
         if (s.whatsappGroupName) setWhatsappGroupName(String(s.whatsappGroupName));
+        if (s.openShiftReminderHours !== undefined) setOpenShiftReminderHours(String(s.openShiftReminderHours));
         if (s.whatsappNotificationsEnabled !== undefined) setWhatsappEnabled(Boolean(s.whatsappNotificationsEnabled));
       }
     } catch (e) {
@@ -168,6 +170,7 @@ export default function AdminDashboard() {
           n8nWebhookUrl,
           whatsappGroupLink,
           whatsappGroupName,
+          openShiftReminderHours: parseFloat(openShiftReminderHours) || 8,
           whatsappNotificationsEnabled: whatsappEnabled
         })
       });
@@ -545,7 +548,8 @@ export default function AdminDashboard() {
           gpsEnabled,
           gpsLatitude: Number(gpsLatitude) || 32.8872,
           gpsLongitude: Number(gpsLongitude) || 13.1913,
-          gpsRadiusMeters: Number(gpsRadiusMeters) || 200
+          gpsRadiusMeters: Number(gpsRadiusMeters) || 200,
+          openShiftReminderHours: parseFloat(openShiftReminderHours) || 8
         })
       });
       const data = await res.json();
@@ -1466,6 +1470,31 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Open Shift Reminder Threshold Hours */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <label className="block text-slate-800 font-extrabold text-sm flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-purple-600" />
+                  الحد الأدنى لساعات تنبيه وتذكير الشفت المفتوح (بالساعات)
+                </label>
+                <p className="text-slate-500 text-[11px] font-semibold">
+                  عدد الساعات التي إذا قضاها الموظف في الدوام دون تسجيل انصراف، يتم إرسال تنبيه مباشر إليه وإشعار الإدارة فوراً.
+                </p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    max="48"
+                    step="0.5"
+                    value={openShiftReminderHours}
+                    onChange={(e) => setOpenShiftReminderHours(e.target.value)}
+                    className="w-40 h-11 bg-white border border-slate-200 rounded-xl px-3 text-slate-900 font-bold font-mono text-center text-base focus:outline-none focus:border-purple-500"
+                    dir="ltr"
+                  />
+                  <span className="text-slate-600 font-bold">ساعة (س)</span>
+                </div>
+              </div>
+
               {settingsMsg && (
                 <div className="p-3.5 rounded-2xl text-xs font-black text-center bg-purple-50 text-purple-900 border border-purple-200">
                   {settingsMsg}
@@ -1558,7 +1587,7 @@ export default function AdminDashboard() {
                   </div>
                   <h3 className="text-sm font-black text-slate-900">تنبيه الشفتات المفتوحة</h3>
                   <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                    فحص الموظفين الذين مضى على حضورهم أكثر من 4 ساعات دون تسجيل انصراف وتنبيههم فوراً.
+                    فحص الموظفين الذين مضى على حضورهم أكثر من {openShiftReminderHours} ساعات دون تسجيل انصراف وتنبيههم فوراً.
                   </p>
                 </div>
                 <button
@@ -1723,6 +1752,32 @@ export default function AdminDashboard() {
                       </span>
                     </label>
                   </div>
+                </div>
+
+                {/* Open Shift Reminder Threshold Hours Configuration */}
+                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                  <label className="block text-amber-950 font-black mb-1 flex items-center gap-1.5 text-xs">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    الحد الأدنى لساعات تنبيه الشفت المفتوح (بالساعات) *
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="48"
+                      step="0.5"
+                      value={openShiftReminderHours}
+                      onChange={(e) => setOpenShiftReminderHours(e.target.value)}
+                      placeholder="8"
+                      className="w-36 h-11 bg-white border border-amber-300 rounded-xl px-3 text-slate-900 font-mono font-bold text-center text-sm focus:outline-none focus:border-amber-500 shadow-xs"
+                      dir="ltr"
+                    />
+                    <span className="text-amber-900 font-bold text-xs">ساعات دوام مفتوح</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 font-normal">
+                    إذا استمر الموظف مسجلاً الحضور لأكثر من هذا العدد من الساعات دون تسجيل انصراف، يتم إرسال تنبيه مباشر إليه وإشعار الإدارة فوراً.
+                  </p>
                 </div>
 
                 {/* WhatsApp Shortage Group Configuration */}

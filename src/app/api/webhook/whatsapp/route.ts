@@ -78,19 +78,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: 'لا توجد شفتات مفتوحة حالياً تحتاج إلى تذكير.', count: 0 });
       }
 
+      // Cache tenant settings to avoid redundant queries
+      const tenantSettingsCache = new Map<string, number>();
+
       const [nowH, nowM] = new Date().toTimeString().split(':').map(Number);
       const nowTotalMins = nowH * 60 + nowM;
 
       let sentCount = 0;
       for (const rec of openRecords) {
+        const empTenantId = rec.user?.tenantId || 'default-tenant';
+        let threshold = tenantSettingsCache.get(empTenantId);
+        if (threshold === undefined) {
+          const tSettings = (await prisma.companySettings.findFirst({ where: { tenantId: empTenantId } }))
+            || (await prisma.companySettings.findUnique({ where: { id: 'default' } }));
+          threshold = (tSettings as any)?.openShiftReminderHours ? Number((tSettings as any).openShiftReminderHours) : 8.0;
+          tenantSettingsCache.set(empTenantId, threshold);
+        }
+
         const [inH, inM] = rec.checkInTime.split(':').map(Number);
         const inMins = inH * 60 + (inM || 0);
         let diffMins = nowTotalMins - inMins;
         if (diffMins < 0) diffMins += 24 * 60;
         const hoursOpen = Number((diffMins / 60).toFixed(1));
 
-        // Trigger reminder if open for more than 4 hours
-        if (hoursOpen >= 4) {
+        // Trigger reminder if open for more than configured threshold hours
+        if (hoursOpen >= threshold) {
           await sendCheckoutReminderToN8n({
             name: rec.user?.name || 'موظف',
             code: rec.user?.employeeCode || '101',
@@ -105,7 +117,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `تم فحص الشفتات المفتوحة وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
+        message: `تم فحص الشفتات المفتوحة وفقاً لساعات التنبيه المحددة وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
         count: sentCount
       });
     }

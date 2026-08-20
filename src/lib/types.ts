@@ -86,6 +86,7 @@ export interface CompanySettings {
   whatsappGroupName?: string | null;
   defaultTargetMonthlyHours: number;
   autoCloseHours: number;
+  openShiftReminderHours?: number;
   gpsEnabled: boolean;
   gpsLatitude?: number | null;
   gpsLongitude?: number | null;
