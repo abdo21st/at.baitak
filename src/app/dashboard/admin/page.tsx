@@ -918,14 +918,16 @@ export default function AdminDashboard() {
 
             {/* Quick Actions & Metrics Badge */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsClinicalModalOpen(true)}
-                className="h-10 px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
-                title="الكبسولة الدوائية والتدريب السريري للموظفين"
-              >
-                <Pill className="w-3.5 h-3.5" />
-                <span>الكبسولة الدوائية 💊</span>
-              </button>
+              {tenantInfo.hasClinicalCapsule === true && (
+                <button
+                  onClick={() => setIsClinicalModalOpen(true)}
+                  className="h-10 px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="الكبسولة الدوائية والتدريب السريري للموظفين"
+                >
+                  <Pill className="w-3.5 h-3.5" />
+                  <span>الكبسولة الدوائية 💊</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setIsBroadcastModalOpen(true)}
