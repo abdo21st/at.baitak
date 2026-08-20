@@ -22,7 +22,7 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
 
   // 1. Determine target slug
   let targetSlug = '';
-  if (injectedSlug && injectedSlug !== 'baytak' && injectedSlug !== 'default-tenant') {
+  if (injectedSlug) {
     targetSlug = injectedSlug;
   } else if (hostHeader.endsWith('.mtapp.ly')) {
     const sub = hostHeader.replace('.mtapp.ly', '').trim();
@@ -63,8 +63,8 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
     if (tenant) return tenant;
   }
 
-  // 3. Fallback to default tenant (Baytak Pharmacy)
-  const defaultTenant = await prisma.tenant.findFirst({
+  // 3. Fallback to default tenant (Baytak Pharmacy) - Auto-seed in DB if missing
+  let defaultTenant = await prisma.tenant.findFirst({
     where: {
       OR: [
         { id: 'default-tenant' },
@@ -84,6 +84,37 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
       hasPurchases: true,
     },
   });
+
+  if (!defaultTenant) {
+    try {
+      defaultTenant = await prisma.tenant.upsert({
+        where: { id: 'default-tenant' },
+        update: {},
+        create: {
+          id: 'default-tenant',
+          name: 'صيدلية بيتك',
+          slug: 'baytak',
+          status: 'ACTIVE',
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true,
+          customDomain: true,
+          status: true,
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
+        },
+      });
+    } catch {
+      // Fallback in case of DB read-only
+    }
+  }
 
   return defaultTenant || {
     id: 'default-tenant',

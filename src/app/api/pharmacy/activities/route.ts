@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const trips = await prisma.purchasingTrip.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
 
     const audits = await prisma.inventoryAudit.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -25,12 +29,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const { action, trip, audit } = body;
 
     if (action === 'ADD_TRIP' && trip) {
       const createdTrip = await prisma.purchasingTrip.create({
         data: {
+          tenantId,
           officerId: trip.officerId || null,
           officerName: trip.officerName || 'مسؤول المشتريات',
           date: trip.date || new Date().toISOString().split('T')[0],
@@ -49,6 +55,7 @@ export async function POST(req: NextRequest) {
     if (action === 'ADD_AUDIT' && audit) {
       const createdAudit = await prisma.inventoryAudit.create({
         data: {
+          tenantId,
           officerId: audit.officerId || null,
           officerName: audit.officerName || 'مسؤول المخزون',
           date: audit.date || new Date().toISOString().split('T')[0],

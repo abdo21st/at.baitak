@@ -1,28 +1,36 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateInStockVelocity } from '@/lib/pharmacyAnalytics';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const totalProductsCount = await prisma.pharmacyProduct.count();
+    const tenantId = await resolveTenantId(req);
+    const safeTenantId = (tenantId || 'default-tenant').replace(/'/g, "''");
+
+    const totalProductsCount = await prisma.pharmacyProduct.count({
+      where: { tenantId }
+    });
     const outOfStockCount = await prisma.pharmacyProduct.count({
-      where: { stockOnHand: { lte: 0 } }
+      where: { tenantId, stockOnHand: { lte: 0 } }
     });
 
     // BUG FIX: belowMinStockCount must check stockOnHand < minStockLevel
     // Prisma doesn't support column-to-column comparison, use raw SQL
-    const belowMinResult = await prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(*)::bigint as count FROM "PharmacyProduct"
-      WHERE "stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel"
-    `;
+    const belowMinResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+      `SELECT COUNT(*)::bigint as count FROM "PharmacyProduct" WHERE "tenantId" = '${safeTenantId}' AND "stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel"`
+    );
     const belowMinStockCount = Number(belowMinResult?.[0]?.count || 0);
 
-    const totalSuppliersCount = await prisma.pharmacySupplier.count();
+    const totalSuppliersCount = await prisma.pharmacySupplier.count({
+      where: { tenantId }
+    });
 
     // Aggregates - only load needed columns for performance
     const products = await prisma.pharmacyProduct.findMany({
+      where: { tenantId },
       select: {
         stockOnHand: true,
         costPrice: true,
@@ -61,7 +69,7 @@ export async function GET() {
 
     // Top Critical Shortages (out-of-stock, sorted by real 30-day velocity / sales)
     const topShortagesRaw = await prisma.pharmacyProduct.findMany({
-      where: { stockOnHand: { lte: 0 } },
+      where: { tenantId, stockOnHand: { lte: 0 } },
       orderBy: [
         { sold30Days: 'desc' },
         { totalSoldQty: 'desc' }

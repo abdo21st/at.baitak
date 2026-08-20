@@ -67,6 +67,10 @@ export interface AttendanceRecord {
   checkOutLat?: number | null;
   checkOutLng?: number | null;
   isOutsideGps?: boolean;      // هل تم التسجيل خارج نطاق GPS
+  projectId?: string | null;   // معرف المهمة أو المشروع
+  projectName?: string | null; // اسم المهمة
+  projectColor?: string | null;// لون المهمة
+  taskNotes?: string | null;   // ملاحظات وإنجاز المهمة
   createdAt: string;
 }
 
@@ -77,6 +81,9 @@ export interface CompanySettings {
   managerPhone?: string | null;
   n8nWebhookUrl: string;
   whatsappNotificationsEnabled?: boolean;
+  whatsappGroupLink?: string | null;
+  whatsappGroupJid?: string | null;
+  whatsappGroupName?: string | null;
   defaultTargetMonthlyHours: number;
   autoCloseHours: number;
   gpsEnabled: boolean;
@@ -101,6 +108,26 @@ export interface RateRule {
   appliesTo: 'ALL' | 'DEPARTMENT' | 'EMPLOYEE';
   targetId?: string | null;
   isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Project {
+  id: string;
+  tenantId?: string;
+  name: string;
+  description?: string | null;
+  clientName?: string | null;
+  hourlyRate: number;
+  budgetHours: number;
+  color: string;
+  status: 'OPEN' | 'CLOSED';
+  openedAt: string;
+  closedAt?: string | null;
+  totalHours?: number;
+  totalCost?: number;
+  attendanceCount?: number;
+  activeEmployeesCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -131,7 +131,7 @@ export async function sendCheckoutReminderToN8n(
 }
 
 export async function sendTestWebhook(targetPhone?: string, webhookUrl?: string): Promise<boolean> {
-  const message = `✅ *اتصال ناجح مع نظام حضورك*\n\nتم ربط واتساب و n8n Webhook بنجاح مع منظومة الدوام! 🟢\nالوقت: ${new Date().toLocaleString('ar-LY')}`;
+  const message = `✅ *اتصال ناجح مع نظام حضورك*\n\nتم ربط واتساب و n8n Webhook بنجاح مع منظومة الدوام! 🟢\nالوقت: ${new Date().toLocaleString('ar-LY-u-nu-latn')}`;
 
   if (targetPhone) {
     await sendDirectWhatsApp(targetPhone, message);
@@ -143,7 +143,7 @@ export async function sendTestWebhook(targetPhone?: string, webhookUrl?: string)
       type: 'TEST_PING',
       targetPhone: targetPhone || '',
       message,
-      sentAt: new Date().toLocaleString('ar-LY')
+      sentAt: new Date().toLocaleString('ar-LY-u-nu-latn')
     },
     webhookUrl
   );

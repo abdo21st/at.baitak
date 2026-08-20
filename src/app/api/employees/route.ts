@@ -249,6 +249,7 @@ export async function PUT(req: NextRequest) {
 // 4. DELETE Employee from PostgreSQL
 export async function DELETE(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -262,7 +263,7 @@ export async function DELETE(req: NextRequest) {
     }
     await prisma.user.delete({ where: { id } });
 
-    const allUsers = await getOrSeedUsers();
+    const allUsers = await getOrSeedUsers(tenantId);
     return NextResponse.json({ success: true, users: allUsers });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message || 'خطأ في حذف الموظف' }, { status: 500 });

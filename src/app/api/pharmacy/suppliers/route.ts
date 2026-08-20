@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
 
-    const where: any = {};
+    const where: any = { tenantId };
     if (search.trim()) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },

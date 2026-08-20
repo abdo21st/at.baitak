@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,11 +10,12 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || 'PENDING';
     const search = searchParams.get('search') || '';
 
-    const where: any = {};
+    const where: any = { tenantId };
     if (status && status !== 'ALL') {
       where.status = status;
     }
@@ -33,8 +35,8 @@ export async function GET(req: NextRequest) {
       take: 100
     });
 
-    const pendingCount = await prisma.whatsAppShortageRequest.count({ where: { status: 'PENDING' } });
-    const orderedCount = await prisma.whatsAppShortageRequest.count({ where: { status: 'ORDERED' } });
+    const pendingCount = await prisma.whatsAppShortageRequest.count({ where: { tenantId, status: 'PENDING' } });
+    const orderedCount = await prisma.whatsAppShortageRequest.count({ where: { tenantId, status: 'ORDERED' } });
 
     return NextResponse.json({
       success: true,

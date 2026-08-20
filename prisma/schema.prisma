@@ -71,7 +71,7 @@ model Tenant {
   hasPurchases       Boolean           @default(true) // أوامر الشراء وإدارة الموردين
 
   // العلاقات مع بيانات النشاط التجاري
-  companySettings  CompanySettings?
+  companySettings  CompanySettings[]
   users            User[]
   departments      Department[]
   projects         Project[]
@@ -173,15 +173,20 @@ model Project {
   tenantId     String             @default("default-tenant")
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
+  description  String?
   clientName   String?
   hourlyRate   Float              @default(0.0)
   budgetHours  Float              @default(0.0)
   color        String             @default("#0284c7")
+  status       String             @default("OPEN") // "OPEN" | "CLOSED"
+  openedAt     DateTime           @default(now())
+  closedAt     DateTime?
   attendances  AttendanceRecord[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
   @@index([tenantId])
+  @@index([status])
 }
 
 model User {
@@ -269,13 +274,16 @@ model LeaveRequest {
 
 model CompanySettings {
   id                        String   @id @default("default")
-  tenantId                  String   @unique @default("default-tenant")
+  tenantId                  String   @default("default-tenant")
   tenant                    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   companyName               String   @default("نظام تدوين ساعات العمل المخصص")
   logoUrl                   String?
   managerPhone              String?  @default("")
   n8nWebhookUrl             String   @default("https://n8n.ordermt.ly/webhook/attendance-alert")
   whatsappNotificationsEnabled Boolean @default(true)
+  whatsappGroupLink             String?  @default("")
+  whatsappGroupJid              String?  @default("")
+  whatsappGroupName             String?  @default("صيدلية بيتك")
   defaultTargetMonthlyHours Float    @default(0.0)
   autoCloseHours            Float    @default(12.0)
   gpsEnabled                Boolean  @default(false)
@@ -432,6 +440,9 @@ model PharmacySettings {
   purchasingCommissionRate Float    @default(0.5)
   syncApiKey               String   @default("PHARMACY_SYNC_KEY_2026")
   pharmacyName             String   @default("صيدلية النقاء")
+  whatsappGroupLink        String?  @default("")
+  whatsappGroupJid         String?  @default("")
+  whatsappGroupName        String?  @default("صيدلية بيتك")
   lastSyncTimestamp        DateTime?
   updatedAt                DateTime @updatedAt
 }

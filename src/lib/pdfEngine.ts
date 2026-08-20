@@ -14,6 +14,7 @@ export interface PurchaseOrderItemPdf {
 export interface PurchaseOrderPdfData {
   orderNumber: string;
   orderDate: string;
+  companyName?: string;
   supplierName: string;
   supplierPhone?: string;
   items: PurchaseOrderItemPdf[];
@@ -48,13 +49,14 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderPdfData): Prom
   const totalItemsCount = data.items.length;
   const totalUnitsCount = data.items.reduce((sum, i) => sum + (Number(i.requestedQty) || 0), 0);
   const totalCostCalc = data.totalAmount ?? data.items.reduce((sum, i) => sum + (Number(i.totalPrice) || (Number(i.requestedQty) * Number(i.unitPrice || 0))), 0);
+  const effectiveCompanyName = data.companyName || 'صيدلية بيتك';
 
   container.innerHTML = `
     <div style="border: 2px solid #0f172a; border-radius: 16px; padding: 24px; background: #ffffff;">
       <!-- Header -->
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 16px;">
         <div style="text-align: right;">
-          <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: #059669;">صيدلية بيتك 🌿</h1>
+          <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: #059669;">${effectiveCompanyName} 🌿</h1>
           <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: 700; color: #64748b;">منظومة إدارة المشتريات والمخزون الصيدلاني</p>
         </div>
         <div style="text-align: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 8px 16px;">

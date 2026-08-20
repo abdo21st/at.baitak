@@ -41,10 +41,10 @@ export function queryBnfMonograph(term: string): BnfMonograph | null {
     return bnfDatabase[clean];
   }
 
-  // 2. بحث بالكلمات المفتاحية
+  // 2. بحث بالكلمات المفتاحية (يشترط 4 أحرف على الأقل لمنع التطابقات الكاذبة)
   const keys = Object.keys(bnfDatabase);
   for (const key of keys) {
-    if (clean.includes(key) || key.includes(clean)) {
+    if ((key.length >= 4 && clean.includes(key)) || (clean.length >= 4 && key.includes(clean))) {
       return bnfDatabase[key];
     }
   }

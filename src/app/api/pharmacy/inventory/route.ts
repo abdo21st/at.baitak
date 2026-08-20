@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
+    const safeTenantId = (tenantId || 'default-tenant').replace(/'/g, "''");
+
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const filter = searchParams.get('filter') || 'all';
@@ -15,7 +19,7 @@ export async function GET(req: NextRequest) {
     const branch = searchParams.get('branch');
 
     // Build WHERE conditions
-    const conditions: string[] = [];
+    const conditions: string[] = [`"tenantId" = '${safeTenantId}'`];
 
     if (branch && branch !== 'all' && branch !== 'ALL') {
       const safeBranch = branch.replace(/'/g, "''");

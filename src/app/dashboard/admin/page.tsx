@@ -19,6 +19,7 @@ import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import PrintReportLayout from '@/components/PrintReportLayout';
+import TaskManagement from '@/components/TaskManagement';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
   const [isClinicalModalOpen, setIsClinicalModalOpen] = useState(false);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'PROJECTS' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
 
   // Sidebar Collapsed & Mobile States (الخيار رقم 2: القائمة الجانبية الفاخرة)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -40,6 +41,8 @@ export default function AdminDashboard() {
   // WhatsApp & n8n Automation Settings State
   const [managerPhone, setManagerPhone] = useState('');
   const [n8nWebhookUrl, setN8nWebhookUrl] = useState('https://n8n.ordermt.ly/webhook/attendance-alert');
+  const [whatsappGroupLink, setWhatsappGroupLink] = useState('');
+  const [whatsappGroupName, setWhatsappGroupName] = useState('صيدلية بيتك');
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [whatsappActionMsg, setWhatsappActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [whatsappActionLoading, setWhatsappActionLoading] = useState(false);
@@ -139,6 +142,8 @@ export default function AdminDashboard() {
         if (s.gpsRadiusMeters) setGpsRadiusMeters(String(s.gpsRadiusMeters));
         if (s.managerPhone) setManagerPhone(String(s.managerPhone));
         if (s.n8nWebhookUrl) setN8nWebhookUrl(String(s.n8nWebhookUrl));
+        if (s.whatsappGroupLink) setWhatsappGroupLink(String(s.whatsappGroupLink));
+        if (s.whatsappGroupName) setWhatsappGroupName(String(s.whatsappGroupName));
         if (s.whatsappNotificationsEnabled !== undefined) setWhatsappEnabled(Boolean(s.whatsappNotificationsEnabled));
       }
     } catch (e) {
@@ -159,6 +164,8 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           managerPhone,
           n8nWebhookUrl,
+          whatsappGroupLink,
+          whatsappGroupName,
           whatsappNotificationsEnabled: whatsappEnabled
         })
       });
@@ -728,6 +735,29 @@ export default function AdminDashboard() {
                 <span className="flex-1 text-right truncate">الأقسام والوظائف</span>
                 <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-mono font-bold">
                   {departments.length}
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Tab: Tasks & Projects */}
+          <button
+            onClick={() => { setActiveTab('PROJECTS'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'PROJECTS'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="إدارة المهام والمشاريع"
+          >
+            <Briefcase className="w-5 h-5 shrink-0 text-cyan-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">المهام والمشاريع</span>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold">
+                  جديد
                 </span>
               </>
             )}
@@ -1660,6 +1690,48 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* WhatsApp Shortage Group Configuration */}
+                <div className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-4">
+                  <div>
+                    <h4 className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>تخصيص مجموعة الواتساب المعتمدة للنواقص (حظر المجموعات الأخرى)</span>
+                    </h4>
+                    <p className="text-[11px] text-emerald-800 font-normal mt-0.5">
+                      حدد رابط دعوة المجموعة أو معرف الـ JID واسم المجموعة حتى لا يتم جلب نواقص أو صور من أي مجموعات واتساب أخرى.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-emerald-900 font-bold mb-1">
+                        🔗 رابط دعوة مجموعة الواتساب أو معرف الـ JID:
+                      </label>
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={whatsappGroupLink}
+                        onChange={(e) => setWhatsappGroupLink(e.target.value)}
+                        placeholder="https://chat.whatsapp.com/XXXXX أو 120363044711297774@g.us"
+                        className="w-full h-11 bg-white border border-emerald-200 rounded-xl px-3 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-emerald-900 font-bold mb-1">
+                        🏷️ اسم المجموعة المعتمدة:
+                      </label>
+                      <input
+                        type="text"
+                        value={whatsappGroupName}
+                        onChange={(e) => setWhatsappGroupName(e.target.value)}
+                        placeholder="مثال: صيدلية بيتك"
+                        className="w-full h-11 bg-white border border-emerald-200 rounded-xl px-3 text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-2">
                   <button
                     type="submit"
@@ -1678,6 +1750,11 @@ export default function AdminDashboard() {
         {/* TAB 6: RATE RULES & CUSTOM SURCHARGES */}
         {activeTab === 'RATE_RULES' && (
           <RateRulesManagement departments={departments} users={users} />
+        )}
+
+        {/* TAB 7: TASKS & PROJECTS ATTENDANCE SYSTEM */}
+        {activeTab === 'PROJECTS' && (
+          <TaskManagement />
         )}
       </main>
       </div>

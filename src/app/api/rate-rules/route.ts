@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateShiftWithRateRules } from '@/lib/rateEngine';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 // 1. GET Rate Rules
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const rules = await (prisma as any).rateRule.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json({ success: true, rules });
@@ -17,6 +20,7 @@ export async function GET() {
 // 2. POST Create Rate Rule OR Recalculate Month
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
 
     if (body.action === 'RECALCULATE_MONTH') {
@@ -24,14 +28,15 @@ export async function POST(req: NextRequest) {
       const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const targetMonth = body.month || currentMonthStr;
 
-      // 1. Fetch active rate rules
+      // 1. Fetch active rate rules for current tenant
       const activeRules = await (prisma as any).rateRule.findMany({
-        where: { isActive: true }
+        where: { tenantId, isActive: true }
       });
 
-      // 2. Fetch all attendance records for the target month
+      // 2. Fetch all attendance records for the target month for current tenant
       const monthRecords = await prisma.attendanceRecord.findMany({
         where: {
+          user: { tenantId },
           date: { startsWith: targetMonth }
         },
         include: {
@@ -135,6 +140,7 @@ export async function POST(req: NextRequest) {
 
     const created = await (prisma as any).rateRule.create({
       data: {
+        tenantId,
         name: String(name).trim(),
         ruleType: ruleType === 'ONE_TIME' ? 'ONE_TIME' : 'RECURRING',
         daysOfWeek: Array.isArray(daysOfWeek) ? daysOfWeek.map(Number) : [],
@@ -150,6 +156,7 @@ export async function POST(req: NextRequest) {
     });
 
     const rules = await (prisma as any).rateRule.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -162,6 +169,7 @@ export async function POST(req: NextRequest) {
 // 3. PUT Update / Toggle Rate Rule
 export async function PUT(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const {
       id,
@@ -200,6 +208,7 @@ export async function PUT(req: NextRequest) {
     });
 
     const rules = await (prisma as any).rateRule.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -212,6 +221,7 @@ export async function PUT(req: NextRequest) {
 // 4. DELETE Rate Rule
 export async function DELETE(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -224,6 +234,7 @@ export async function DELETE(req: NextRequest) {
     });
 
     const rules = await (prisma as any).rateRule.findMany({
+      where: { tenantId },
       orderBy: { createdAt: 'desc' }
     });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { classifyProduct } from '@/lib/aiClassifier';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'غير مصرح بالوصول (API Key غير صحيح)' }, { status: 401 });
     }
 
+    const tenantId = await resolveTenantId(req);
     const body = await req.json();
     const { action, branchCode: rawBranchCode, branchName: rawBranchName, products, suppliers, timestamp } = body;
 
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Handling Data Reset / Purge
     if (action === 'RESET_DATA' || action === 'PURGE_BRANCH') {
-      const deleteFilter = branchCode === 'ALL' ? {} : { branchCode };
+      const deleteFilter = branchCode === 'ALL' ? { tenantId } : { tenantId, branchCode };
       const deletedProducts = await prisma.pharmacyProduct.deleteMany({ where: deleteFilter });
       const deletedSuppliers = await prisma.pharmacySupplier.deleteMany({ where: deleteFilter });
 
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
             lastSyncedAt: new Date()
           },
           create: {
+            tenantId,
             branchCode,
             branchName,
             productCode: pCode,
@@ -156,6 +159,7 @@ export async function POST(req: NextRequest) {
             lastSyncedAt: new Date()
           },
           create: {
+            tenantId,
             branchCode,
             branchName,
             supplierIdPk: supId,

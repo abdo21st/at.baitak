@@ -45,6 +45,8 @@ export interface ShiftSegment {
   nextDate?: string;
   isOutsideGps?: boolean;
   isVerified?: boolean;
+  projectName?: string | null;
+  projectColor?: string | null;
   originalRecord: AttendanceRecord;
 }
 
@@ -144,6 +146,8 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           originalDate: r.date,
           isOutsideGps: r.isOutsideGps,
           isVerified: r.isVerified,
+          projectName: r.projectName,
+          projectColor: r.projectColor,
           originalRecord: r
         });
       } else {
@@ -174,6 +178,8 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           nextDate: nextDayStr,
           isOutsideGps: r.isOutsideGps,
           isVerified: r.isVerified,
+          projectName: r.projectName,
+          projectColor: r.projectColor,
           originalRecord: r
         });
 
@@ -201,6 +207,8 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           nextDate: nextDayStr,
           isOutsideGps: r.isOutsideGps,
           isVerified: r.isVerified,
+          projectName: r.projectName,
+          projectColor: r.projectColor,
           originalRecord: r
         });
       }

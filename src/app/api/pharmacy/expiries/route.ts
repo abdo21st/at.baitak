@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const filter = searchParams.get('filter') || 'all'; // all, expired, 30days, 90days, 180days
     const search = searchParams.get('search') || '';
 
     const products = await prisma.pharmacyProduct.findMany({
       where: {
+        tenantId,
         stockOnHand: { gt: 0 },
         expiryDate: { not: null }
       },

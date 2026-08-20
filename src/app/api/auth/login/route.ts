@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     // 1. تحديد الـ slug المستهدف
     let targetSlug = '';
-    if (injectedSlug && injectedSlug !== 'baytak' && injectedSlug !== 'default-tenant') {
+    if (injectedSlug) {
       targetSlug = injectedSlug;
     } else if (hostHeader.endsWith('.mtapp.ly')) {
       const sub = hostHeader.replace('.mtapp.ly', '').trim();

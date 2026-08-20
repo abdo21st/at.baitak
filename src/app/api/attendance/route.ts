@@ -38,7 +38,10 @@ async function getOrSeedRecords(userIdFilter?: string | null, tenantId?: string 
         user: { tenantId: targetTenantId },
         ...(userIdFilter ? { userId: userIdFilter } : {}),
       },
-      include: { user: { include: { jobRoles: true, departments: true } } },
+      include: {
+        user: { include: { jobRoles: true, departments: true } },
+        project: true
+      },
       orderBy: { createdAt: 'desc' }
     });
 
@@ -120,6 +123,10 @@ async function getOrSeedRecords(userIdFilter?: string | null, tenantId?: string 
           checkOutLat: r.checkOutLat,
           checkOutLng: r.checkOutLng,
           isOutsideGps: r.isOutsideGps ?? false,
+          projectId: r.projectId || null,
+          projectName: r.project?.name || r.projectName || null,
+          projectColor: r.project?.color || null,
+          taskNotes: r.taskNotes || null,
           createdAt: r.createdAt.toISOString()
         };
       });
@@ -181,6 +188,60 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
+    let directHourlyRate = 0;
+    let monthlySalary = 0;
+    let targetMonthlyHours = 0;
+    let isHourly = true;
+    let userDepartmentIds: string[] = [];
+    let userTenantId = 'default-tenant';
+
+    try {
+      const u = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { jobRoles: true, departments: true }
+      });
+      if (u) {
+        userTenantId = u.tenantId || 'default-tenant';
+        directHourlyRate = u.hourlyRate || 0;
+        monthlySalary = u.monthlySalary || 0;
+        targetMonthlyHours = u.targetMonthlyHours || 0;
+        const primaryRole = u.jobRoles?.[0];
+        isHourly = primaryRole ? primaryRole.isHourly !== false : true;
+        userDepartmentIds = u.departments.map(d => d.id);
+      }
+    } catch {}
+
+    // استخراج jobRoleId والمهمة/المشروع من البيانات المُرسلة
+    const { jobRoleId, projectId, taskNotes } = body;
+    const resolvedJobRoleId = jobRoleId || (await (async () => {
+      try {
+        const u = await prisma.user.findUnique({ where: { id: userId }, include: { jobRoles: true } });
+        return u?.jobRoles?.[0]?.id || null;
+      } catch { return null; }
+    })());
+
+    let resolvedProjectId: string | null = null;
+    let resolvedProjectName: string | null = null;
+    let resolvedProjectColor: string | null = null;
+
+    if (projectId) {
+      const proj = await prisma.project.findFirst({
+        where: { id: projectId, tenantId: userTenantId }
+      });
+      if (!proj) {
+        return NextResponse.json({ success: false, error: 'المهمة أو المشروع المحدد غير موجود' }, { status: 400 });
+      }
+      if (proj.status === 'CLOSED') {
+        return NextResponse.json({
+          success: false,
+          error: `عذراً: المهمة (${proj.name}) تم إغلاقها من قبل الإدارة ولا يمكن تسجيل الحضور عليها 🔒`
+        }, { status: 400 });
+      }
+      resolvedProjectId = proj.id;
+      resolvedProjectName = proj.name;
+      resolvedProjectColor = proj.color;
+    }
+
     const todayDate = date || new Date().toISOString().split('T')[0];
 
     // 1. Prevent duplicate / overlapping check-ins for the same employee on the same date
@@ -228,27 +289,6 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
 
-    let directHourlyRate = 0;
-    let monthlySalary = 0;
-    let targetMonthlyHours = 0;
-    let isHourly = true;
-    let userDepartmentIds: string[] = [];
-
-    try {
-      const u = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { jobRoles: true, departments: true }
-      });
-      if (u) {
-        directHourlyRate = u.hourlyRate || 0;
-        monthlySalary = u.monthlySalary || 0;
-        targetMonthlyHours = u.targetMonthlyHours || 0;
-        const primaryRole = u.jobRoles?.[0];
-        isHourly = primaryRole ? primaryRole.isHourly !== false : true;
-        userDepartmentIds = u.departments.map(d => d.id);
-      }
-    } catch {}
-
     let workHours = 0;
     let earnedCost = 0;
 
@@ -273,7 +313,7 @@ export async function POST(req: NextRequest) {
 
       let rateRules: any[] = [];
       try {
-        rateRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+        rateRules = await (prisma as any).rateRule.findMany({ where: { tenantId: userTenantId, isActive: true } });
       } catch {}
 
       const shiftCost = calculateShiftWithRateRules(
@@ -292,21 +332,15 @@ export async function POST(req: NextRequest) {
       earnedCost = shiftCost.totalCost;
     }
 
-    // استخراج jobRoleId من البيانات المُرسلة أو من الوظيفة الأولى للموظف
-    const { jobRoleId } = body;
-    const resolvedJobRoleId = jobRoleId || (await (async () => {
-      try {
-        const u = await prisma.user.findUnique({ where: { id: userId }, include: { jobRoles: true } });
-        return u?.jobRoles?.[0]?.id || null;
-      } catch { return null; }
-    })());
-
     let newRecord: AttendanceRecord;
     try {
       const created = await prisma.attendanceRecord.create({
         data: {
           userId,
           jobRoleId: resolvedJobRoleId,
+          projectId: resolvedProjectId,
+          projectName: resolvedProjectName,
+          taskNotes: taskNotes ? String(taskNotes).trim() : null,
           date: todayDate,
           checkInTime,
           checkOutTime: checkOutTime || null,
@@ -317,7 +351,7 @@ export async function POST(req: NextRequest) {
           isOutsideGps,
           method: finalLat ? 'GPS' : 'QUICK'
         },
-        include: { user: true }
+        include: { user: true, project: true }
       });
 
       newRecord = {
@@ -334,6 +368,10 @@ export async function POST(req: NextRequest) {
         checkInLat: created.checkInLat,
         checkInLng: created.checkInLng,
         isOutsideGps: created.isOutsideGps,
+        projectId: created.projectId || null,
+        projectName: created.project?.name || created.projectName || null,
+        projectColor: created.project?.color || resolvedProjectColor || null,
+        taskNotes: created.taskNotes || null,
         createdAt: created.createdAt.toISOString()
       };
     } catch (dbErr) {
@@ -510,7 +548,8 @@ export async function PUT(req: NextRequest) {
 
     let rateRules: any[] = [];
     try {
-      rateRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+      const putTenantId = targetRec?.user?.tenantId || 'default-tenant';
+      rateRules = await (prisma as any).rateRule.findMany({ where: { tenantId: putTenantId, isActive: true } });
     } catch {}
 
     // BUG FIX: Fetch user department IDs for department-scoped rate rules
@@ -698,7 +737,8 @@ export async function PATCH(req: NextRequest) {
 
             let patchRules: any[] = [];
             try {
-              patchRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+              const patchTenantId = target?.user?.tenantId || 'default-tenant';
+              patchRules = await (prisma as any).rateRule.findMany({ where: { tenantId: patchTenantId, isActive: true } });
             } catch {}
 
             // BUG FIX: Calculate isFirstRecordOfDay correctly instead of hardcoding true

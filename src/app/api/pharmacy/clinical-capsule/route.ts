@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateClinicalCapsule } from '@/lib/clinicalKnowledge';
 import { fetchLiveDrugCapsule } from '@/lib/liveDrugFetcher';
 import { sendDirectWhatsApp, triggerN8nWebhook, formatLibyanPhone } from '@/lib/n8n';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,7 +25,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'نص الرسالة مطلوب' }, { status: 400 });
       }
 
+      const tenantId = await resolveTenantId(req);
       const allUsers = await prisma.user.findMany({
+        where: { tenantId },
         include: { departments: true },
         orderBy: { name: 'asc' }
       });

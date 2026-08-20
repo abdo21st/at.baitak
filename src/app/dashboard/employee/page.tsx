@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, AttendanceRecord, CompanySettings } from '@/lib/types';
+import { User, AttendanceRecord, CompanySettings, Project } from '@/lib/types';
 
 import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
@@ -87,6 +87,22 @@ export default function EmployeeDashboard() {
 
   const [loading, setLoading] = useState(false);
   const [msg, setMsg]         = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Task-based attendance state
+  const [openProjects, setOpenProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [taskNotesInput, setTaskNotesInput] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/projects?status=OPEN')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.projects)) {
+          setOpenProjects(data.projects);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Employee Edit Time Modal State
   const [editingRecordForEmp, setEditingRecordForEmp] = useState<AttendanceRecord | null>(null);
@@ -307,7 +323,9 @@ export default function EmployeeDashboard() {
         body: JSON.stringify({
           userId: user.id, userName: user.name, employeeCode: user.employeeCode,
           date: selectedDate, checkInTime: formattedCheckIn,
-          checkInLat: userLat, checkInLng: userLng
+          checkInLat: userLat, checkInLng: userLng,
+          projectId: selectedProjectId || null,
+          taskNotes: taskNotesInput || null
         })
       });
       const data = await res.json();
@@ -506,7 +524,15 @@ export default function EmployeeDashboard() {
                   <td className="py-3.5 px-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
                     {idx + 1}
                   </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">{r.date}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">
+                    <div>{r.date}</div>
+                    {r.projectName && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold mt-1">
+                        <Briefcase className="w-3 h-3 text-blue-600" />
+                        {r.projectName}
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
                   <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
                   <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
@@ -809,6 +835,41 @@ export default function EmployeeDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* Task / Project Selector */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 font-sans">
+                  <label className="text-slate-800 font-black text-xs flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4 text-blue-600" />
+                      نوع الدوام / المهمة المستهدفة
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-bold">
+                      {openProjects.length} مهمة مفتوحة متاحة
+                    </span>
+                  </label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-slate-900 text-xs font-black focus:outline-none focus:border-blue-500 cursor-pointer shadow-2xs"
+                  >
+                    <option value="">🏢 دوام عام معتاد (بدون مهمة مخصصة)</option>
+                    {openProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        📋 مهمة: {p.name} {p.clientName ? `• (${p.clientName})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedProjectId && (
+                    <input
+                      type="text"
+                      value={taskNotesInput}
+                      onChange={(e) => setTaskNotesInput(e.target.value)}
+                      placeholder="ملاحظات أو إنجازات خاصة بهذه المهمة (اختياري)..."
+                      className="w-full bg-white border border-blue-200 rounded-xl p-2.5 text-slate-900 text-xs font-medium focus:outline-none focus:border-blue-500 shadow-2xs"
+                    />
+                  )}
+                </div>
+
                 <button type="submit" disabled={loading} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-base rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all mt-4">
                   <Play className="w-5 h-5 fill-white" />{loading ? 'جاري التسجيل...' : 'تسجيل وقت الحضور'}
                 </button>
@@ -816,9 +877,18 @@ export default function EmployeeDashboard() {
             ) : (
               <form onSubmit={handleCheckOutSubmit} className="space-y-5">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs font-bold text-blue-900">
-                  <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-blue-600" /><span>تم تسجيل الحضور لهذا اليوم ({activeRecord.date}):</span></div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    <span>تم تسجيل الحضور لهذا اليوم ({activeRecord.date}):</span>
+                  </div>
                   <span className="font-mono text-sm font-black text-blue-700 bg-white px-3 py-1 rounded-xl border border-blue-200">{formatTime12h(activeRecord.checkInTime)}</span>
                 </div>
+                {activeRecord.projectName && (
+                  <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-2xl flex items-center gap-2 text-xs font-bold text-cyan-900">
+                    <Briefcase className="w-4 h-4 text-cyan-600 shrink-0" />
+                    <span>أنت مسجل حالياً على مهمة: <b className="text-cyan-800">{activeRecord.projectName}</b></span>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs font-bold">
                   <div>
                     <div className="flex items-center justify-between mb-2">

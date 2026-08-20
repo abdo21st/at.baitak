@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateInStockVelocity, calculateDaysOfInventory } from '@/lib/pharmacyAnalytics';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
+    const safeTenantId = (tenantId || 'default-tenant').replace(/'/g, "''");
+
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const category = searchParams.get('category');
@@ -44,7 +48,7 @@ export async function GET(req: NextRequest) {
     // Shortage = stockOnHand <= 0 OR (stockOnHand > 0 AND minStockLevel > 0 AND stockOnHand < minStockLevel)
     const rawQuery = `
       SELECT * FROM "PharmacyProduct"
-      WHERE (
+      WHERE "tenantId" = '${safeTenantId}' AND (
         "stockOnHand" <= 0 OR
         ("stockOnHand" > 0 AND "minStockLevel" > 0 AND "stockOnHand" < "minStockLevel")
       )
@@ -59,6 +63,7 @@ export async function GET(req: NextRequest) {
     // Pool of near-expiry items for generic risk check (items with stock > 0 and expiry date)
     const expiringPool = await prisma.pharmacyProduct.findMany({
       where: {
+        tenantId,
         stockOnHand: { gt: 0 },
         expiryDate: { not: null }
       },

@@ -146,7 +146,7 @@ export async function parseWhatsAppMessageToShortages(messageText: string): Prom
       requestedQty,
       unit,
       urgency,
-      notes: `المصدر: رسالة واتساب • ${new Date().toLocaleDateString('ar-LY')}`
+      notes: `المصدر: رسالة واتساب • ${new Date().toLocaleDateString('ar-LY-u-nu-latn')}`
     });
   }
 

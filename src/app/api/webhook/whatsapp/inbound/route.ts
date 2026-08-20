@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/webhook/whatsapp/inbound
  * Receives incoming WhatsApp group / direct messages from WAHA or n8n,
+ * verifies that the message comes strictly from the authorized WhatsApp group,
  * parses shortage items with AI/Clinical parser, and stores them in PostgreSQL.
  */
 export async function POST(req: NextRequest) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     // 1. Extract message text and metadata from WAHA / n8n / direct format
     let messageText = '';
     let chatId = '';
-    let groupName = 'مجموعة الصيدلية';
+    let groupName = '';
     let senderName = 'عضو مجموعة الواتساب';
     let senderPhone = '';
     let imageUrl: string | null = null;
@@ -28,9 +29,9 @@ export async function POST(req: NextRequest) {
       const p = rawBody.payload || rawBody;
       messageText = p.body || p.text || p.caption || '';
       chatId = p.from || p.chatId || '';
-      senderName = p.pushName || p._data?.notifyName || 'صيدلي بيتك';
+      senderName = p.pushName || p._data?.notifyName || 'صيدلي';
       senderPhone = (p.from || '').replace(/[^0-9]/g, '');
-      groupName = p._data?.chat?.name || p.groupName || 'صيدلية بيتك';
+      groupName = p._data?.chat?.name || p.groupName || '';
 
       // Check for attached photo / media
       if (p.hasMedia || p.media || p.mimetype?.startsWith('image/') || p.type === 'image') {
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
           imageUrl = `data:${p.media.mimetype || 'image/jpeg'};base64,${p.media.data}`;
         } else if (rawMediaUrl) {
           try {
-            // Convert remote WAHA file URL to self-contained Base64
             const wahaApiKey = process.env.WAHA_API_KEY || 'hodoork_waha_secure_2026';
             const fetchUrl = rawMediaUrl.replace('127.0.0.1:3000', '102.203.201.52:3008').replace('localhost:3000', '102.203.201.52:3008');
             const imgRes = await fetch(fetchUrl, {
@@ -69,40 +69,78 @@ export async function POST(req: NextRequest) {
     else if (rawBody.message || rawBody.text || rawBody.imageUrl) {
       messageText = rawBody.message || rawBody.text || '';
       chatId = rawBody.chatId || rawBody.from || '';
-      groupName = rawBody.groupName || 'صيدلية بيتك';
+      groupName = rawBody.groupName || '';
       senderName = rawBody.senderName || rawBody.name || 'صيدلي';
       senderPhone = rawBody.senderPhone || rawBody.phone || '';
       imageUrl = rawBody.imageUrl || rawBody.photo || null;
       if (imageUrl) mediaType = 'IMAGE';
     }
 
-    // 1.5 Strict Group Filtering: Accept ONLY messages from "صيدلية بيتك" (Baitak Pharmacy)
-    const ALLOWED_BAITAK_GROUP_JIDS = [
+    // 2. Fetch configured authorized WhatsApp groups from CompanySettings & PharmacySettings
+    const allSettings = await prisma.companySettings.findMany();
+    const pharmacySettings = await prisma.pharmacySettings.findFirst();
+
+    // Default whitelist
+    const allowedJids = new Set<string>([
       '120363044711297774@g.us',
       '120363045076046006@g.us',
       '120363028470615058@g.us',
       '120363420679229765@g.us',
       '120363424241099883@g.us'
-    ];
+    ]);
+    const allowedNames: string[] = ['بيتك', 'صيدلية بيتك'];
+    let targetTenantId = 'default-tenant';
+
+    // Populate from database settings
+    for (const setting of allSettings) {
+      if (setting.whatsappGroupJid && setting.whatsappGroupJid.trim()) {
+        allowedJids.add(setting.whatsappGroupJid.trim());
+      }
+      if (setting.whatsappGroupName && setting.whatsappGroupName.trim()) {
+        allowedNames.push(setting.whatsappGroupName.trim());
+      }
+      if (setting.whatsappGroupLink && setting.whatsappGroupLink.trim()) {
+        const link = setting.whatsappGroupLink.trim();
+        // If link contains JID
+        const jidMatch = link.match(/(\d{15,20}@g\.us)/);
+        if (jidMatch) allowedJids.add(jidMatch[1]);
+      }
+      if (setting.tenantId) {
+        targetTenantId = setting.tenantId;
+      }
+    }
+
+    if (pharmacySettings) {
+      if (pharmacySettings.whatsappGroupJid && pharmacySettings.whatsappGroupJid.trim()) {
+        allowedJids.add(pharmacySettings.whatsappGroupJid.trim());
+      }
+      if (pharmacySettings.whatsappGroupName && pharmacySettings.whatsappGroupName.trim()) {
+        allowedNames.push(pharmacySettings.whatsappGroupName.trim());
+      }
+    }
 
     const isGroupMessage = chatId.includes('@g.us');
-    const isWhitelistedJid = ALLOWED_BAITAK_GROUP_JIDS.includes(chatId);
-    const hasBaitakInName = (groupName || '').includes('بيتك') || (rawBody.payload?._data?.chat?.name || '').includes('بيتك');
+    const isWhitelistedJid = allowedJids.has(chatId);
+    const normalizedGroupName = (groupName || '').toLowerCase();
+    const isMatchingConfiguredName = allowedNames.some(name => {
+      const cleanName = name.toLowerCase().trim();
+      return cleanName && (normalizedGroupName.includes(cleanName) || cleanName.includes(normalizedGroupName));
+    });
 
-    // If message is from a group that is NOT "صيدلية بيتك", reject immediately
-    if (isGroupMessage && !isWhitelistedJid && !hasBaitakInName) {
+    // 3. Strict Group Filtering: Reject if group is NOT authorized
+    if (isGroupMessage && !isWhitelistedJid && !isMatchingConfiguredName) {
       return NextResponse.json({
         success: true,
         ignored: true,
-        reason: 'NOT_FROM_BAITAK_PHARMACY',
-        message: `تم تجاهل الرسالة لأنها واردة من مجموعة غير معتمدة (${chatId}) وليست من [صيدلية بيتك] 🔒`,
+        reason: 'NOT_AUTHORIZED_GROUP',
+        message: `تم تجاهل الرسالة لأنها واردة من مجموعة غير معتمدة (${chatId} - ${groupName || 'بدون اسم'}). يُرجى ضبط رابط أو معرف المجموعة المعتمدة في إعدادات المنظومة 🔒`,
         storedCount: 0
       });
     }
 
-    groupName = 'صيدلية بيتك';
+    const effectiveGroupName = groupName || 'مجموعة صيدلية بيتك';
 
-    // 1.6 Reject non-pharmacy conversational / spam text (e.g. fuel / cars / gossip)
+    // 4. Reject non-pharmacy conversational / spam text
     const NON_PHARMACY_KEYWORDS = ['بنزين', 'وقود', 'محطة', 'طوابير', 'سوق سيارات', 'بيع سيارات', 'شحن شدات', 'تفريغ وعبي'];
     if (NON_PHARMACY_KEYWORDS.some(kw => messageText.includes(kw))) {
       return NextResponse.json({
@@ -114,14 +152,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If message contains an attached photo (Medicine Box / Prescription / Leaflet)
+    // 5. If message contains an attached photo (Medicine Box / Prescription / Leaflet)
     if (imageUrl) {
       const extractedDrug = await analyzeMedicineImageText(messageText, imageUrl);
 
       const imageRecord = await prisma.whatsAppShortageRequest.create({
         data: {
+          tenantId: targetTenantId,
           chatId,
-          groupName,
+          groupName: effectiveGroupName,
           senderName,
           senderPhone,
           rawMessage: messageText || `[صورة علبة دواء: ${extractedDrug.productName}]`,
@@ -150,7 +189,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'لم يتم استلام أي نص أو صورة' }, { status: 400 });
     }
 
-    // 2. Parse shortage items using clinical NLP parser
+    // 6. Parse shortage items using clinical NLP parser
     const parsedItems = await parseWhatsAppMessageToShortages(messageText);
 
     if (parsedItems.length === 0) {
@@ -161,13 +200,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Store items in PostgreSQL (WhatsAppShortageRequest)
+    // 7. Store items in PostgreSQL (WhatsAppShortageRequest)
     const createdRecords = [];
     for (const item of parsedItems) {
       const record = await prisma.whatsAppShortageRequest.create({
         data: {
+          tenantId: targetTenantId,
           chatId,
-          groupName,
+          groupName: effectiveGroupName,
           senderName,
           senderPhone,
           rawMessage: item.rawLine,
