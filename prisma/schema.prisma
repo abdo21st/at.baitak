@@ -595,4 +595,23 @@ model WebAuthnCredential {
   @@index([tenantId])
 }
 
+model SupportTicket {
+  id        String   @id @default(uuid())
+  tenantId  String   @default("default-tenant")
+  userName  String?
+  userPhone String?
+  subject   String
+  message   String
+  category  String   @default("GENERAL") // "TECHNICAL" | "BILLING" | "FEATURE" | "GENERAL"
+  priority  String   @default("NORMAL")  // "LOW" | "NORMAL" | "HIGH" | "URGENT"
+  status    String   @default("OPEN")    // "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
+  response  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+}
+
+
 
