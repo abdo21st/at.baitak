@@ -37,7 +37,15 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
 
   // 2. Query tenant from database
   if (targetSlug && targetSlug !== 'super-admin') {
-    const slugConditions: any[] = [
+    const isBaytakVariant = targetSlug === 'baytak' || targetSlug === 'baitak' || targetSlug === 'at.baitak' || targetSlug === 'at.baytak';
+
+    const slugConditions: any[] = isBaytakVariant ? [
+      { id: 'default-tenant' },
+      { slug: 'at.baitak' },
+      { slug: 'baytak' },
+      { slug: 'baitak' },
+      { slug: 'at.baytak' }
+    ] : [
       { slug: targetSlug },
       { slug: targetSlug.replace(/^at\./, '') },
       { slug: `at.${targetSlug}` },
