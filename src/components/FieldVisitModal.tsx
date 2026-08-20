@@ -171,7 +171,12 @@ export default function FieldVisitModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: activeVisit.id,
-          action: 'SEND_OTP'
+          action: 'SEND_OTP',
+          serviceFee: parseFloat(serviceFee) || 0,
+          partsFee: parseFloat(partsFee) || 0,
+          diagnosisNotes,
+          solutionNotes,
+          partsUsed
         })
       });
       const data = await res.json();

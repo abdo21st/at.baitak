@@ -254,23 +254,41 @@ export async function PUT(req: NextRequest) {
     // Action 1: SEND_OTP to Client WhatsApp
     if (action === 'SEND_OTP') {
       const freshOtp = String(Math.floor(1000 + Math.random() * 9000));
+      
+      const safeServiceFee = serviceFee !== undefined ? Math.max(0, parseFloat(String(serviceFee)) || 0.0) : existing.serviceFee;
+      const safePartsFee = partsFee !== undefined ? Math.max(0, parseFloat(String(partsFee)) || 0.0) : existing.partsFee;
+      const safeTotal = Number((safeServiceFee + safePartsFee).toFixed(2));
+      const cleanParts = partsUsed !== undefined ? String(partsUsed).trim().slice(0, 500) : (existing.partsUsed || '');
+
       await prisma.fieldVisit.update({
         where: { id },
-        data: { otpCode: freshOtp }
+        data: {
+          otpCode: freshOtp,
+          serviceFee: safeServiceFee,
+          partsFee: safePartsFee,
+          totalAmount: safeTotal,
+          diagnosisNotes: diagnosisNotes !== undefined ? String(diagnosisNotes).trim().slice(0, 1000) : existing.diagnosisNotes,
+          solutionNotes: solutionNotes !== undefined ? String(solutionNotes).trim().slice(0, 1000) : existing.solutionNotes,
+          partsUsed: cleanParts || null,
+        }
       });
 
       const companyName = existing.tenant?.name || 'شركة مدار التقنية للخدمات التقنية';
       const techName = existing.technician?.name || 'المهندس المختص';
-      const safeTotal = existing.totalAmount;
 
-      const otpMessage = `مرحباً بك عزيزي العميل في *${companyName}* 🛠️\n\nأكمل ${techName} أعمال الصيانة في موقعكم.\nالمبلغ المستحق: *${safeTotal} د.ل*\n\nلتأكيد استلام الخدمة ورضاكم التام، يرجى تزويد المهندس برمز التأكيد التالي:\n🔑 رمز التحقق: *${freshOtp}*\n\nشكراً لثقتكم بنا! ✨`;
+      let feeBreakdown = `• أتعاب الكشف والصيانة: *${safeServiceFee} د.ل*`;
+      if (safePartsFee > 0) {
+        feeBreakdown += `\n• تكلفة قطع الغيار: *${safePartsFee} د.ل*` + (cleanParts ? ` (${cleanParts})` : '');
+      }
+
+      const otpMessage = `مرحباً بك عزيزي العميل في *${companyName}* 🛠️\n\nأكمل ${techName} أعمال الصيانة في موقعكم بنجاح.\n\n📊 *تفاصيل الفاتورة المستحقة:*\n${feeBreakdown}\n━━━━━━━━━━━━━━━\n💰 *إجمالي المبلغ المستحق للسداد: ${safeTotal} د.ل*\n\nلتأكيد استلام الخدمة ورضاكم التام، يرجى تزويد المهندس برمز التأكيد التالي:\n🔑 رمز التحقق: *${freshOtp}*\n\nشكراً لثقتكم بنا! ✨`;
 
       const sent = await sendDirectWhatsApp(existing.clientPhone, otpMessage);
 
       return NextResponse.json({
         success: true,
         message: sent
-          ? `تم إرسال رمز التأكيد (OTP) إلى واتساب العميل (${existing.clientPhone}) بنجاح 📲`
+          ? `تم إرسال رمز التأكيد (OTP) وتفاصيل الفاتورة (${safeTotal} د.ل) إلى واتساب العميل بنجاح 📲`
           : `تم توليد الرمز (${freshOtp}). (تنبيه: تعذر إرسال الواتساب، يمكنك تزويد العميل به مباشرة)`,
         otpSent: sent,
         generatedOtp: freshOtp
@@ -293,6 +311,7 @@ export async function PUT(req: NextRequest) {
       const safeServiceFee = serviceFee !== undefined ? Math.max(0, parseFloat(String(serviceFee)) || 0.0) : existing.serviceFee;
       const safePartsFee = partsFee !== undefined ? Math.max(0, parseFloat(String(partsFee)) || 0.0) : existing.partsFee;
       const totalAmount = Number((safeServiceFee + safePartsFee).toFixed(2));
+      const cleanParts = partsUsed !== undefined ? String(partsUsed).trim().slice(0, 500) : (existing.partsUsed || '');
 
       const updated = await prisma.fieldVisit.update({
         where: { id },
@@ -306,17 +325,24 @@ export async function PUT(req: NextRequest) {
           totalAmount,
           diagnosisNotes: diagnosisNotes !== undefined ? String(diagnosisNotes).trim().slice(0, 1000) : existing.diagnosisNotes,
           solutionNotes: solutionNotes !== undefined ? String(solutionNotes).trim().slice(0, 1000) : existing.solutionNotes,
-          partsUsed: partsUsed !== undefined ? String(partsUsed).trim().slice(0, 500) : existing.partsUsed,
+          partsUsed: cleanParts || null,
           customerSignature: customerSignature || existing.customerSignature,
           photoAfter: photoAfter || existing.photoAfter,
           checkOutLat: lat ? Number(lat) : existing.checkOutLat,
           checkOutLng: lng ? Number(lng) : existing.checkOutLng
         },
-        include: { technician: true, project: true }
+        include: { technician: true, project: true, tenant: true }
       });
 
-      // Send thank you confirmation to customer WhatsApp
-      const thankYouMsg = `تم تأكيد واعتماد استلام خدمة الصيانة بنجاح من *${existing.tenant?.name || 'شركة مدار التقنية'}* ✅\n\nالمبلغ الإجمالي المسدد: *${totalAmount} د.ل*\nمدة العمل: *${workMinutes} دقيقة*\n\nنشكركم لاختياركم خدماتنا! 🌟`;
+      const companyName = existing.tenant?.name || 'شركة مدار التقنية للخدمات التقنية';
+
+      let receiptBreakdown = `• أتعاب الصيانة: *${safeServiceFee} د.ل*`;
+      if (safePartsFee > 0) {
+        receiptBreakdown += `\n• قطع الغيار: *${safePartsFee} د.ل*` + (cleanParts ? ` (${cleanParts})` : '');
+      }
+
+      // Send thank you confirmation with full itemized parity to customer WhatsApp
+      const thankYouMsg = `تم تأكيد واعتماد استلام خدمة الصيانة بنجاح من *${companyName}* ✅\n\n🧾 *إيصال السداد المعتمد:*\n${receiptBreakdown}\n━━━━━━━━━━━━━━━\n💵 *إجمالي المبلغ المسدد: ${totalAmount} د.ل* (مطابق للمبلغ المستحق)\n⏱️ مدة العمل الميداني: *${workMinutes} دقيقة*\n\nنشكركم لاختياركم خدماتنا! 🌟`;
       sendDirectWhatsApp(existing.clientPhone, thankYouMsg).catch(() => {});
 
       return NextResponse.json({
