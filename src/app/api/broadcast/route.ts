@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendDirectWhatsApp, triggerN8nWebhook, formatLibyanPhone } from '@/lib/n8n';
+import { resolveTenantId } from '@/lib/tenantResolver';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,8 +18,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'نص الرسالة مطلوب' }, { status: 400 });
     }
 
-    // 1. Fetch relevant users
+    // 0. Resolve tenant — عزل الموظفين حسب الشركة (tenant isolation)
+    const tenantId = await resolveTenantId(req);
+
+    // 1. Fetch relevant users — مفلترة حسب المستأجر فقط
     const allUsers = await prisma.user.findMany({
+      where: { tenantId },
       include: { departments: true },
       orderBy: { name: 'asc' }
     });

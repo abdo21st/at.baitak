@@ -7,11 +7,9 @@ export async function GET(req: NextRequest) {
     const injectedSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
 
     // 1. Determine the target slug from host or header
-    let targetSlug = '';
+    let targetSlug = injectedSlug || '';
 
-    if (injectedSlug && injectedSlug !== 'baytak' && injectedSlug !== 'default-tenant') {
-      targetSlug = injectedSlug;
-    } else if (hostHeader.endsWith('.mtapp.ly')) {
+    if (!targetSlug && hostHeader.endsWith('.mtapp.ly')) {
       const sub = hostHeader.replace('.mtapp.ly', '').trim();
       if (sub === 'at.baitak' || sub === 'baitak') {
         targetSlug = 'baytak';
@@ -49,8 +47,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Fallback to default tenant (Baytak Pharmacy) only if no custom tenant found
-    if (!tenant) {
+    // 3. Fallback ONLY if slug explicitly points to baytak (default tenant)
+    if (!tenant && (targetSlug === 'baytak' || targetSlug === 'default-tenant' || !targetSlug)) {
       tenant = await prisma.tenant.findFirst({
         where: {
           OR: [
@@ -72,17 +70,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // 4. If still not found, return neutral placeholder (NOT baytak data)
     return NextResponse.json({
       success: true,
       tenant: tenant || {
-        id: 'default-tenant',
-        name: 'صيدلية بيتك',
-        slug: 'baytak',
+        id: targetSlug || 'unknown',
+        name: '',
+        slug: targetSlug || '',
         logo: null,
         status: 'ACTIVE',
-        hasClinicalCapsule: true,
-        hasInventory: true,
-        hasPurchases: true,
+        hasClinicalCapsule: false,
+        hasInventory: false,
+        hasPurchases: false,
       },
     });
   } catch (error: any) {
@@ -90,14 +89,14 @@ export async function GET(req: NextRequest) {
       {
         success: false,
         tenant: {
-          id: 'default-tenant',
-          name: 'صيدلية بيتك',
-          slug: 'baytak',
+          id: 'unknown',
+          name: '',
+          slug: '',
           logo: null,
           status: 'ACTIVE',
-          hasClinicalCapsule: true,
-          hasInventory: true,
-          hasPurchases: true,
+          hasClinicalCapsule: false,
+          hasInventory: false,
+          hasPurchases: false,
         },
         error: error.message,
       },

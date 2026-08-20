@@ -101,9 +101,9 @@ export default function AdminDashboard() {
     name: '',
     logo: null,
     slug: '',
-    hasClinicalCapsule: true,
-    hasInventory: true,
-    hasPurchases: true,
+    hasClinicalCapsule: false,
+    hasInventory: false,
+    hasPurchases: false,
   });
 
   const fetchDashboardData = async () => {
@@ -121,9 +121,9 @@ export default function AdminDashboard() {
           name: tenantRes.tenant.name || '',
           logo: tenantRes.tenant.logo || null,
           slug: tenantRes.tenant.slug || '',
-          hasClinicalCapsule: tenantRes.tenant.hasClinicalCapsule !== false,
-          hasInventory: tenantRes.tenant.hasInventory !== false,
-          hasPurchases: tenantRes.tenant.hasPurchases !== false,
+          hasClinicalCapsule: tenantRes.tenant.hasClinicalCapsule === true,
+          hasInventory: tenantRes.tenant.hasInventory === true,
+          hasPurchases: tenantRes.tenant.hasPurchases === true,
         });
       }
 
@@ -803,7 +803,7 @@ export default function AdminDashboard() {
           </button>
 
           {/* Clinical Drug Capsule Button */}
-          {tenantInfo.hasClinicalCapsule !== false && (
+          {tenantInfo.hasClinicalCapsule === true && (
             <button
               onClick={() => { setIsClinicalModalOpen(true); setMobileSidebarOpen(false); }}
               className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
@@ -824,7 +824,7 @@ export default function AdminDashboard() {
           )}
 
           {/* Pharmacy Portal Link */}
-          {(tenantInfo.hasInventory !== false || tenantInfo.hasPurchases !== false) && (
+          {(tenantInfo.hasInventory === true || tenantInfo.hasPurchases === true) && (
             <button
               onClick={() => router.push('/pharmacy')}
               className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
