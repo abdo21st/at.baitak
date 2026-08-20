@@ -673,6 +673,21 @@ model MaintenanceContract {
   @@index([clientPhone])
 }
 
+model AnonymousSuggestion {
+  id               String   @id @default(uuid())
+  tenantId         String   @default("default-tenant")
+  category         String   @default("WORK_ENVIRONMENT") // "WORK_ENVIRONMENT" | "COMPENSATION" | "MANAGEMENT" | "IDEA"
+  encryptedContent String   // Encrypted text via AES-256
+  status           String   @default("UNREAD") // "UNREAD" | "REVIEWED" | "ACTION_TAKEN"
+  adminReply       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+}
+
+
 
 
 
