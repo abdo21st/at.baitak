@@ -59,10 +59,19 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { id, status, requestedQty, matchedCode, notes } = await req.json();
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'معرف الطلب مطلوب' }, { status: 400 });
+    }
+
+    const existing = await prisma.whatsAppShortageRequest.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'الطلب غير موجود أو غير مصرح بتعديله' }, { status: 404 });
     }
 
     const data: any = {};
@@ -84,15 +93,24 @@ export async function PATCH(req: NextRequest) {
 
 /**
  * DELETE /api/pharmacy/whatsapp-shortages
- * Deletes a shortage request
+ * Deletes a shortage request with Tenant Isolation
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const tenantId = await resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'معرف الطلب مطلوب' }, { status: 400 });
+    }
+
+    const existing = await prisma.whatsAppShortageRequest.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'الطلب غير موجود أو غير مصرح بحذفه' }, { status: 404 });
     }
 
     await prisma.whatsAppShortageRequest.delete({ where: { id } });

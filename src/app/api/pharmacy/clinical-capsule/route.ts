@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
         const personalizedMsg = message
           .replace(/{name}/g, user.name)
           .replace(/{code}/g, user.employeeCode)
+          .replace(/{company}/g, tenant.name || 'المنظومة')
           .replace(/{appUrl}/g, dynamicAppUrl);
 
         try {
