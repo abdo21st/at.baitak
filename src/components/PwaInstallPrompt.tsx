@@ -1,190 +1,127 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { Download, Sparkles, X, Smartphone, CheckCircle2, ChevronLeft, ArrowUpRight } from 'lucide-react';
+import { Download, X, Smartphone, CheckCircle } from 'lucide-react';
 
 export default function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isStandalone, setIsStandalone] = useState<boolean>(false);
-  const [showPrompt, setShowPrompt] = useState<boolean>(false);
-  const [isIos, setIsIos] = useState<boolean>(false);
-  const [showIosGuide, setShowIosGuide] = useState<boolean>(false);
-  const [installed, setInstalled] = useState<boolean>(false);
-  const [tenantName, setTenantName] = useState<string>('حضورك');
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    // جلب اسم الشركة ديناميكيًا
-    fetch('/api/tenant/info')
-      .then(r => r.json())
-      .then(d => { if (d.success && d.tenant?.name) setTenantName(d.tenant.name); })
-      .catch(() => {});
+    // Register Service Worker
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.log('SW registration skipped:', err);
+      });
+    }
 
-    // Check if already installed / running in standalone PWA mode
-    const checkStandalone = () => {
-      const isStandaloneMode = 
-        window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone ||
-        document.referrer.includes('android-app://');
-      
-      setIsStandalone(Boolean(isStandaloneMode));
-      return Boolean(isStandaloneMode);
-    };
-
-    if (checkStandalone()) return;
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    if (isStandalone) return;
 
     // Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
-    const iosDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIos(iosDevice);
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    setIsIos(isIosDevice);
 
-    // Listen for beforeinstallprompt event (Android, Chrome, Edge, Samsung Internet)
+    // Listen for BeforeInstallPrompt event (Android / Chromium)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Auto display prompt after small delay for optimal UX
-      const dismissed = localStorage.getItem('pwa_prompt_dismissed_time');
-      const now = Date.now();
-      // Show immediately or after 1 hour if previously closed
-      if (!dismissed || (now - Number(dismissed)) > 3600000) {
-        setTimeout(() => setShowPrompt(true), 1200);
+      // Show prompt if user hasn't dismissed it today
+      const dismissed = localStorage.getItem('hodoork_pwa_dismissed');
+      if (!dismissed) {
+        setShowPrompt(true);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // Listen for appinstalled
-    const handleAppInstalled = () => {
-      setInstalled(true);
-      setShowPrompt(false);
-      setDeferredPrompt(null);
-      localStorage.setItem('pwa_installed', 'true');
-    };
-
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    // If iOS and not standalone, show prompt after delay
-    if (iosDevice && !checkStandalone()) {
-      const dismissed = localStorage.getItem('pwa_prompt_dismissed_time');
-      if (!dismissed || (Date.now() - Number(dismissed)) > 86400000) {
-        setTimeout(() => setShowPrompt(true), 2000);
-      }
+    if (isIosDevice && !localStorage.getItem('hodoork_pwa_dismissed')) {
+      // Delay showing on iOS
+      const timer = setTimeout(() => setShowPrompt(true), 3000);
+      return () => clearTimeout(timer);
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
-  const handleInstallClick = async () => {
+  const handleInstall = async () => {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
-        setInstalled(true);
         setShowPrompt(false);
       }
       setDeferredPrompt(null);
-    } else if (isIos) {
-      setShowIosGuide(true);
     }
   };
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    setShowIosGuide(false);
-    localStorage.setItem('pwa_prompt_dismissed_time', String(Date.now()));
+    localStorage.setItem('hodoork_pwa_dismissed', 'true');
   };
 
-  if (isStandalone || installed || !showPrompt) {
-    return null;
-  }
+  if (!showPrompt) return null;
 
   return (
-    <aside aria-label="تثبيت التطبيق" className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto animate-in fade-in slide-in-from-bottom-6 duration-500 font-cairo" dir="rtl">
-      <div className="bg-slate-900/95 backdrop-blur-xl text-white rounded-3xl p-5 border border-blue-500/30 shadow-2xl shadow-blue-950/80 relative overflow-hidden">
-        
-        {/* Glow background accent */}
-        <div className="absolute -top-12 -right-12 w-32 h-32 bg-blue-600/30 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-red-600/20 rounded-full blur-2xl pointer-events-none" />
-
-        {/* Close Button */}
-        <button
-          onClick={handleDismiss}
-          className="absolute top-3.5 left-3.5 p-1.5 text-slate-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
-          title="إغلاق مؤقت"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        <div className="flex items-start gap-3.5">
-          {/* Pharmacy Capsule App Icon */}
-          <div className="relative w-14 h-14 rounded-2xl bg-white p-1.5 shrink-0 shadow-lg shadow-black/40 border border-white/20 flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/icon-192.png"
-              alt="شعار حضورك"
-              className="w-full h-full object-contain"
-            />
-            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-            </span>
-          </div>
-
-          <div className="flex-1 min-w-0 pr-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-600/30 text-blue-300 border border-blue-400/30">
-                تطبيق أندرويد الذكي
-              </span>
-              <span className="text-[10px] font-bold text-amber-300 flex items-center gap-0.5">
-                <Sparkles className="w-3 h-3" /> {tenantName}
-              </span>
+    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
+      <div className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-2xl border border-slate-700 shadow-2xl flex flex-col gap-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white shrink-0 shadow-md">
+              <Smartphone className="w-5 h-5 text-white" />
             </div>
-
-            <h2 className="text-sm font-black text-white mt-1 leading-tight">
-              تثبيت تطبيق حضورك على الشاشة الرئيسية
-            </h2>
-            
-            <p className="text-slate-300 text-xs mt-1 leading-relaxed">
-              ثبّت التطبيق الآن لتسجيل الحضور والانصراف بلمسة واحدة وتفعيل تنبيهات الموقع والـ GPS تلقائياً.
-            </p>
+            <div>
+              <h4 className="font-extrabold text-sm text-slate-100 flex items-center gap-1.5">
+                تثبيت منظومة حضورك
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded font-bold border border-blue-400/30">PWA</span>
+              </h4>
+              <p className="text-[11px] text-slate-300 font-medium">
+                تطبيق فائق السرعة مع إمكانية العمل بدون إنترنت والدخول السريع
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="text-slate-400 hover:text-white p-1 rounded-lg transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* iOS Guide popup when requested */}
-        {showIosGuide && (
-          <div className="mt-3.5 p-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-slate-200 space-y-2">
-            <p className="font-extrabold text-amber-300 flex items-center gap-1.5">
-              <Smartphone className="w-4 h-4" /> طريقة التثبيت على أجهزة iPhone / Safari:
+        {isIos ? (
+          <div className="p-2.5 bg-slate-800/80 rounded-xl text-[11px] text-slate-300 space-y-1 border border-slate-700">
+            <p className="font-bold text-white flex items-center gap-1">
+              📱 للتثبيت على الآيفون:
             </p>
-            <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
-              <li>اضغط على زر المشاركة <span className="font-mono bg-white/20 px-1 py-0.5 rounded">⎋ (Share)</span> أسفل شاشة سفاري.</li>
-              <li>مرر للأسفل واختر <span className="font-bold text-white bg-blue-600/40 px-1.5 py-0.5 rounded">إضافة إلى الصفحة الرئيسية (Add to Home Screen)</span>.</li>
-              <li>اضغط على <span className="font-bold text-emerald-300">إضافة (Add)</span> أعلى الشاشة.</li>
-            </ol>
+            <p>1. اضغط على زر المشاركة <span className="font-bold text-blue-400">Share (مربع بسهم)</span> في سفاري.</p>
+            <p>2. اختر <span className="font-bold text-blue-400">«إضافة إلى الشاشة الرئيسية»</span> (Add to Home Screen).</p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleInstall}
+              className="flex-1 h-10 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              تثبيت التطبيق على هاتفي
+            </button>
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="px-3 h-10 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-all"
+            >
+              لاحقاً
+            </button>
           </div>
         )}
-
-        {/* Actions Button */}
-        <div className="mt-4 flex items-center gap-2.5 pt-1">
-          <button
-            onClick={handleInstallClick}
-            className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-95"
-          >
-            <Download className="w-4 h-4 shrink-0" />
-            {isIos ? 'عرض خطوات التثبيت على الآيفون' : 'تثبيت التطبيق على الشاشة الرئيسية الآن 📲'}
-          </button>
-
-          <button
-            onClick={handleDismiss}
-            className="px-3.5 h-12 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold rounded-2xl transition-all cursor-pointer"
-          >
-            لاحقاً
-          </button>
-        </div>
-
       </div>
-    </aside>
+    </div>
   );
 }

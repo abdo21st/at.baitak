@@ -211,6 +211,8 @@ model User {
   attendances        AttendanceRecord[]
   fieldVisits        FieldVisit[]
   leaves             LeaveRequest[]
+  deviceFingerprint  String?
+  webAuthnCredentials WebAuthnCredential[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -555,4 +557,42 @@ model FieldVisit {
   @@index([clientPhone])
   @@index([createdAt])
 }
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String   @default("default-tenant")
+  userId    String?
+  userName  String?
+  action    String   // e.g. "UPDATE_SETTINGS", "DELETE_EMPLOYEE", "EDIT_ATTENDANCE", "PAYROLL_DISPATCH"
+  entity    String   // e.g. "AttendanceRecord", "User", "CompanySettings", "FieldVisit"
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([action])
+  @@index([userId])
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId     String   @default("default-tenant")
+  credentialId String   @unique
+  publicKey    String
+  counter      BigInt   @default(0)
+  deviceType   String?
+  backedUp     Boolean  @default(false)
+  transports   String[]
+  deviceName   String?  @default("جهاز معتمد")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([tenantId])
+}
+
 
