@@ -77,19 +77,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, description, clientName, hourlyRate, budgetHours, color } = body;
 
-    if (!name || !name.trim()) {
+    if (!name || typeof name !== 'string' || !name.trim()) {
       return NextResponse.json({ success: false, error: 'اسم المهمة أو المشروع مطلوب' }, { status: 400 });
     }
+
+    const safeColor = (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : '#0284c7';
+    const safeHourlyRate = Math.max(0, Math.min(10000, parseFloat(String(hourlyRate)) || 0.0));
+    const safeBudgetHours = Math.max(0, Math.min(100000, parseFloat(String(budgetHours)) || 0.0));
 
     const created = await prisma.project.create({
       data: {
         tenantId,
-        name: String(name).trim(),
-        description: description ? String(description).trim() : null,
-        clientName: clientName ? String(clientName).trim() : null,
-        hourlyRate: Number(hourlyRate) || 0.0,
-        budgetHours: Number(budgetHours) || 0.0,
-        color: color || '#0284c7',
+        name: String(name).trim().slice(0, 150),
+        description: description ? String(description).trim().slice(0, 500) : null,
+        clientName: clientName ? String(clientName).trim().slice(0, 100) : null,
+        hourlyRate: safeHourlyRate,
+        budgetHours: safeBudgetHours,
+        color: safeColor,
         status: 'OPEN',
         openedAt: new Date()
       }
@@ -157,15 +161,19 @@ export async function PUT(req: NextRequest) {
     }
 
     // Action B: General Edit
+    const safeColor = (color && typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : undefined;
+    const safeHourlyRate = hourlyRate !== undefined ? Math.max(0, Math.min(10000, parseFloat(String(hourlyRate)) || 0.0)) : undefined;
+    const safeBudgetHours = budgetHours !== undefined ? Math.max(0, Math.min(100000, parseFloat(String(budgetHours)) || 0.0)) : undefined;
+
     const updated = await prisma.project.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: String(name).trim() }),
-        ...(description !== undefined && { description: String(description).trim() }),
-        ...(clientName !== undefined && { clientName: String(clientName).trim() }),
-        ...(hourlyRate !== undefined && { hourlyRate: Number(hourlyRate) || 0.0 }),
-        ...(budgetHours !== undefined && { budgetHours: Number(budgetHours) || 0.0 }),
-        ...(color !== undefined && { color: String(color) })
+        ...(name !== undefined && { name: String(name).trim().slice(0, 150) }),
+        ...(description !== undefined && { description: String(description).trim().slice(0, 500) }),
+        ...(clientName !== undefined && { clientName: String(clientName).trim().slice(0, 100) }),
+        ...(safeHourlyRate !== undefined && { hourlyRate: safeHourlyRate }),
+        ...(safeBudgetHours !== undefined && { budgetHours: safeBudgetHours }),
+        ...(safeColor !== undefined && { color: safeColor })
       }
     });
 

@@ -11,11 +11,12 @@ c.connect('102.203.201.52', username='root', key_filename=k)
 
 cmd = """
 cd /opt/at.baitak
+git stash
 git pull origin main
 docker compose build --no-cache app
 docker compose up -d app
-docker compose exec -T app npx prisma db push
-docker compose exec -T app node scripts/seed_multi_tenant.js || true
+docker compose exec -T app npx prisma@5.22.0 db push
+docker compose restart app
 """
 
 print("Updating, rebuilding and launching on server...")

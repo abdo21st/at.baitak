@@ -37,15 +37,18 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
 
   // 2. Query tenant from database
   if (targetSlug && targetSlug !== 'super-admin') {
-    const tenant = await prisma.tenant.findFirst({
+    const slugConditions: any[] = [
+      { slug: targetSlug },
+      { slug: targetSlug.replace(/^at\./, '') },
+      { slug: `at.${targetSlug}` },
+    ];
+    if (hostHeader && hostHeader !== 'localhost' && !hostHeader.includes('127.0.0.1') && !hostHeader.endsWith('.mtapp.ly')) {
+      slugConditions.push({ customDomain: hostHeader }, { customDomain: `https://${hostHeader}` });
+    }
+
+    let tenant = await prisma.tenant.findFirst({
       where: {
-        OR: [
-          { slug: targetSlug },
-          { slug: targetSlug.replace(/^at\./, '') },
-          { slug: `at.${targetSlug}` },
-          { customDomain: hostHeader },
-          { customDomain: `https://${hostHeader}` },
-        ],
+        OR: slugConditions,
       },
       select: {
         id: true,
@@ -61,6 +64,45 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
     });
 
     if (tenant) return tenant;
+
+    // Strict Tenant Isolation: Auto-create requested tenant if not in DB to prevent leaking default-tenant data
+    try {
+      tenant = await prisma.tenant.create({
+        data: {
+          name: `نشاط ${targetSlug}`,
+          slug: targetSlug,
+          status: 'ACTIVE',
+          hasClinicalCapsule: false,
+          hasInventory: false,
+          hasPurchases: false,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logo: true,
+          customDomain: true,
+          status: true,
+          hasClinicalCapsule: true,
+          hasInventory: true,
+          hasPurchases: true,
+        },
+      });
+      if (tenant) return tenant;
+    } catch {
+      // Return isolated in-memory identifier
+      return {
+        id: `tenant-${targetSlug}`,
+        name: `نشاط ${targetSlug}`,
+        slug: targetSlug,
+        logo: null,
+        customDomain: null,
+        status: 'ACTIVE',
+        hasClinicalCapsule: false,
+        hasInventory: false,
+        hasPurchases: false,
+      };
+    }
   }
 
   // 3. Fallback to default tenant (Baytak Pharmacy) - Auto-seed in DB if missing

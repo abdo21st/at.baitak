@@ -19,10 +19,14 @@ export function middleware(request: NextRequest) {
   // 1. at.mtapp.ly -> Super Admin Dashboard Control Panel
   // 2. at.baitak.mtapp.ly -> صيدلية بيتك (Baytak Pharmacy)
   // 3. *.mtapp.ly -> Sub-tenant businesses (e.g. at.mt.mtapp.ly -> at.mt)
-  let tenantSlug = 'baytak';
+  const incomingSlug = (request.headers.get('x-tenant-slug') || '').toLowerCase().trim();
+  let tenantSlug = incomingSlug || 'baytak';
   let isSuperAdminHost = false;
 
-  if (hostClean === 'at.mtapp.ly' || hostClean === 'admin.mtapp.ly') {
+  if (incomingSlug) {
+    tenantSlug = incomingSlug;
+    if (incomingSlug === 'super-admin') isSuperAdminHost = true;
+  } else if (hostClean === 'at.mtapp.ly' || hostClean === 'admin.mtapp.ly') {
     isSuperAdminHost = true;
     tenantSlug = 'super-admin';
   } else if (

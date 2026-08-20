@@ -593,7 +593,7 @@ export async function PUT(req: NextRequest) {
         checkOutLng: finalLng,
         isOutsideGps
       },
-      include: { user: true }
+      include: { user: true, project: true }
     });
 
     const mapped = {
@@ -617,6 +617,10 @@ export async function PUT(req: NextRequest) {
       checkOutLat: updated.checkOutLat,
       checkOutLng: updated.checkOutLng,
       isOutsideGps: updated.isOutsideGps ?? false,
+      projectId: updated.projectId || null,
+      projectName: (updated as any).project?.name || updated.projectName || null,
+      projectColor: (updated as any).project?.color || null,
+      taskNotes: updated.taskNotes || null,
       createdAt: updated.createdAt.toISOString()
     };
 
@@ -792,7 +796,7 @@ export async function PATCH(req: NextRequest) {
               commissionRate,
               commissionAmount
             } as any,
-            include: { user: true }
+            include: { user: true, project: true }
           });
 
           const mapped = {
@@ -811,6 +815,10 @@ export async function PATCH(req: NextRequest) {
             commissionAmount: (updated as any).commissionAmount || 0,
             isVerified: updated.isVerified ?? false,
             verifiedAt: updated.verifiedAt?.toISOString(),
+            projectId: updated.projectId || null,
+            projectName: (updated as any).project?.name || updated.projectName || null,
+            projectColor: (updated as any).project?.color || null,
+            taskNotes: updated.taskNotes || null,
             createdAt: updated.createdAt.toISOString()
           };
 
