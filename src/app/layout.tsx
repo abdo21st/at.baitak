@@ -3,8 +3,8 @@ import './globals.css';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 
 export const metadata: Metadata = {
-  title: 'حضورك | HodoorK - صيدلية بيتك',
-  description: 'نظام إدارة وتدوين ساعات العمل والمشاريع المخصص لصيدلية بيتك بدعم الساعات المرنة والمشاريع وتنبيهات الموقع الجغرافي.',
+  title: 'حضورك | HodoorK',
+  description: 'نظام إدارة وتدوين ساعات العمل والمشاريع بدعم الساعات المرنة وتنبيهات الموقع الجغرافي.',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'حضورك | صيدلية بيتك',
+    title: 'حضورك | HodoorK',
   },
 };
 

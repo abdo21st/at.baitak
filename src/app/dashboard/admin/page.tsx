@@ -233,6 +233,14 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
+  // تحديث عنوان تبويب المتصفح ديناميكيًا بمجرد تحميل اسم الشركة
+  useEffect(() => {
+    if (tenantInfo.name) {
+      document.title = `حضورك | ${tenantInfo.name}`;
+    }
+  }, [tenantInfo.name]);
+
+
   const filteredRecords = selectedUserId === 'ALL'
     ? records
     : records.filter((r) => r.userId === selectedUserId);

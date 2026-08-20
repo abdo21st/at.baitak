@@ -43,11 +43,13 @@ export default function EmployeeDashboard() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.tenant) {
+          const name = data.tenant.name || '';
           setTenantInfo({
-            name: data.tenant.name || '',
+            name,
             logo: data.tenant.logo || null,
-            hasClinicalCapsule: data.tenant.hasClinicalCapsule !== false,
+            hasClinicalCapsule: data.tenant.hasClinicalCapsule === true,
           });
+          if (name) document.title = `حضورك | ${name}`;
         }
       })
       .catch(() => {});
