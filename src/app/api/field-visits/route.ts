@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
         partsFee: v.partsFee,
         totalAmount: v.totalAmount,
         status: v.status,
-        otpCode: v.otpCode || null,
+        hasOtp: Boolean(v.otpCode),
         otpVerifiedAt: v.otpVerifiedAt?.toISOString() || null,
         customerSignature: v.customerSignature || null,
         customerRefusalReason: v.customerRefusalReason || null,
@@ -148,6 +148,14 @@ export async function POST(req: NextRequest) {
     if (!technicianId) {
       return NextResponse.json({ success: false, error: 'معرف الفني مطلوب' }, { status: 400 });
     }
+
+    const techUser = await prisma.user.findFirst({
+      where: { id: technicianId, tenantId }
+    });
+    if (!techUser) {
+      return NextResponse.json({ success: false, error: 'الموظف/الفني المحدد غير مسجل في هذا النشاط' }, { status: 400 });
+    }
+
     if (!clientName || typeof clientName !== 'string' || !clientName.trim()) {
       return NextResponse.json({ success: false, error: 'اسم العميل مطلوب' }, { status: 400 });
     }
@@ -196,7 +204,7 @@ export async function POST(req: NextRequest) {
         clientName: created.clientName,
         clientPhone: created.clientPhone,
         status: created.status,
-        otpCode: created.otpCode,
+        hasOtp: true,
         startedAt: created.startedAt.toISOString()
       }
     });
