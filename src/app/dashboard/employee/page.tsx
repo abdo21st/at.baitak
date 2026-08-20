@@ -587,8 +587,10 @@ export default function EmployeeDashboard() {
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-white border border-slate-200 rounded-xl p-1 flex items-center justify-center shadow-sm shrink-0">
               {tenantInfo.logo ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={tenantInfo.logo} alt={tenantInfo.name || 'شعار النشاط'} className="w-full h-full object-contain rounded-lg" />
               ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
               )}
             </div>

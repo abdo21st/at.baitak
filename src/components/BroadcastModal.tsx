@@ -134,6 +134,15 @@ const TEMPLATES = [
   }
 ];
 
+function getTemplateContent(templateId: string, customTenantName?: string) {
+  const t = TEMPLATES.find((tpl) => tpl.id === templateId);
+  if (!t) return '';
+  if (customTenantName) {
+    return t.content.replace(/صيدلية بيتك/g, customTenantName);
+  }
+  return t.content;
+}
+
 export default function BroadcastModal({
   isOpen,
   onClose,
@@ -185,13 +194,13 @@ export default function BroadcastModal({
               if (parsed['welcome']) {
                 setMessage(parsed['welcome']);
               } else {
-                setMessage(getDefaultContent('welcome', tName));
+                setMessage(getTemplateContent('welcome', tName));
               }
             } else {
-              setMessage(getDefaultContent('welcome', tName));
+              setMessage(getTemplateContent('welcome', tName));
             }
           } catch (e) {
-            setMessage(getDefaultContent('welcome', tName));
+            setMessage(getTemplateContent('welcome', tName));
           }
         }
       })
@@ -235,22 +244,12 @@ export default function BroadcastModal({
     );
   };
 
-  const getDefaultContent = (templateId: string, customTenantName?: string) => {
-    const t = TEMPLATES.find((tpl) => tpl.id === templateId);
-    if (!t) return '';
-    const nameToUse = customTenantName || tenantName;
-    if (nameToUse) {
-      return t.content.replace(/صيدلية بيتك/g, nameToUse);
-    }
-    return t.content;
-  };
-
   const applyTemplate = (template: typeof TEMPLATES[0]) => {
     setActiveTemplate(template.id);
     if (savedTemplates[template.id]) {
       setMessage(savedTemplates[template.id]);
     } else {
-      setMessage(getDefaultContent(template.id));
+      setMessage(getTemplateContent(template.id, tenantName));
     }
   };
 
@@ -273,7 +272,7 @@ export default function BroadcastModal({
   };
 
   const handleResetToDefault = () => {
-    const def = getDefaultContent(activeTemplate);
+    const def = getTemplateContent(activeTemplate, tenantName);
     setMessage(def);
     const updated = { ...savedTemplates };
     delete updated[activeTemplate];

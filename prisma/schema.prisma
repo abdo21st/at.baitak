@@ -238,6 +238,11 @@ model AttendanceRecord {
   attachments      Attachment[]
   method           AttendanceMethod @default(QUICK)
   createdAt        DateTime         @default(now())
+
+  @@index([userId])
+  @@index([date])
+  @@index([userId, date])
+  @@index([createdAt])
 }
 
 model Attachment {

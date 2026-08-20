@@ -617,8 +617,10 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0 border border-slate-700">
               {tenantInfo.logo ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={tenantInfo.logo} alt={tenantInfo.name} className="w-full h-full object-contain rounded-xl" />
               ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
               )}
             </div>

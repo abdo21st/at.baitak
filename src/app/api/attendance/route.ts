@@ -45,7 +45,7 @@ async function getOrSeedRecords(userIdFilter?: string | null, tenantId?: string 
     if (dbRecords && dbRecords.length > 0) {
       let activeRules: any[] = [];
       try {
-        activeRules = await (prisma as any).rateRule.findMany({ where: { isActive: true } });
+        activeRules = await (prisma as any).rateRule.findMany({ where: { tenantId: targetTenantId, isActive: true } });
       } catch {}
 
       // Identify the first record of each day for each user (for non-hourly daily bonus calculation)

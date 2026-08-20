@@ -91,6 +91,7 @@ export default function LoginPage() {
         <div className="text-center space-y-2">
           <div className="w-20 h-20 rounded-3xl p-2 flex items-center justify-center mx-auto shadow-lg shadow-blue-500/10 border border-slate-100 bg-white">
             {tenantInfo.logo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={tenantInfo.logo}
                 alt={tenantInfo.name || 'شعار النشاط'}

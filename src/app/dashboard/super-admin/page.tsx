@@ -382,6 +382,7 @@ export default function SuperAdminPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-11 h-11 rounded-xl bg-white border border-slate-700 p-1 flex items-center justify-center shrink-0 shadow-sm">
                             {tenant.logo ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
                               <img src={tenant.logo} alt={tenant.name} className="w-full h-full object-contain rounded-lg" />
                             ) : (
                               <span className="text-slate-800 font-bold text-sm">
@@ -550,6 +551,7 @@ export default function SuperAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">شعار النشاط التجاري (Logo)</label>
                 <div className="flex items-center gap-3">
                   {form.logo ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={form.logo}
                       alt="Logo Preview"
@@ -848,6 +850,7 @@ export default function SuperAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">شعار ورمز التطبيق (Logo Icon)</label>
                 <div className="flex items-center gap-3">
                   {editForm.logo ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={editForm.logo}
                       alt="Logo Preview"
