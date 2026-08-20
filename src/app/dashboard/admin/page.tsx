@@ -20,6 +20,8 @@ import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import PrintReportLayout from '@/components/PrintReportLayout';
 import TaskManagement from '@/components/TaskManagement';
+import FieldVisitsManager from '@/components/FieldVisitsManager';
+import { Car } from 'lucide-react';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -32,7 +34,7 @@ export default function AdminDashboard() {
   const [isClinicalModalOpen, setIsClinicalModalOpen] = useState(false);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'PROJECTS' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
+  const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'PROJECTS' | 'FIELD_VISITS' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
 
   // Sidebar Collapsed & Mobile States (الخيار رقم 2: القائمة الجانبية الفاخرة)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -763,6 +765,29 @@ export default function AdminDashboard() {
             )}
           </button>
 
+          {/* Tab: Field Visits & Maintenance */}
+          <button
+            onClick={() => { setActiveTab('FIELD_VISITS'); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } ${
+              activeTab === 'FIELD_VISITS'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+            }`}
+            title="الزيارات الميدانية والصيانة"
+          >
+            <Car className="w-5 h-5 shrink-0 text-emerald-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">الزيارات الميدانية</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
+                  جديد 🚗
+                </span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={() => { setActiveTab('RATE_RULES'); setMobileSidebarOpen(false); }}
             className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer ${
@@ -1328,6 +1353,16 @@ export default function AdminDashboard() {
         {/* TAB 4: DEPARTMENT & JOB ROLE MANAGEMENT */}
         {activeTab === 'DEPARTMENTS' && (
           <DepartmentManagement onDepartmentsChange={(deps) => setDepartments(deps)} />
+        )}
+
+        {/* TAB: TASKS & PROJECTS */}
+        {activeTab === 'PROJECTS' && (
+          <TaskManagement />
+        )}
+
+        {/* TAB: FIELD VISITS & MAINTENANCE */}
+        {activeTab === 'FIELD_VISITS' && (
+          <FieldVisitsManager />
         )}
 
         {/* TAB 5: GPS GEOFENCING & SYSTEM SETTINGS */}

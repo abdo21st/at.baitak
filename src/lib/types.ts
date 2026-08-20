@@ -132,4 +132,44 @@ export interface Project {
   updatedAt?: string;
 }
 
+export type FieldVisitType = 'MAINTENANCE' | 'INSTALLATION' | 'INSPECTION' | 'EMERGENCY';
+export type FieldVisitStatus = 'IN_PROGRESS' | 'COMPLETED_OTP' | 'COMPLETED_DISPUTED' | 'INSPECTION_ONLY' | 'CANCELLED';
+
+export interface FieldVisit {
+  id: string;
+  tenantId?: string;
+  technicianId: string;
+  technicianName?: string;
+  technicianCode?: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  clientName: string;
+  clientPhone: string;
+  clientAddress?: string | null;
+  visitType: FieldVisitType;
+  diagnosisNotes?: string | null;
+  solutionNotes?: string | null;
+  partsUsed?: string | null;
+  serviceFee: number;
+  partsFee: number;
+  totalAmount: number;
+  status: FieldVisitStatus;
+  otpCode?: string | null;
+  otpVerifiedAt?: string | null;
+  customerSignature?: string | null;
+  customerRefusalReason?: string | null;
+  photoBefore?: string | null;
+  photoAfter?: string | null;
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  startedAt: string;
+  completedAt?: string | null;
+  workMinutes?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 

@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, AttendanceRecord, CompanySettings, Project } from '@/lib/types';
+import { User, AttendanceRecord, CompanySettings, Project, FieldVisit } from '@/lib/types';
 
 import {
   Clock, Calendar, Coins, CheckCircle2, AlertCircle, LogOut,
   Play, Square, Zap, User as UserIcon, Lock,
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
   MapPin, Navigation, Bell, ShieldAlert, Edit3, X, Printer,
-  Pill, Camera
+  Pill, Camera, Car
 } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
@@ -17,6 +17,7 @@ import SortHeader from '@/components/SortHeader';
 import { registerServiceWorker, requestNotificationPermission, startGeofenceWatcher } from '@/lib/pwa-notifications';
 import PrintReportLayout from '@/components/PrintReportLayout';
 import ClinicalCapsuleModal from '@/components/ClinicalCapsuleModal';
+import FieldVisitModal from '@/components/FieldVisitModal';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -27,6 +28,8 @@ export default function EmployeeDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('attendance');
   const [pageLoading, setPageLoading] = useState(true);
   const [isCapsuleModalOpen, setIsCapsuleModalOpen] = useState(false);
+  const [isFieldVisitModalOpen, setIsFieldVisitModalOpen] = useState(false);
+  const [activeFieldVisit, setActiveFieldVisit] = useState<FieldVisit | null>(null);
 
   const [tenantInfo, setTenantInfo] = useState<{
     name: string;
@@ -103,6 +106,24 @@ export default function EmployeeDashboard() {
       })
       .catch(() => {});
   }, []);
+
+  // Fetch technician's active field visit
+  const fetchActiveFieldVisit = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/field-visits?technicianId=${user.id}&status=IN_PROGRESS`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.visits) && data.visits.length > 0) {
+        setActiveFieldVisit(data.visits[0]);
+      } else {
+        setActiveFieldVisit(null);
+      }
+    } catch {}
+  }, [user]);
+
+  useEffect(() => {
+    fetchActiveFieldVisit();
+  }, [fetchActiveFieldVisit]);
 
   // Employee Edit Time Modal State
   const [editingRecordForEmp, setEditingRecordForEmp] = useState<AttendanceRecord | null>(null);
@@ -631,6 +652,19 @@ export default function EmployeeDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsFieldVisitModalOpen(true)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95 ${
+                activeFieldVisit
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 animate-pulse'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+              }`}
+              title="زيارة صيانة ميدانية للموقع"
+            >
+              <Car className="w-4 h-4" />
+              <span>{activeFieldVisit ? 'الزيارة الجارية 📍' : 'زيارة ميدانية 🚗'}</span>
+            </button>
+
             {tenantInfo.hasClinicalCapsule !== false && (
               <button
                 onClick={() => setIsCapsuleModalOpen(true)}
@@ -666,6 +700,32 @@ export default function EmployeeDashboard() {
 
         {/* TAB: الدوام الحالي */}
         {activeTab === 'attendance' && (<>
+          {/* Active Field Visit Alert Banner */}
+          {activeFieldVisit && (
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-indigo-700 via-blue-700 to-indigo-800 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-black shrink-0 animate-pulse">
+                  <Car className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black flex items-center gap-1.5">
+                    🚗 لديك زيارة صيانة ميدانية جارية: {activeFieldVisit.clientName}
+                  </p>
+                  <p className="text-xs text-blue-100 font-semibold">
+                    الموقع: {activeFieldVisit.clientAddress || 'موقع العميل'} • الهاتف: {activeFieldVisit.clientPhone} • الأتعاب: {activeFieldVisit.totalAmount} د.ل
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFieldVisitModalOpen(true)}
+                className="w-full sm:w-auto px-5 h-10 bg-white text-indigo-900 hover:bg-indigo-50 font-black rounded-xl text-xs shadow-md transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>إنهاء وتوثيق الزيارة 🛠️</span>
+              </button>
+            </div>
+          )}
+
           {/* Smart Geofence Alert: Inside Pharmacy & Not Checked In */}
           {isInsideZone === true && !isCheckedIn && (
             <div className="p-4 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1424,6 +1484,19 @@ export default function EmployeeDashboard() {
         isOpen={isCapsuleModalOpen}
         onClose={() => setIsCapsuleModalOpen(false)}
       />
+
+      {/* 🚗 نافذة الزيارة الميدانية والصيانة */}
+      {user && (
+        <FieldVisitModal
+          isOpen={isFieldVisitModalOpen}
+          onClose={() => setIsFieldVisitModalOpen(false)}
+          technicianId={user.id}
+          technicianName={user.name}
+          activeVisit={activeFieldVisit}
+          projects={openProjects}
+          onVisitUpdated={fetchActiveFieldVisit}
+        />
+      )}
     </div>
   );
 }

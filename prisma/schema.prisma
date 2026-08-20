@@ -75,6 +75,7 @@ model Tenant {
   users            User[]
   departments      Department[]
   projects         Project[]
+  fieldVisits      FieldVisit[]
   rateRules        RateRule[]
   pharmacyProducts PharmacyProduct[]
   pharmacySuppliers PharmacySupplier[]
@@ -182,6 +183,7 @@ model Project {
   openedAt     DateTime           @default(now())
   closedAt     DateTime?
   attendances  AttendanceRecord[]
+  fieldVisits  FieldVisit[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
@@ -207,6 +209,7 @@ model User {
   targetMonthlyHours Float              @default(0.0) // ساعات الوظيفة بالشهر
   hourlyRate         Float              @default(0.0)   // أجر الساعة المباشر
   attendances        AttendanceRecord[]
+  fieldVisits        FieldVisit[]
   leaves             LeaveRequest[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -494,3 +497,61 @@ model WhatsAppShortageRequest {
   @@index([productName])
   @@index([createdAt])
 }
+
+model FieldVisit {
+  id                    String    @id @default(uuid())
+  tenantId              String    @default("default-tenant")
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  technicianId          String
+  technician            User      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  projectId             String?
+  project               Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  // بيانات العميل والموقع
+  clientName            String
+  clientPhone           String
+  clientAddress         String?
+  visitType             String    @default("MAINTENANCE") // MAINTENANCE | INSTALLATION | INSPECTION | EMERGENCY
+  
+  // التوثيق الفني
+  diagnosisNotes        String?
+  solutionNotes         String?
+  partsUsed             String?   // وصف أو قائمة قطع الغيار
+  
+  // الفوترة والأسعار (د.ل)
+  serviceFee            Float     @default(0.0) // أتعاب الكشف والصيانة
+  partsFee              Float     @default(0.0) // تكلفة قطع الغيار
+  totalAmount           Float     @default(0.0) // إجمالي المستحق
+  
+  // حالة الاعتماد والتحصيل
+  status                String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED_OTP | COMPLETED_DISPUTED | INSPECTION_ONLY | CANCELLED
+  
+  // التحقق والتوقيع
+  otpCode               String?   // رمز التحقق للعميل
+  otpVerifiedAt         DateTime?
+  customerSignature     String?   // توقيع العميل الرقمي
+  customerRefusalReason String?   // سبب امتناع العميل عن التوقيع/السداد
+  
+  // الصور التوثيقية
+  photoBefore           String?
+  photoAfter            String?
+  
+  // التوثيق الجغرافي والزمني (GPS & Times)
+  checkInLat            Float?
+  checkInLng            Float?
+  checkOutLat           Float?
+  checkOutLng           Float?
+  startedAt             DateTime  @default(now())
+  completedAt           DateTime?
+  workMinutes           Int       @default(0)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([technicianId])
+  @@index([status])
+  @@index([clientPhone])
+  @@index([createdAt])
+}
+
