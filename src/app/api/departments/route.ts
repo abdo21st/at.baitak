@@ -174,12 +174,25 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (action === 'DELETE_DEPARTMENT') {
+      const dep = await prisma.department.findFirst({
+        where: { id, tenantId }
+      });
+      if (!dep) {
+        return NextResponse.json({ success: false, error: 'القسم غير موجود في هذا النشاط' }, { status: 404 });
+      }
+      await prisma.jobRole.deleteMany({ where: { departmentId: id } });
       await prisma.department.delete({ where: { id } });
       const updatedDeps = await getOrSeedDepartments(tenantId);
       return NextResponse.json({ success: true, departments: updatedDeps });
     }
 
     if (action === 'DELETE_ROLE') {
+      const role = await prisma.jobRole.findFirst({
+        where: { id, department: { tenantId } }
+      });
+      if (!role) {
+        return NextResponse.json({ success: false, error: 'الوظيفة غير موجودة في هذا النشاط' }, { status: 404 });
+      }
       await prisma.jobRole.delete({ where: { id } });
       const updatedDeps = await getOrSeedDepartments(tenantId);
       return NextResponse.json({ success: true, departments: updatedDeps });

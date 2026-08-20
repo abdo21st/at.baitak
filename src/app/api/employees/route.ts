@@ -233,6 +233,11 @@ export async function PUT(req: NextRequest) {
       updateData.jobRoles = { set: roleIds.map((rId) => ({ id: rId })) };
     }
 
+    const existingEmp = await prisma.user.findFirst({ where: { id, tenantId } });
+    if (!existingEmp) {
+      return NextResponse.json({ success: false, error: 'الموظف غير موجود في هذا النشاط' }, { status: 404 });
+    }
+
     await prisma.user.update({
       where: { id },
       data: updateData
@@ -257,8 +262,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'معرف الموظف مطلوب' }, { status: 400 });
     }
 
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (target?.role === 'ADMIN') {
+    const target = await prisma.user.findFirst({ where: { id, tenantId } });
+    if (!target) {
+      return NextResponse.json({ success: false, error: 'الموظف غير موجود في هذا النشاط' }, { status: 404 });
+    }
+    if (target.role === 'ADMIN') {
       return NextResponse.json({ success: false, error: 'يمنع حذف حساب المدير الرئيسي' }, { status: 400 });
     }
     await prisma.user.delete({ where: { id } });
