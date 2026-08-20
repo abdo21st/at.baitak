@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
     }
 
     const cycle = billingCycle === 'YEARLY' ? 'YEARLY' : 'MONTHLY';
-    const calculatedAmount = amount || (cycle === 'YEARLY' ? plan.priceYearly : plan.priceMonthly);
+    // Strictly calculate price on server side to prevent client tampering
+    const calculatedAmount = cycle === 'YEARLY' ? plan.priceYearly : plan.priceMonthly;
 
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -33,29 +34,29 @@ export async function POST(req: NextRequest) {
       endDate.setMonth(endDate.getMonth() + 1);
     }
 
-    // Create / Record Subscription
-    const subscription = await prisma.subscription.create({
-      data: {
-        tenantId: tenant.id,
-        planId: plan.id,
-        billingCycle: cycle,
-        startDate,
-        endDate,
-        amountPaid: calculatedAmount,
-        paymentMethod: gateway || 'SADAD',
-        referenceNumber: referenceNumber || `PAY-${Date.now().toString().slice(-8)}`,
-        isActive: true
-      }
-    });
-
-    // Update Tenant Status to ACTIVE
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: {
-        status: 'ACTIVE',
-        planId: plan.id
-      }
-    });
+    // Atomic transaction for subscription creation & tenant activation
+    const [subscription] = await prisma.$transaction([
+      prisma.subscription.create({
+        data: {
+          tenantId: tenant.id,
+          planId: plan.id,
+          billingCycle: cycle,
+          startDate,
+          endDate,
+          amountPaid: calculatedAmount,
+          paymentMethod: gateway || 'SADAD',
+          referenceNumber: referenceNumber ? String(referenceNumber).trim() : `PAY-${Date.now().toString().slice(-8)}`,
+          isActive: true
+        }
+      }),
+      prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          status: 'ACTIVE',
+          planId: plan.id
+        }
+      })
+    ]);
 
     await logAuditEvent({
       tenantId: tenant.id,

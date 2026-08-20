@@ -69,8 +69,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, interactions: [], count: 0 });
     }
 
+    // Limit to max 25 drugs per check to prevent CPU exhaustion
+    const safeDrugsList = drugs.slice(0, 25);
     const detectedInteractions: any[] = [];
-    const normalizedDrugs = drugs.map((d) => String(d).toLowerCase().trim());
+    const normalizedDrugs = safeDrugsList.map((d) => String(d).toLowerCase().trim().slice(0, 100));
 
     for (let i = 0; i < normalizedDrugs.length; i++) {
       for (let j = i + 1; j < normalizedDrugs.length; j++) {

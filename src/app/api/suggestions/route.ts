@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'نص المقترح أو الملاحظة مطلوب' }, { status: 400 });
     }
 
-    const encryptedContent = encryptData(content.trim());
+    const safeContent = content.trim().slice(0, 4000);
+    const encryptedContent = encryptData(safeContent);
 
     const suggestion = await (prisma as any).anonymousSuggestion.create({
       data: {

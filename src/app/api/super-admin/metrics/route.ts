@@ -2,8 +2,14 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 // GET: Super Admin Executive Metrics (MRR, Tenant Counts, Storage, Activity)
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const tenantSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
+
+    if (tenantSlug && tenantSlug !== 'super-admin') {
+      return NextResponse.json({ success: false, error: 'غير مصرح لك بالوصول إلى لوحة المؤشرات المركزية' }, { status: 403 });
+    }
+
     const [tenants, subscriptions, activeUsersCount, totalAttendances] = await Promise.all([
       prisma.tenant.findMany({
         include: {

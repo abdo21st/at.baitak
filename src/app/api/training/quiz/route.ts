@@ -34,7 +34,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'السؤال غير موجود' }, { status: 404 });
     }
 
-    const isCorrect = quiz.correctIndex === Number(selectedIndex);
+    const idx = Number(selectedIndex);
+    if (isNaN(idx) || idx < 0 || idx >= quiz.options.length) {
+      return NextResponse.json({
+        success: true,
+        isCorrect: false,
+        correctIndex: quiz.correctIndex,
+        explanation: quiz.explanation,
+        message: '❌ اختيار غير صالح.'
+      });
+    }
+
+    const isCorrect = quiz.correctIndex === idx;
 
     return NextResponse.json({
       success: true,

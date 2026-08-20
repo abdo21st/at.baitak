@@ -5,6 +5,13 @@ import { logAuditEvent } from '@/lib/auditLogger';
 // GET: Generate and download complete database snapshot metadata / json export
 export async function GET(req: NextRequest) {
   try {
+    const hostHeader = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').toLowerCase().trim();
+    const tenantSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
+
+    if (tenantSlug && tenantSlug !== 'super-admin') {
+      return NextResponse.json({ success: false, error: 'غير مصرح لك بالوصول إلى بيانات النسخ الاحتياطي المركزي' }, { status: 403 });
+    }
+
     const format = req.nextUrl.searchParams.get('format') || 'json';
 
     // Fetch essential tables for backup
