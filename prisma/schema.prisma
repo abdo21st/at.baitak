@@ -613,5 +613,44 @@ model SupportTicket {
   @@index([status])
 }
 
+model PatientRefill {
+  id                 String   @id @default(uuid())
+  tenantId           String   @default("default-tenant")
+  patientName        String
+  patientPhone       String
+  medicationName     String
+  dosageInstructions String?
+  lastRefillDate     DateTime @default(now())
+  refillIntervalDays Int      @default(30)
+  nextReminderDate   DateTime
+  status             String   @default("ACTIVE") // "ACTIVE" | "COMPLETED" | "PAUSED"
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId, nextReminderDate])
+  @@index([patientPhone])
+}
+
+model SupplierReturn {
+  id           String   @id @default(uuid())
+  tenantId     String   @default("default-tenant")
+  supplierName String
+  supplierPhone String?
+  returnDate   DateTime @default(now())
+  totalAmount  Float    @default(0.0) // بالدينار (د.ل)
+  status       String   @default("PENDING") // "PENDING" | "ACCEPTED" | "SETTLED" | "REJECTED"
+  reason       String?  // "EXPIRY_NEAR" | "DAMAGED" | "OVERSTOCK"
+  items        Json?    // Array of returned items: name, batch, qty, price, reason
+  creditNoteNo String?  // رقم الإشعار الدائن
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, returnDate])
+  @@index([status])
+}
+
+
 
 
