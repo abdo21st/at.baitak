@@ -18,7 +18,10 @@ import {
   Share2,
   Smartphone,
   ExternalLink,
-  Search
+  Search,
+  Save,
+  RotateCcw,
+  Check
 } from 'lucide-react';
 import { User, Department } from '@/lib/types';
 
@@ -142,6 +145,13 @@ export default function BroadcastModal({
   const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([]);
   const [empSearch, setEmpSearch] = useState('');
 
+  const [tenantName, setTenantName] = useState<string>('');
+  const [tenantSlug, setTenantSlug] = useState<string>('default');
+  const [hasClinicalCapsule, setHasClinicalCapsule] = useState<boolean>(false);
+
+  const [savedTemplates, setSavedTemplates] = useState<Record<string, string>>({});
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+
   const [message, setMessage] = useState(TEMPLATES[0].content);
   const [activeTemplate, setActiveTemplate] = useState('welcome');
 
@@ -150,6 +160,43 @@ export default function BroadcastModal({
     summary: { total: number; sent: number; noPhone: number; failed: number };
     results: Array<{ id: string; name: string; code: string; phone: string | null; status: 'sent' | 'no_phone' | 'failed'; reason?: string }>;
   } | null>(null);
+
+  // Fetch tenant info and saved custom templates
+  useEffect(() => {
+    if (!isOpen) return;
+
+    fetch('/api/tenant/info')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.tenant) {
+          const tName = data.tenant.name || 'المنظومة';
+          const tSlug = data.tenant.slug || 'default';
+          setTenantName(tName);
+          setTenantSlug(tSlug);
+          setHasClinicalCapsule(data.tenant.hasClinicalCapsule === true);
+
+          // Load custom templates for this tenant
+          try {
+            const storageKey = `hodoork_broadcast_templates_${tSlug}`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              setSavedTemplates(parsed);
+              if (parsed['welcome']) {
+                setMessage(parsed['welcome']);
+              } else {
+                setMessage(getDefaultContent('welcome', tName));
+              }
+            } else {
+              setMessage(getDefaultContent('welcome', tName));
+            }
+          } catch (e) {
+            setMessage(getDefaultContent('welcome', tName));
+          }
+        }
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   useEffect(() => {
     if (departments.length > 0 && !selectedDeptId) {
@@ -188,9 +235,53 @@ export default function BroadcastModal({
     );
   };
 
+  const getDefaultContent = (templateId: string, customTenantName?: string) => {
+    const t = TEMPLATES.find((tpl) => tpl.id === templateId);
+    if (!t) return '';
+    const nameToUse = customTenantName || tenantName;
+    if (nameToUse) {
+      return t.content.replace(/صيدلية بيتك/g, nameToUse);
+    }
+    return t.content;
+  };
+
   const applyTemplate = (template: typeof TEMPLATES[0]) => {
-    setMessage(template.content);
     setActiveTemplate(template.id);
+    if (savedTemplates[template.id]) {
+      setMessage(savedTemplates[template.id]);
+    } else {
+      setMessage(getDefaultContent(template.id));
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!message.trim()) return;
+    try {
+      const updated = {
+        ...savedTemplates,
+        [activeTemplate]: message
+      };
+      setSavedTemplates(updated);
+      const storageKey = `hodoork_broadcast_templates_${tenantSlug}`;
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      setSaveToast('تم حفظ التعديل بنجاح ليبقى هذا النص معتمداً دائماً ✅');
+      setTimeout(() => setSaveToast(null), 3500);
+    } catch (e) {
+      setSaveToast('تعذر الحفظ في الذاكرة المحلية');
+      setTimeout(() => setSaveToast(null), 3000);
+    }
+  };
+
+  const handleResetToDefault = () => {
+    const def = getDefaultContent(activeTemplate);
+    setMessage(def);
+    const updated = { ...savedTemplates };
+    delete updated[activeTemplate];
+    setSavedTemplates(updated);
+    const storageKey = `hodoork_broadcast_templates_${tenantSlug}`;
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    setSaveToast('تمت استعادة النص الافتراضي بنجاح 🔄');
+    setTimeout(() => setSaveToast(null), 3000);
   };
 
   const insertTag = (tag: string) => {
@@ -246,7 +337,9 @@ export default function BroadcastModal({
             </div>
             <div>
               <h3 className="text-base font-black tracking-tight">مركز الرسائل والإشعارات الجماعية (واتساب) 📢</h3>
-              <p className="text-xs text-slate-400 font-medium">إرسال رسائل ترحيبية وتذكيرات مباشرة لجميع موظفي الصيدلية</p>
+              <p className="text-xs text-slate-400 font-medium">
+                إرسال رسائل ترحيبية وتذكيرات مباشرة لجميع موظفي {tenantName || 'المؤسسة'}
+              </p>
             </div>
           </div>
           <button
@@ -457,22 +550,30 @@ export default function BroadcastModal({
                   </label>
 
                   <div className="grid grid-cols-1 gap-2">
-                    {TEMPLATES.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => applyTemplate(t)}
-                        className={`p-2.5 rounded-xl border text-right transition-all flex items-center justify-between ${
-                          activeTemplate === t.id
-                            ? 'bg-white border-emerald-500 shadow-sm ring-2 ring-emerald-500/10'
-                            : 'bg-white/60 border-slate-200 hover:bg-white'
-                        }`}
-                      >
-                        <span className="text-xs font-bold text-slate-800">{t.title}</span>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${t.badgeColor}`}>
-                          {t.badge}
-                        </span>
-                      </button>
-                    ))}
+                    {TEMPLATES.filter((t) => hasClinicalCapsule || t.id !== 'clinical_capsule').map((t) => {
+                      const isCustomized = Boolean(savedTemplates[t.id]);
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => applyTemplate(t)}
+                          className={`p-2.5 rounded-xl border text-right transition-all flex items-center justify-between ${
+                            activeTemplate === t.id
+                              ? 'bg-white border-emerald-500 shadow-sm ring-2 ring-emerald-500/10'
+                              : 'bg-white/60 border-slate-200 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-800">{t.title}</span>
+                            {isCustomized && (
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="تم تعديل وحفظ هذا النموذج" />
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${t.badgeColor}`}>
+                            {t.badge}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -481,37 +582,75 @@ export default function BroadcastModal({
               <div className="lg:col-span-7 space-y-4">
                 {/* Step 3: Message Editor */}
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                      <MessageSquare className="w-4 h-4 text-emerald-600" />
-                      <span>3. نص الرسالة (قابل للتعديل):</span>
-                    </label>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        <span>3. نص الرسالة (قابل للتعديل):</span>
+                      </label>
+                      {savedTemplates[activeTemplate] && (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-600" /> تم حفظ تعديلك
+                        </span>
+                      )}
+                    </div>
 
-                    {/* Tag Inserters */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Save Edit Button */}
                       <button
-                        onClick={() => insertTag('{name}')}
-                        className="px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold transition-all"
-                        title="إدراج اسم الموظف ديناميكياً"
+                        onClick={handleSaveEdit}
+                        className="px-3 h-7 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                        title="حفظ هذا التعديل ليبقى معتمداً دائماً عند اختيار هذا النموذج"
                       >
-                        + {`{name}`}
+                        <Save className="w-3.5 h-3.5" />
+                        <span>حفظ التعديل</span>
                       </button>
-                      <button
-                        onClick={() => insertTag('{code}')}
-                        className="px-2 py-0.5 rounded-md bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-[10px] font-bold transition-all"
-                        title="إدراج كود الموظف"
-                      >
-                        + {`{code}`}
-                      </button>
-                      <button
-                        onClick={() => insertTag('{appUrl}')}
-                        className="px-2 py-0.5 rounded-md bg-purple-100 hover:bg-purple-200 text-purple-800 text-[10px] font-bold transition-all"
-                        title="إدراج رابط النظام"
-                      >
-                        + {`{appUrl}`}
-                      </button>
+
+                      {/* Reset to Default Button */}
+                      {savedTemplates[activeTemplate] && (
+                        <button
+                          onClick={handleResetToDefault}
+                          className="px-2.5 h-7 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                          title="استعادة النص الافتراضي الأصلي للنموذج"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>استعادة الأصلي</span>
+                        </button>
+                      )}
+
+                      {/* Tag Inserters */}
+                      <div className="flex items-center gap-1 mr-1">
+                        <button
+                          onClick={() => insertTag('{name}')}
+                          className="px-2 h-7 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold transition-all"
+                          title="إدراج اسم الموظف ديناميكياً"
+                        >
+                          + {`{name}`}
+                        </button>
+                        <button
+                          onClick={() => insertTag('{code}')}
+                          className="px-2 h-7 rounded-md bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-[10px] font-bold transition-all"
+                          title="إدراج كود الموظف"
+                        >
+                          + {`{code}`}
+                        </button>
+                        <button
+                          onClick={() => insertTag('{appUrl}')}
+                          className="px-2 h-7 rounded-md bg-purple-100 hover:bg-purple-200 text-purple-800 text-[10px] font-bold transition-all"
+                          title="إدراج رابط النظام"
+                        >
+                          + {`{appUrl}`}
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {saveToast && (
+                    <div className="px-3 py-1.5 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-in fade-in duration-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>{saveToast}</span>
+                    </div>
+                  )}
 
                   <textarea
                     rows={8}
