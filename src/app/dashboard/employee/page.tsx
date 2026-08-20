@@ -560,7 +560,7 @@ export default function EmployeeDashboard() {
                   <td className="py-3.5 px-4 text-center font-mono">
                     <div className="font-black text-teal-700 text-sm">{r.earnedCost} د.ل</div>
                     {(() => {
-                      const hourly = p.hourlyRate || 0;
+                      const hourly = user?.hourlyRate || (r as any).user?.hourlyRate || 0;
                       const base = Number((r.workHours * hourly).toFixed(2));
                       const comm = Number((r as any).commissionAmount) || 0;
                       const bonus = Number((r.earnedCost - base - comm).toFixed(2));
