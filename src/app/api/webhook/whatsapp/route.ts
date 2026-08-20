@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendDailyDigestToN8n, sendCheckoutReminderToN8n, sendTestWebhook, sendMonthlyPayrollToN8n, sendArrivalReminderToN8n } from '@/lib/n8n';
+import { resolveTenant } from '@/lib/tenantResolver';
 
 // Anti-spam map to prevent spamming employee WhatsApp with arrival reminders (min 2 hours interval)
 const lastArrivalAlertTimestamps = new Map<string, number>();
@@ -12,12 +13,15 @@ function normalizeWebhookUrl(url?: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenant = await resolveTenant(req);
     const body = await req.json();
     const { action, managerPhone: customPhone, webhookUrl: customUrl } = body;
 
-    const settings = await prisma.companySettings.findUnique({
+    const settings = (await prisma.companySettings.findFirst({
+      where: { tenantId: tenant.id }
+    })) || (await prisma.companySettings.findUnique({
       where: { id: 'default' }
-    });
+    }));
 
     const targetUrl = normalizeWebhookUrl(customUrl || settings?.n8nWebhookUrl);
     const targetPhone = customPhone || settings?.managerPhone || '+218923458014';
@@ -31,7 +35,10 @@ export async function POST(req: NextRequest) {
 
     if (action === 'DAILY_DIGEST') {
       const todayRecords = await prisma.attendanceRecord.findMany({
-        where: { date: todayDate },
+        where: {
+          date: todayDate,
+          user: { tenantId: tenant.id }
+        },
         include: { user: true },
         orderBy: { checkInTime: 'asc' }
       });
@@ -70,7 +77,11 @@ export async function POST(req: NextRequest) {
 
     if (action === 'REMIND_OPEN_SHIFTS') {
       const openRecords = await prisma.attendanceRecord.findMany({
-        where: { date: todayDate, checkOutTime: null },
+        where: {
+          date: todayDate,
+          checkOutTime: null,
+          user: { tenantId: tenant.id }
+        },
         include: { user: true }
       });
 
@@ -78,23 +89,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: 'لا توجد شفتات مفتوحة حالياً تحتاج إلى تذكير.', count: 0 });
       }
 
-      // Cache tenant settings to avoid redundant queries
-      const tenantSettingsCache = new Map<string, number>();
+      // Read configured openShiftReminderHours for this tenant
+      const threshold = settings?.openShiftReminderHours ? Number(settings.openShiftReminderHours) : 8.0;
 
       const [nowH, nowM] = new Date().toTimeString().split(':').map(Number);
       const nowTotalMins = nowH * 60 + nowM;
 
       let sentCount = 0;
       for (const rec of openRecords) {
-        const empTenantId = rec.user?.tenantId || 'default-tenant';
-        let threshold = tenantSettingsCache.get(empTenantId);
-        if (threshold === undefined) {
-          const tSettings = (await prisma.companySettings.findFirst({ where: { tenantId: empTenantId } }))
-            || (await prisma.companySettings.findUnique({ where: { id: 'default' } }));
-          threshold = (tSettings as any)?.openShiftReminderHours ? Number((tSettings as any).openShiftReminderHours) : 8.0;
-          tenantSettingsCache.set(empTenantId, threshold);
-        }
-
         const [inH, inM] = rec.checkInTime.split(':').map(Number);
         const inMins = inH * 60 + (inM || 0);
         let diffMins = nowTotalMins - inMins;
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `تم فحص الشفتات المفتوحة وفقاً لساعات التنبيه المحددة وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
+        message: `تم فحص الشفتات المفتوحة وفقاً لساعات التنبيه المحددة (${threshold} ساعة) وإرسال ${sentCount} تنبيهات للموظفين بنجاح! 🟢`,
         count: sentCount
       });
     }
@@ -126,7 +128,13 @@ export async function POST(req: NextRequest) {
       const targetMonth = body.month || todayDate.substring(0, 7);
       const employeeId = body.employeeId;
 
-      const whereUser = employeeId ? { id: employeeId } : { role: { not: 'ADMIN' as const } };
+      const whereUser: any = { tenantId: tenant.id };
+      if (employeeId) {
+        whereUser.id = employeeId;
+      } else {
+        whereUser.role = { not: 'ADMIN' as const };
+      }
+
       const employees = await prisma.user.findMany({
         where: whereUser,
         include: {
