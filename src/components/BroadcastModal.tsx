@@ -38,7 +38,7 @@ const TEMPLATES = [
     title: '🌿 ترحيب بالمنظومة وحفظ الحقوق',
     badge: 'موصى به',
     badgeColor: 'bg-emerald-100 text-emerald-800',
-    content: `🌿 مرحباً بك يا *{name}* في صيدلية بيتك! 🤍
+    content: `🌿 مرحباً بك يا *{name}* في *{company}*! 🤍
 
 نحن فخورون بجهودك وعطائك، وحرصاً منا على حفظ حقوقك وتقدير كل دقيقة من وقتك، تم تفعيل منظومة تدوين الساعات الذكية:
 📱 *نظام حضورك الذكي* 🚀
@@ -69,7 +69,7 @@ const TEMPLATES = [
     title: '⏰ تذكير تسجيل الدوام والانصراف',
     badge: 'تذكير',
     badgeColor: 'bg-amber-100 text-amber-800',
-    content: `⏰ *تذكير من إدارة صيدلية بيتك* 🌿
+    content: `⏰ *تذكير من إدارة {company}* 🌿
 
 مرحباً بك يا *{name}*،
 نود تذكيرك بالحرص على تسجيل الحضور والانصراف بانتظام عبر النظام لضمان توثيق كامل ساعات دوامك وحساب مستحقاتك بدقة:
@@ -86,7 +86,7 @@ const TEMPLATES = [
     content: `📄 *إشعار جاهزية كشف حساب الساعات والراتب* 💰
 
 مرحباً *{name}*،
-تم اعتماد وحساب ساعات دوامك لهذا الشهر بنجاح عبر نظام حضورك.
+تم اعتماد وحساب ساعات دوامك لهذا الشهر بنجاح عبر نظام حضورك المعتمد لدى *{company}*.
 يمكنك الآن تسجيل الدخول للاطلاع على تفاصيل الساعات ومستحقاتك:
 👉 {appUrl}
 
@@ -97,7 +97,7 @@ const TEMPLATES = [
     title: '💊 كبسولة دوائية وتدريب سريري',
     badge: 'تدريب 🌿',
     badgeColor: 'bg-teal-100 text-teal-800',
-    content: `🌿 *كبسولة صيدلية بيتك الدوائية • تدريب وتطوير* 💊✨
+    content: `🌿 *كبسولة {company} الدوائية • تدريب وتطوير* 💊✨
 ━━━━━━━━━━━━━━━━━━━
 👤 مرحباً بك يا *{name}* في فقرة التدريب الصيدلاني الدوري!
 📦 الصنف: *[اسم الدواء والمادة الفعالة]*
@@ -117,14 +117,14 @@ const TEMPLATES = [
 💡 *5. النصيحة الذهبية للصيدلي عند الصرف:*
 • [نصيحة الصيدلي المتميزة للمريض].
 ━━━━━━━━━━━━━━━━━━━
-🌿 *صيدلية بيتك.. رعاية صيدلانية متكاملة بمعايير عالمية!* ✨`
+🌿 *{company}.. رعاية صيدلانية متكاملة بمعايير عالمية!* ✨`
   },
   {
     id: 'announcement',
     title: '📢 إعلان عام وإداري',
     badge: 'عام',
     badgeColor: 'bg-slate-100 text-slate-800',
-    content: `📢 *إعلان هام لفريق صيدلية بيتك* 🌿
+    content: `📢 *إعلان هام لفريق {company}* 🌿
 
 عزيزنا *{name}*،
 نحيطكم علماً بـ [اكتب تفاصيل الإعلان أو التوجيهات هنا]...
@@ -137,10 +137,8 @@ const TEMPLATES = [
 function getTemplateContent(templateId: string, customTenantName?: string) {
   const t = TEMPLATES.find((tpl) => tpl.id === templateId);
   if (!t) return '';
-  if (customTenantName) {
-    return t.content.replace(/صيدلية بيتك/g, customTenantName);
-  }
-  return t.content;
+  const company = customTenantName || 'المنظومة';
+  return t.content.replace(/{company}/g, company);
 }
 
 export default function BroadcastModal({
@@ -323,7 +321,8 @@ export default function BroadcastModal({
   const previewText = message
     .replace(/{name}/g, 'أحمد المنصوري')
     .replace(/{code}/g, 'EMP-101')
-    .replace(/{appUrl}/g, 'https://at.ordermt.ly');
+    .replace(/{appUrl}/g, 'https://at.ordermt.ly')
+    .replace(/{company}/g, tenantName || 'المنظومة');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-dubai" dir="rtl">
@@ -625,6 +624,13 @@ export default function BroadcastModal({
                           title="إدراج اسم الموظف ديناميكياً"
                         >
                           + {`{name}`}
+                        </button>
+                        <button
+                          onClick={() => insertTag('{company}')}
+                          className="px-2 h-7 rounded-md bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold transition-all"
+                          title="إدراج اسم الشركة / المنشأة ديناميكياً"
+                        >
+                          + {`{company}`}
                         </button>
                         <button
                           onClick={() => insertTag('{code}')}

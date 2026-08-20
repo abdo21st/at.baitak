@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
 
     // 0. Resolve tenant — عزل الموظفين حسب الشركة (tenant isolation)
     const tenantId = await resolveTenantId(req);
+    const tenantRecord = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const companyName = tenantRecord?.name || 'المنظومة';
 
     // 1. Fetch relevant users — مفلترة حسب المستأجر فقط
     const allUsers = await prisma.user.findMany({
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
       const personalizedMessage = message
         .replace(/{name}/g, user.name)
         .replace(/{code}/g, user.employeeCode)
+        .replace(/{company}/g, companyName)
         .replace(/{appUrl}/g, appUrl);
 
       try {
