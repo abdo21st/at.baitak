@@ -63,14 +63,15 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 1. Create Default Departments
-    const adminDeptId = crypto.randomUUID();
-    await prisma.department.createMany({
-      data: [
-        { id: adminDeptId, name: `الإدارة العامة (${companyName.trim()})`, code: 'MGMT', tenantId },
-        { id: crypto.randomUUID(), name: `التشغيل والخدمات (${companyName.trim()})`, code: 'OPS', tenantId }
-      ]
-    }).catch(() => {});
+    // 1. Create Default Department
+    const adminDept = await prisma.department.create({
+      data: {
+        id: crypto.randomUUID(),
+        name: `الإدارة العامة (${cleanSlug})`,
+        code: 'MGMT',
+        tenantId
+      }
+    });
 
     // 2. Create Admin User
     const adminEmail = email ? String(email).trim().toLowerCase() : `admin-${cleanSlug}-${Date.now()}@mtapp.ly`;
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         jobTitle: 'مدير المنشأة',
         phone: managerPhone ? String(managerPhone).trim() : null,
         departments: {
-          connect: { id: adminDeptId }
+          connect: { id: adminDept.id }
         }
       }
     });

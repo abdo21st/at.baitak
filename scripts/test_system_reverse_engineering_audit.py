@@ -45,10 +45,12 @@ def run_security_and_input_audit():
     tests_passed = 0
     tests_total = 0
 
-    # TEST 1: Super Admin Backups Protection
+    # TEST 1: Super Admin Backups Protection (Should reject tenants with 403)
     tests_total += 1
     status, res = send_request("/api/super-admin/backups", host="at.baitak.mtapp.ly")
-    print(f"1. Tenant Access to Super Admin Backups -> Status: {status}")
+    print(f"1. Tenant Access to Super Admin Backups (403 Forbidden Expected) -> Status: {status}")
+    if status == 403:
+        tests_passed += 1
 
     # TEST 2: Self-Service Registration Input Vectors
     tests_total += 1
