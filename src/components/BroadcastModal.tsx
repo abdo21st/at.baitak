@@ -300,7 +300,7 @@ export default function BroadcastModal({
           departmentId: targetType === 'department' ? selectedDeptId : undefined,
           employeeIds: targetType === 'selected' ? selectedEmpIds : undefined,
           message,
-          appUrl: 'https://at.ordermt.ly'
+          appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://at.baitak.mtapp.ly'
         })
       });
 
@@ -317,11 +317,13 @@ export default function BroadcastModal({
     }
   };
 
+  const dynamicAppUrl = typeof window !== 'undefined' ? window.location.origin : 'https://at.baitak.mtapp.ly';
+
   // Preview message with dummy user
   const previewText = message
     .replace(/{name}/g, 'أحمد المنصوري')
     .replace(/{code}/g, 'EMP-101')
-    .replace(/{appUrl}/g, 'https://at.ordermt.ly')
+    .replace(/{appUrl}/g, dynamicAppUrl)
     .replace(/{company}/g, tenantName || 'المنظومة');
 
   return (

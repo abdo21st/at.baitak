@@ -470,10 +470,12 @@ export default function ClinicalCapsuleModal({
     }
   };
 
+  const dynamicAppUrl = typeof window !== 'undefined' ? window.location.origin : 'https://at.baitak.mtapp.ly';
+
   const previewFormatted = customMessage
     .replace(/{name}/g, 'فريق صيدلية بيتك')
     .replace(/{code}/g, 'EMP-101')
-    .replace(/{appUrl}/g, 'https://at.ordermt.ly');
+    .replace(/{appUrl}/g, dynamicAppUrl);
 
   const getTabLabel = () => {
     if (activeTab === 'chronic') return 'الأمراض المزمنة';

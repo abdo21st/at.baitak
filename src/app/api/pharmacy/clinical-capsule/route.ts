@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateClinicalCapsule } from '@/lib/clinicalKnowledge';
 import { fetchLiveDrugCapsule } from '@/lib/liveDrugFetcher';
 import { sendDirectWhatsApp, triggerN8nWebhook, formatLibyanPhone } from '@/lib/n8n';
-import { resolveTenantId } from '@/lib/tenantResolver';
+import { resolveTenant, getTenantAppUrl } from '@/lib/tenantResolver';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'نص الرسالة مطلوب' }, { status: 400 });
       }
 
-      const tenantId = await resolveTenantId(req);
+      const tenant = await resolveTenant(req);
+      const tenantId = tenant.id;
+      const dynamicAppUrl = getTenantAppUrl(tenant, req);
       const allUsers = await prisma.user.findMany({
         where: { tenantId },
         include: { departments: true },
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
         const personalizedMsg = message
           .replace(/{name}/g, user.name)
           .replace(/{code}/g, user.employeeCode)
-          .replace(/{appUrl}/g, 'https://at.ordermt.ly');
+          .replace(/{appUrl}/g, dynamicAppUrl);
 
         try {
           await sendDirectWhatsApp(cleanPhone, personalizedMsg);

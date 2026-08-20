@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendDirectWhatsApp, triggerN8nWebhook, formatLibyanPhone } from '@/lib/n8n';
-import { resolveTenantId } from '@/lib/tenantResolver';
+import { resolveTenantId, getTenantAppUrl } from '@/lib/tenantResolver';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       departmentId,
       employeeIds = [],
       message,
-      appUrl = 'https://at.ordermt.ly'
+      appUrl
     } = body;
 
     if (!message || !message.trim()) {
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     const tenantId = await resolveTenantId(req);
     const tenantRecord = await prisma.tenant.findUnique({ where: { id: tenantId } });
     const companyName = tenantRecord?.name || 'المنظومة';
+    const dynamicAppUrl = appUrl || getTenantAppUrl(tenantRecord, req);
 
     // 1. Fetch relevant users — مفلترة حسب المستأجر فقط
     const allUsers = await prisma.user.findMany({
@@ -85,12 +86,12 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Replace dynamic placeholders
+      // Replace dynamic placeholders with dynamic Tenant App URL
       const personalizedMessage = message
         .replace(/{name}/g, user.name)
         .replace(/{code}/g, user.employeeCode)
         .replace(/{company}/g, companyName)
-        .replace(/{appUrl}/g, appUrl);
+        .replace(/{appUrl}/g, dynamicAppUrl);
 
       try {
         const isSent = await sendDirectWhatsApp(cleanPhone, personalizedMessage);

@@ -183,3 +183,33 @@ export async function resolveTenantId(req: NextRequest): Promise<string> {
   const tenant = await resolveTenant(req);
   return tenant.id;
 }
+
+/**
+ * Generate full dynamic Application URL based on Tenant slug and Custom Domain
+ */
+export function getTenantAppUrl(tenant?: { slug?: string; customDomain?: string | null } | null, req?: NextRequest): string {
+  if (tenant?.customDomain) {
+    const cd = tenant.customDomain.replace(/^https?:\/\//, '').trim();
+    return `https://${cd}`;
+  }
+
+  // Handle localhost/dev requests if req is provided
+  if (req) {
+    const hostHeader = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase().trim();
+    if (hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1')) {
+      const proto = req.headers.get('x-forwarded-proto') || 'http';
+      const port = (req.headers.get('host') || '').split(':')[1];
+      return `${proto}://${hostHeader}${port ? `:${port}` : ''}`;
+    }
+  }
+
+  const rawSlug = tenant?.slug || 'baytak';
+  const cleanSlug = rawSlug.trim().toLowerCase();
+
+  if (cleanSlug === 'baytak' || cleanSlug === 'baitak' || cleanSlug === 'at.baitak' || cleanSlug === 'default-tenant') {
+    return 'https://at.baitak.mtapp.ly';
+  }
+
+  const prefix = cleanSlug.startsWith('at.') ? cleanSlug : `at.${cleanSlug}`;
+  return `https://${prefix}.mtapp.ly`;
+}
