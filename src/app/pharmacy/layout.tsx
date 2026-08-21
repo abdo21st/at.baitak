@@ -15,13 +15,21 @@ import {
   ArrowRight,
   Menu,
   X,
-  UserCheck
+  UserCheck,
+  Pill,
+  Baby,
+  Sparkles
 } from 'lucide-react';
-
+import DrugInteractionChecker from '@/components/DrugInteractionChecker';
+import PediatricDoseCalculator from '@/components/PediatricDoseCalculator';
+import ChangelogModal from '@/components/ChangelogModal';
 
 export default function PharmacyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isInteractionCheckerOpen, setIsInteractionCheckerOpen] = useState(false);
+  const [isPediatricCalculatorOpen, setIsPediatricCalculatorOpen] = useState(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   const navItems = [
     {
@@ -158,6 +166,37 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
               </Link>
             );
           })}
+
+          {/* Clinical Intelligence Quick Tools */}
+          <div className="pt-2 border-t border-slate-100 space-y-1">
+            <div className="px-3 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+              أدوات الذكاء السريري (BNF 83)
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => { setIsInteractionCheckerOpen(true); setSidebarOpen(false); }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs text-teal-800 bg-teal-50 hover:bg-teal-100 font-bold transition-all cursor-pointer border border-teal-200/60"
+            >
+              <div className="flex items-center gap-2.5">
+                <Pill className="w-4 h-4 text-teal-600" />
+                <span>فحص التداخلات الدوائية</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-teal-200 text-teal-900">BNF 83</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setIsPediatricCalculatorOpen(true); setSidebarOpen(false); }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs text-purple-800 bg-purple-50 hover:bg-purple-100 font-bold transition-all cursor-pointer border border-purple-200/60"
+            >
+              <div className="flex items-center gap-2.5">
+                <Baby className="w-4 h-4 text-purple-600" />
+                <span>حاسبة جرعات الأطفال</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-purple-200 text-purple-900">دقيق</span>
+            </button>
+          </div>
         </div>
 
         {/* Sync Status Badge */}
@@ -188,22 +227,43 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setIsInteractionCheckerOpen(true)}
+              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              title="فحص التداخلات الدوائية التفاعلي"
+            >
+              <Pill className="w-3.5 h-3.5" />
+              <span>فحص التداخلات 💊</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPediatricCalculatorOpen(true)}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              title="حاسبة جرعات الأطفال والرضع"
+            >
+              <Baby className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">جرعات الأطفال 👶</span>
+            </button>
+
             <Link
               href="/pharmacy/shortages"
               className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all"
             >
               <ShoppingCart className="w-3.5 h-3.5 text-emerald-600" />
-              <span>تجهيز طلبية شراء</span>
+              <span>طلبية شراء</span>
             </Link>
 
-            <Link
-              href="/pharmacy/activities"
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-all"
+            <button
+              type="button"
+              onClick={() => setIsChangelogOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-purple-600 rounded-xl transition-all cursor-pointer"
+              title="سجل التحديثات"
             >
-              <Truck className="w-3.5 h-3.5" />
-              <span>تسجيل جولة</span>
-            </Link>
+              <Sparkles className="w-4 h-4" />
+            </button>
           </div>
         </header>
 
@@ -212,6 +272,22 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
           {children}
         </main>
       </div>
+
+      {/* Clinical Modals */}
+      <DrugInteractionChecker
+        isOpen={isInteractionCheckerOpen}
+        onClose={() => setIsInteractionCheckerOpen(false)}
+      />
+
+      <PediatricDoseCalculator
+        isOpen={isPediatricCalculatorOpen}
+        onClose={() => setIsPediatricCalculatorOpen(false)}
+      />
+
+      <ChangelogModal
+        isOpen={isChangelogOpen}
+        onClose={() => setIsChangelogOpen(false)}
+      />
     </div>
   );
 }

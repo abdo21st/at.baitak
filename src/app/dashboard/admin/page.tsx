@@ -15,13 +15,18 @@ import DepartmentManagement from '@/components/DepartmentManagement';
 import RateRulesManagement from '@/components/RateRulesManagement';
 import BroadcastModal from '@/components/BroadcastModal';
 import ClinicalCapsuleModal from '@/components/ClinicalCapsuleModal';
+import PaymentModal from '@/components/PaymentModal';
+import SupportTicketModal from '@/components/SupportTicketModal';
+import ChangelogModal from '@/components/ChangelogModal';
+import PasskeyModal from '@/components/PasskeyModal';
+import MaintenanceContractModal from '@/components/MaintenanceContractModal';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import PrintReportLayout from '@/components/PrintReportLayout';
 import TaskManagement from '@/components/TaskManagement';
 import FieldVisitsManager from '@/components/FieldVisitsManager';
-import { Car } from 'lucide-react';
+import { Car, Mic, Download, CreditCard, LifeBuoy, Fingerprint, Sparkles as SparklesIcon } from 'lucide-react';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -29,9 +34,59 @@ export default function AdminDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Broadcast & Clinical Modal States
+  // Broadcast, Clinical & Feature Modal States
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
   const [isClinicalModalOpen, setIsClinicalModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
+  const [isMaintenanceContractModalOpen, setIsMaintenanceContractModalOpen] = useState(false);
+  const [voiceBriefLoading, setVoiceBriefLoading] = useState(false);
+  const [voiceBriefData, setVoiceBriefData] = useState<{ voiceScript?: string; metrics?: any } | null>(null);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  const handleFetchVoiceBrief = async () => {
+    try {
+      setVoiceBriefLoading(true);
+      const res = await fetch('/api/analytics/ai-voice-brief');
+      const data = await res.json();
+      if (data.success) {
+        setVoiceBriefData(data);
+        setIsVoiceModalOpen(true);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window && data.voiceScript) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(data.voiceScript);
+          utterance.lang = 'ar-SA';
+          utterance.rate = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }
+      } else {
+        alert(data.error || 'فشل توليد الموجز الذكي');
+      }
+    } catch {
+      alert('خطأ في الاتصال بالخادم');
+    } finally {
+      setVoiceBriefLoading(false);
+    }
+  };
+
+  const handleExportTenantData = async () => {
+    try {
+      const res = await fetch('/api/tenant/export-data');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hodoork-export-${new Date().toISOString().substring(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('فشل تصدير البيانات');
+    }
+  };
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'ATTENDANCE' | 'CALENDAR' | 'PROJECTS' | 'FIELD_VISITS' | 'EMPLOYEES' | 'DEPARTMENTS' | 'RATE_RULES' | 'SETTINGS' | 'WHATSAPP'>('ATTENDANCE');
@@ -912,6 +967,83 @@ export default function AdminDashboard() {
               )}
             </button>
           )}
+
+          {/* AI Voice Briefing Sidebar Button */}
+          <button
+            onClick={handleFetchVoiceBrief}
+            disabled={voiceBriefLoading}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/60 hover:text-white`}
+            title="الموجز التنفيذي الذكي والصوتي بالذكاء الاصطناعي"
+          >
+            <Mic className={`w-5 h-5 shrink-0 text-purple-400 ${voiceBriefLoading ? 'animate-spin' : ''}`} />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">الموجز التنفيذي الذكي</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-bold">
+                  AI 🎙️
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Subscription & Payments Button */}
+          <button
+            onClick={() => { setIsPaymentModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-amber-950/40 border-amber-800/40 text-amber-300 hover:bg-amber-900/60 hover:text-white`}
+            title="ترقية الباقة والدفع الإلكتروني الليبي"
+          >
+            <CreditCard className="w-5 h-5 shrink-0 text-amber-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">الاشتراك والفوترة</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+                  دفع 💳
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Support Tickets Button */}
+          <button
+            onClick={() => { setIsSupportModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-blue-950/40 border-blue-800/40 text-blue-300 hover:bg-blue-900/60 hover:text-white`}
+            title="مركز المساعدة وتذاكر الدعم الفني"
+          >
+            <LifeBuoy className="w-5 h-5 shrink-0 text-blue-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">مركز الدعم الفني</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 text-[9px] font-bold">
+                  مساعدة 💬
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Changelog Button */}
+          <button
+            onClick={() => { setIsChangelogModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white`}
+            title="سجل التحديثات والميزات الجديدة v2.5.0"
+          >
+            <SparklesIcon className="w-5 h-5 shrink-0 text-yellow-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">سجل التحديثات</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-bold">
+                  v2.5.0 ✨
+                </span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Sidebar Footer: User profile & Logout */}
@@ -992,14 +1124,49 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => setIsBroadcastModalOpen(true)}
-                className="h-10 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
                 title="إرسال رسائل جماعية للواتساب"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>إرسال واتساب للموظفين 📢</span>
+                <span className="hidden sm:inline">إرسال واتساب 📢</span>
               </button>
 
-              <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
+              <button
+                onClick={handleFetchVoiceBrief}
+                disabled={voiceBriefLoading}
+                className="h-10 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-black shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="الموجز اليومي الذكي والصوتي بالذكاء الاصطناعي"
+              >
+                <Mic className={`w-3.5 h-3.5 ${voiceBriefLoading ? 'animate-spin' : ''}`} />
+                <span className="hidden md:inline">الموجز الذكي 🎙️</span>
+              </button>
+
+              <button
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="h-10 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="ترقية الاشتراك والدفع الإلكتروني"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">ترقية الباقة 💳</span>
+              </button>
+
+              <button
+                onClick={() => setIsSupportModalOpen(true)}
+                className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                title="مركز الدعم الفني"
+              >
+                <LifeBuoy className="w-4 h-4 text-blue-600" />
+              </button>
+
+              <button
+                onClick={() => setIsChangelogModalOpen(true)}
+                className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                title="سجل التحديثات v2.5.0"
+              >
+                <SparklesIcon className="w-4 h-4 text-purple-600" />
+              </button>
+
+              <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span className="text-slate-600 font-sans">السجلات:</span>
                 <span className="text-blue-700 font-black">{records.length}</span>
@@ -1501,13 +1668,35 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={settingsLoading}
-                className="w-full sm:w-auto px-8 h-12 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                {settingsLoading ? 'جاري الحفظ...' : 'حفظ إعدادات الموقع الجغرافي'}
-              </button>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={settingsLoading}
+                  className="w-full sm:w-auto px-8 h-12 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm rounded-xl shadow-lg shadow-purple-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {settingsLoading ? 'جاري الحفظ...' : 'حفظ إعدادات الموقع الجغرافي'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportTenantData}
+                  className="w-full sm:w-auto px-6 h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  title="تصدير نسخة كاملة من قاعدة بيانات المنشأة كملف JSON"
+                >
+                  <Download className="w-4 h-4 text-emerald-400" />
+                  <span>تصدير بيانات المنشأة (JSON) 📥</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPasskeyModalOpen(true)}
+                  className="w-full sm:w-auto px-6 h-12 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-black text-sm rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  title="تفعيل بصمة الإصبع والوجه Passkey"
+                >
+                  <Fingerprint className="w-4 h-4 text-indigo-600" />
+                  <span>إدارة بصمة Passkey 🔐</span>
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -2391,6 +2580,125 @@ export default function AdminDashboard() {
         employees={users}
         departments={departments}
       />
+
+      {/* Libyan Payment Gateways Modal */}
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        plan="PRO"
+        onSuccess={() => {
+          setIsPaymentModalOpen(false);
+          alert('تم تسجيل طلب الدفع وتفعيل الاشتراك بنجاح!');
+        }}
+      />
+
+      {/* In-App Support Tickets Modal */}
+      <SupportTicketModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+      />
+
+      {/* Changelog & Release Notes Modal */}
+      <ChangelogModal
+        isOpen={isChangelogModalOpen}
+        onClose={() => setIsChangelogModalOpen(false)}
+      />
+
+      {/* Biometric WebAuthn Passkeys Modal */}
+      <PasskeyModal
+        isOpen={isPasskeyModalOpen}
+        onClose={() => setIsPasskeyModalOpen(false)}
+      />
+
+      {/* SLA Recurring Maintenance Contracts Modal */}
+      <MaintenanceContractModal
+        isOpen={isMaintenanceContractModalOpen}
+        onClose={() => setIsMaintenanceContractModalOpen(false)}
+        onSaved={() => setIsMaintenanceContractModalOpen(false)}
+      />
+
+      {/* AI Voice Briefing Modal */}
+      {isVoiceModalOpen && voiceBriefData && (
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full border border-slate-200 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">الموجز التنفيذي اليومي الذكي</h3>
+                  <p className="text-xs text-slate-500 font-semibold">تحليل وموجز صوتي فوري بالذكاء الاصطناعي</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  setIsVoiceModalOpen(false);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick KPIs Grid */}
+            {voiceBriefData.metrics && (
+              <div className="grid grid-cols-3 gap-2.5 text-center font-mono">
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <span className="text-[11px] text-emerald-800 font-bold block font-sans">الحضور اليوم</span>
+                  <span className="text-lg font-black text-emerald-700">{voiceBriefData.metrics.presentCount}</span>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                  <span className="text-[11px] text-blue-800 font-bold block font-sans">شفتات نشطة</span>
+                  <span className="text-lg font-black text-blue-700">{voiceBriefData.metrics.openShiftsCount}</span>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+                  <span className="text-[11px] text-purple-800 font-bold block font-sans">ساعات العمل</span>
+                  <span className="text-lg font-black text-purple-700">{voiceBriefData.metrics.totalHoursWorked}س</span>
+                </div>
+              </div>
+            )}
+
+            {/* Voice Script Text */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-line">
+              {voiceBriefData.voiceScript}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window && voiceBriefData.voiceScript) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(voiceBriefData.voiceScript);
+                    utterance.lang = 'ar-SA';
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }}
+                className="flex-1 h-11 bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Mic className="w-4 h-4" />
+                <span>إعادة الاستماع للصوت 🔊</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  setIsVoiceModalOpen(false);
+                }}
+                className="px-5 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

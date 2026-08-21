@@ -18,6 +18,13 @@ import { registerServiceWorker, requestNotificationPermission, startGeofenceWatc
 import PrintReportLayout from '@/components/PrintReportLayout';
 import ClinicalCapsuleModal from '@/components/ClinicalCapsuleModal';
 import FieldVisitModal from '@/components/FieldVisitModal';
+import DailyQuizCard from '@/components/DailyQuizCard';
+import AnonymousSuggestionModal from '@/components/AnonymousSuggestionModal';
+import OnboardingTour from '@/components/OnboardingTour';
+import PasskeyModal from '@/components/PasskeyModal';
+import ChangelogModal from '@/components/ChangelogModal';
+import SupportTicketModal from '@/components/SupportTicketModal';
+import { Lightbulb, MessageSquarePlus, LifeBuoy, Sparkles as SparklesIcon, Fingerprint, HelpCircle } from 'lucide-react';
 
 type Tab = 'attendance' | 'history' | 'profile' | 'password';
 
@@ -30,6 +37,13 @@ export default function EmployeeDashboard() {
   const [isCapsuleModalOpen, setIsCapsuleModalOpen] = useState(false);
   const [isFieldVisitModalOpen, setIsFieldVisitModalOpen] = useState(false);
   const [activeFieldVisit, setActiveFieldVisit] = useState<FieldVisit | null>(null);
+
+  // New Feature States
+  const [isSuggestionModalOpen, setIsSuggestionModalOpen] = useState(false);
+  const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
+  const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   const [tenantInfo, setTenantInfo] = useState<{
     name: string;
@@ -651,10 +665,10 @@ export default function EmployeeDashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setIsFieldVisitModalOpen(true)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95 ${
+              className={`px-3 py-2 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95 ${
                 activeFieldVisit
                   ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 animate-pulse'
                   : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
@@ -668,15 +682,52 @@ export default function EmployeeDashboard() {
             {tenantInfo.hasClinicalCapsule !== false && (
               <button
                 onClick={() => setIsCapsuleModalOpen(true)}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
                 title="مسح باركود الدواء بكاميرا الهاتف وعرض الكبسولة السريرية"
               >
                 <Camera className="w-4 h-4" />
-                <span className="hidden sm:inline">📷 مسح باركود الدواء</span>
-                <span className="sm:hidden">الكبسولة 💊</span>
+                <span className="hidden sm:inline">مسح باركود 📷</span>
               </button>
             )}
-            <button onClick={handleLogout} className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer">
+
+            {/* Anonymous Suggestion Box Button */}
+            <button
+              onClick={() => setIsSuggestionModalOpen(true)}
+              className="px-2.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              title="صندوق المقترحات والشكاوى السري المشفر"
+            >
+              <MessageSquarePlus className="w-4 h-4 text-purple-600" />
+              <span className="hidden md:inline">مقترح سري 💡</span>
+            </button>
+
+            {/* Passkey Biometric Login Button */}
+            <button
+              onClick={() => setIsPasskeyModalOpen(true)}
+              className="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              title="تفعيل بصمة الإصبع والوجه Passkey"
+            >
+              <Fingerprint className="w-4 h-4 text-blue-600" />
+            </button>
+
+            {/* Help / Tour Button */}
+            <button
+              onClick={() => setIsOnboardingOpen(true)}
+              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              title="جولة إرشادية في المنظومة"
+            >
+              <HelpCircle className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {/* Changelog Button */}
+            <button
+              onClick={() => setIsChangelogModalOpen(true)}
+              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              title="سجل التحديثات"
+            >
+              <SparklesIcon className="w-4 h-4 text-amber-500" />
+            </button>
+
+            <button onClick={handleLogout} className="px-3 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer">
               <LogOut className="w-4 h-4" />خروج
             </button>
           </div>
@@ -697,6 +748,9 @@ export default function EmployeeDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+        {/* 🧠 Daily Micro-Quiz & Clinical Training Card */}
+        <DailyQuizCard />
 
         {/* TAB: الدوام الحالي */}
         {activeTab === 'attendance' && (<>
@@ -1497,6 +1551,36 @@ export default function EmployeeDashboard() {
           onVisitUpdated={fetchActiveFieldVisit}
         />
       )}
+
+      {/* 💡 صندوق المقترحات والشكاوى المجهول المشفر */}
+      <AnonymousSuggestionModal
+        isOpen={isSuggestionModalOpen}
+        onClose={() => setIsSuggestionModalOpen(false)}
+      />
+
+      {/* 🔐 نافذة تفعيل الدخول البيومتري بالبصمة Passkeys */}
+      <PasskeyModal
+        isOpen={isPasskeyModalOpen}
+        onClose={() => setIsPasskeyModalOpen(false)}
+      />
+
+      {/* ✨ سجل التحديثات والميزات الجديدة */}
+      <ChangelogModal
+        isOpen={isChangelogModalOpen}
+        onClose={() => setIsChangelogModalOpen(false)}
+      />
+
+      {/* 💬 تذاكر المساعدة والدعم الفني */}
+      <SupportTicketModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+      />
+
+      {/* 🧭 الجولة الإرشادية التفاعلية */}
+      <OnboardingTour
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
     </div>
   );
 }
