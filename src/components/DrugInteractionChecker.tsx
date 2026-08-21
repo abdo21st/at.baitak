@@ -92,6 +92,26 @@ export default function DrugInteractionChecker({ isOpen, onClose, initialDrugs =
               ))}
             </div>
 
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-slate-400 font-bold">وصفات شائعة للفحص السريع:</span>
+              {[
+                { label: 'وارفارين + أسبرين', pair: ['Warfarin', 'Aspirin'] },
+                { label: 'كلوبيدوغريل + أوميبرازول', pair: ['Clopidogrel', 'Omeprazole'] },
+                { label: 'سيلدينافيل + نيترات', pair: ['Sildenafil', 'Nitroglycerin'] },
+                { label: 'سيبروفلوكساسين + مضاد حموضة', pair: ['Ciprofloxacin', 'Antacid'] }
+              ].map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => { setDrugs(p.pair); setHasChecked(false); }}
+                  className="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer"
+                >
+                  ⚡ {p.label}
+                </button>
+              ))}
+            </div>
+
             {/* Input to add more */}
             <div className="flex items-center gap-2">
               <input

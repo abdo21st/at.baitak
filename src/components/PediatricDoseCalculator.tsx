@@ -75,6 +75,24 @@ export default function PediatricDoseCalculator({ isOpen, onClose }: PediatricDo
                   dir="ltr"
                 />
               </div>
+              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                {[
+                  { label: '6 أشهر (~8كغ)', w: '8' },
+                  { label: '1 سنة (~10كغ)', w: '10' },
+                  { label: '2 سنة (~12كغ)', w: '12' },
+                  { label: '5 سنوات (~18كغ)', w: '18' },
+                  { label: '8 سنوات (~25كغ)', w: '25' }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setWeightKg(preset.w)}
+                    className="text-[9px] bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 px-1.5 py-0.5 rounded font-bold cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Concentration */}

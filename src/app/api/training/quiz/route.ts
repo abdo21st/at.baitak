@@ -1,11 +1,19 @@
 import { NextResponse, NextRequest } from 'next/server';
 import quizzesData from '@/data/microQuizzes.json';
 
-// GET: Fetch today's micro quiz question
-export async function GET() {
+// GET: Fetch today's micro quiz question or random challenge
+export async function GET(req: NextRequest) {
   try {
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    const quizIndex = dayOfYear % quizzesData.length;
+    const isRandom = req.nextUrl.searchParams.get('random') === 'true';
+    let quizIndex: number;
+
+    if (isRandom) {
+      quizIndex = Math.floor(Math.random() * quizzesData.length);
+    } else {
+      const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+      quizIndex = dayOfYear % quizzesData.length;
+    }
+
     const quiz = quizzesData[quizIndex];
 
     // Return question without disclosing correct answer

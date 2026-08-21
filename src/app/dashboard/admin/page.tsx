@@ -20,13 +20,14 @@ import SupportTicketModal from '@/components/SupportTicketModal';
 import ChangelogModal from '@/components/ChangelogModal';
 import PasskeyModal from '@/components/PasskeyModal';
 import MaintenanceContractModal from '@/components/MaintenanceContractModal';
+import AdminSuggestionsModal from '@/components/AdminSuggestionsModal';
 import { useSortableData } from '@/hooks/useSortableData';
 import SortHeader from '@/components/SortHeader';
 import { formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import PrintReportLayout from '@/components/PrintReportLayout';
 import TaskManagement from '@/components/TaskManagement';
 import FieldVisitsManager from '@/components/FieldVisitsManager';
-import { Car, Mic, Download, CreditCard, LifeBuoy, Fingerprint, Sparkles as SparklesIcon } from 'lucide-react';
+import { Car, Mic, Download, CreditCard, LifeBuoy, Fingerprint, Sparkles as SparklesIcon, MessageSquarePlus } from 'lucide-react';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function AdminDashboard() {
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
   const [isMaintenanceContractModalOpen, setIsMaintenanceContractModalOpen] = useState(false);
+  const [isAdminSuggestionsModalOpen, setIsAdminSuggestionsModalOpen] = useState(false);
   const [voiceBriefLoading, setVoiceBriefLoading] = useState(false);
   const [voiceBriefData, setVoiceBriefData] = useState<{ voiceScript?: string; metrics?: any } | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -1026,6 +1028,25 @@ export default function AdminDashboard() {
             )}
           </button>
 
+          {/* Anonymous Suggestions Inbox Button */}
+          <button
+            onClick={() => { setIsAdminSuggestionsModalOpen(true); setMobileSidebarOpen(false); }}
+            className={`w-full h-12 rounded-2xl text-xs font-black flex items-center gap-3 transition-all cursor-pointer border ${
+              sidebarCollapsed ? 'justify-center px-0' : 'px-3.5'
+            } bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/60 hover:text-white`}
+            title="استعراض مقترحات وشكاوى الموظفين المشفرة"
+          >
+            <MessageSquarePlus className="w-5 h-5 shrink-0 text-purple-400" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="flex-1 text-right truncate">مقترحات الموظفين</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-bold">
+                  سري 💡
+                </span>
+              </>
+            )}
+          </button>
+
           {/* Changelog Button */}
           <button
             onClick={() => { setIsChangelogModalOpen(true); setMobileSidebarOpen(false); }}
@@ -1148,6 +1169,15 @@ export default function AdminDashboard() {
               >
                 <CreditCard className="w-3.5 h-3.5" />
                 <span className="hidden lg:inline">ترقية الباقة 💳</span>
+              </button>
+
+              <button
+                onClick={() => setIsAdminSuggestionsModalOpen(true)}
+                className="h-10 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer border border-purple-200"
+                title="صندوق مقترحات وشكاوى الموظفين المشفرة"
+              >
+                <MessageSquarePlus className="w-4 h-4 text-purple-600" />
+                <span className="hidden lg:inline text-[11px] font-black">المقترحات 💡</span>
               </button>
 
               <button
@@ -2620,6 +2650,12 @@ export default function AdminDashboard() {
         isOpen={isMaintenanceContractModalOpen}
         onClose={() => setIsMaintenanceContractModalOpen(false)}
         onSuccess={() => setIsMaintenanceContractModalOpen(false)}
+      />
+
+      {/* Admin Anonymous Suggestions Review Modal */}
+      <AdminSuggestionsModal
+        isOpen={isAdminSuggestionsModalOpen}
+        onClose={() => setIsAdminSuggestionsModalOpen(false)}
       />
 
       {/* AI Voice Briefing Modal */}

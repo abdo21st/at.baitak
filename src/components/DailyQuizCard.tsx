@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Award, HelpCircle, CheckCircle2, XCircle, Sparkles, BookOpen } from 'lucide-react';
+import { Award, HelpCircle, CheckCircle2, XCircle, Sparkles, BookOpen, RefreshCw } from 'lucide-react';
 
 export default function DailyQuizCard() {
   const [quiz, setQuiz] = useState<any | null>(null);
@@ -9,13 +9,41 @@ export default function DailyQuizCard() {
   const [result, setResult] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const fetchQuiz = async (forceRandom = false) => {
+    try {
+      setLoading(true);
+      const url = forceRandom ? '/api/training/quiz?random=true' : '/api/training/quiz';
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && data.quiz) {
+        setQuiz(data.quiz);
+        // Check localStorage for saved result of this quiz
+        if (!forceRandom && typeof window !== 'undefined') {
+          const today = new Date().toISOString().substring(0, 10);
+          const savedKey = `hodoork_quiz_${data.quiz.id}_${today}`;
+          const savedData = localStorage.getItem(savedKey);
+          if (savedData) {
+            const parsed = JSON.parse(savedData);
+            setSelectedIdx(parsed.selectedIdx);
+            setResult(parsed.result);
+          } else {
+            setSelectedIdx(null);
+            setResult(null);
+          }
+        } else {
+          setSelectedIdx(null);
+          setResult(null);
+        }
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch('/api/training/quiz')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) setQuiz(data.quiz);
-      })
-      .catch(() => {});
+    fetchQuiz();
   }, []);
 
   if (!quiz) return null;
@@ -37,6 +65,11 @@ export default function DailyQuizCard() {
       const data = await res.json();
       if (data.success) {
         setResult(data);
+        if (typeof window !== 'undefined') {
+          const today = new Date().toISOString().substring(0, 10);
+          const savedKey = `hodoork_quiz_${quiz.id}_${today}`;
+          localStorage.setItem(savedKey, JSON.stringify({ selectedIdx: idx, result: data }));
+        }
       }
     } catch {
       // Ignore
@@ -54,14 +87,27 @@ export default function DailyQuizCard() {
           </div>
           <div>
             <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
-              تحدي الكويز اليومي
+              تحدي الكويز والتدريب اليومي
               <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-bold border border-indigo-400/30">
                 {quiz.category}
               </span>
             </h4>
           </div>
         </div>
-        <span className="text-[11px] text-slate-400 font-medium">سؤال اليوم 🎯</span>
+        <div className="flex items-center gap-2">
+          {result && (
+            <button
+              type="button"
+              onClick={() => fetchQuiz(true)}
+              className="text-[11px] bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 px-2.5 py-1 rounded-xl font-bold border border-indigo-700/50 flex items-center gap-1 transition-all cursor-pointer"
+              title="تجربة سؤال تدريبي آخر"
+            >
+              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+              <span>سؤال إضافي</span>
+            </button>
+          )}
+          <span className="text-[11px] text-slate-400 font-medium">سؤال اليوم 🎯</span>
+        </div>
       </div>
 
       <p className="text-xs sm:text-sm font-bold text-slate-200 leading-relaxed">
@@ -74,7 +120,7 @@ export default function DailyQuizCard() {
 
           if (result) {
             if (idx === result.correctIndex) {
-              btnClass = 'bg-emerald-950/80 border-emerald-500 text-emerald-200 font-extrabold';
+              btnClass = 'bg-emerald-950/80 border-emerald-500 text-emerald-200 font-extrabold shadow-sm';
             } else if (idx === selectedIdx && !result.isCorrect) {
               btnClass = 'bg-red-950/80 border-red-500 text-red-200 font-extrabold';
             } else {
