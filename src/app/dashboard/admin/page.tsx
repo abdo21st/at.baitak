@@ -2585,7 +2585,12 @@ export default function AdminDashboard() {
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
-        plan="PRO"
+        plan={{
+          id: 'pro-plan',
+          name: 'الباقة الاحترافية (Pro Plan)',
+          priceMonthly: 120,
+          priceYearly: 1200,
+        }}
         onSuccess={() => {
           setIsPaymentModalOpen(false);
           alert('تم تسجيل طلب الدفع وتفعيل الاشتراك بنجاح!');
@@ -2614,7 +2619,7 @@ export default function AdminDashboard() {
       <MaintenanceContractModal
         isOpen={isMaintenanceContractModalOpen}
         onClose={() => setIsMaintenanceContractModalOpen(false)}
-        onSaved={() => setIsMaintenanceContractModalOpen(false)}
+        onSuccess={() => setIsMaintenanceContractModalOpen(false)}
       />
 
       {/* AI Voice Briefing Modal */}

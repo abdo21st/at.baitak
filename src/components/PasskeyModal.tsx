@@ -5,8 +5,8 @@ import { Fingerprint, ShieldCheck, X, CheckCircle2, AlertCircle } from 'lucide-r
 import { isWebAuthnSupported, bufferToBase64Url, base64UrlToBuffer } from '@/lib/webauthn';
 
 interface PasskeyModalProps {
-  userId: string;
-  userName: string;
+  userId?: string;
+  userName?: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -16,6 +16,22 @@ export default function PasskeyModal({ userId, userName, isOpen, onClose }: Pass
   const [supported, setSupported] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [deviceName, setDeviceName] = useState('هاتفي الشخصي');
+
+  // Resolve effective user
+  let effectiveUserId = userId || '';
+  let effectiveUserName = userName || '';
+  if (typeof window !== 'undefined' && (!effectiveUserId || !effectiveUserName)) {
+    try {
+      const stored = localStorage.getItem('currentUser');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (!effectiveUserId) effectiveUserId = u.id || 'usr-admin';
+        if (!effectiveUserName) effectiveUserName = u.name || 'المستخدم';
+      }
+    } catch {}
+  }
+  if (!effectiveUserId) effectiveUserId = 'usr-admin';
+  if (!effectiveUserName) effectiveUserName = 'مدير النظام';
 
   useEffect(() => {
     isWebAuthnSupported().then(setSupported);
@@ -29,7 +45,7 @@ export default function PasskeyModal({ userId, userName, isOpen, onClose }: Pass
 
     try {
       // 1. Get options from server
-      const optRes = await fetch(`/api/auth/webauthn/register?userId=${userId}`);
+      const optRes = await fetch(`/api/auth/webauthn/register?userId=${effectiveUserId}`);
       const optData = await optRes.json();
       if (!optData.success) {
         throw new Error(optData.error || 'فشل جلب إعدادات البصمة');
@@ -66,7 +82,7 @@ export default function PasskeyModal({ userId, userName, isOpen, onClose }: Pass
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
+          userId: effectiveUserId,
           credentialId: rawIdBase64,
           publicKey: publicKeyBase64,
           deviceName

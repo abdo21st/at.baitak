@@ -33,17 +33,26 @@ const ONBOARDING_STEPS: TourStep[] = [
   }
 ];
 
-export default function OnboardingTour() {
-  const [isOpen, setIsOpen] = useState(false);
+interface OnboardingTourProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function OnboardingTour({ isOpen: controlledIsOpen, onClose }: OnboardingTourProps = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  const isModalOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
+
   useEffect(() => {
-    const completed = localStorage.getItem('hodoork_onboarding_completed');
-    if (!completed) {
-      const timer = setTimeout(() => setIsOpen(true), 1500);
-      return () => clearTimeout(timer);
+    if (controlledIsOpen === undefined) {
+      const completed = localStorage.getItem('hodoork_onboarding_completed');
+      if (!completed) {
+        const timer = setTimeout(() => setInternalIsOpen(true), 1500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [controlledIsOpen]);
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -60,11 +69,12 @@ export default function OnboardingTour() {
   };
 
   const handleComplete = () => {
-    setIsOpen(false);
+    setInternalIsOpen(false);
     localStorage.setItem('hodoork_onboarding_completed', 'true');
+    if (onClose) onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isModalOpen) return null;
 
   const step = ONBOARDING_STEPS[currentStep];
 
