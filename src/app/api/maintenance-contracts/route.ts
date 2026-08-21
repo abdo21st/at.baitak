@@ -65,3 +65,76 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+// PUT: Update Maintenance Contract Status / Visit
+export async function PUT(req: NextRequest) {
+  try {
+    const tenant = await resolveTenant(req);
+    const body = await req.json();
+    const { id, status, nextVisitDate, lastVisitDate, contractValue, slaHours, notes } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'معرف العقد مطلوب' }, { status: 400 });
+    }
+
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (nextVisitDate) updateData.nextVisitDate = new Date(nextVisitDate);
+    if (lastVisitDate) updateData.lastVisitDate = new Date(lastVisitDate);
+    if (contractValue !== undefined) updateData.contractValue = Number(contractValue);
+    if (slaHours !== undefined) updateData.slaHours = Number(slaHours);
+    if (notes !== undefined) updateData.notes = notes;
+
+    const updated = await (prisma as any).maintenanceContract.updateMany({
+      where: { id, tenantId: tenant.id },
+      data: updateData
+    });
+
+    if (updated.count === 0) {
+      return NextResponse.json({ success: false, error: 'العقد غير موجود أو غير تابع لهذا النشاط' }, { status: 404 });
+    }
+
+    await logAuditEvent({
+      tenantId: tenant.id,
+      action: 'UPDATE_MAINTENANCE_CONTRACT',
+      entity: 'MaintenanceContract',
+      entityId: id,
+      details: updateData,
+      req
+    });
+
+    return NextResponse.json({ success: true, message: '✅ تم تحديث بيانات العقد بنجاح!' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Terminate or Remove Maintenance Contract
+export async function DELETE(req: NextRequest) {
+  try {
+    const tenant = await resolveTenant(req);
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'معرف العقد مطلوب' }, { status: 400 });
+    }
+
+    await (prisma as any).maintenanceContract.deleteMany({
+      where: { id, tenantId: tenant.id }
+    });
+
+    await logAuditEvent({
+      tenantId: tenant.id,
+      action: 'DELETE_MAINTENANCE_CONTRACT',
+      entity: 'MaintenanceContract',
+      entityId: id,
+      details: { id },
+      req
+    });
+
+    return NextResponse.json({ success: true, message: '✅ تم حذف العقد بنجاح!' });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
