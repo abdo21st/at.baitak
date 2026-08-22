@@ -46,11 +46,15 @@
   --font-cairo: 'Dubai', sans-serif;
 }
 
+html,
 body {
   font-family: 'Dubai', var(--font-dubai), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #f8fafc;
   color: #0f172a;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   direction: rtl;
   text-align: right;
   font-variant-numeric: lining-nums tabular-nums !important;

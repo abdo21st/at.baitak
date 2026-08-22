@@ -90,7 +90,7 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-dubai antialiased flex" dir="rtl">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-dubai antialiased flex overflow-x-hidden w-full max-w-full relative" dir="rtl">
       {/* Mobile Backdrop */}
       {sidebarOpen && (
         <div
@@ -101,8 +101,10 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 right-0 z-50 h-screen w-64 bg-white border-l border-slate-200 shadow-xl lg:shadow-none transition-transform duration-300 flex flex-col no-print ${
-          sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        className={`fixed top-0 right-0 z-50 h-screen w-64 max-w-[85vw] bg-white border-l border-slate-200 shadow-xl lg:shadow-none transition-all duration-300 flex flex-col no-print ${
+          sidebarOpen
+            ? 'translate-x-0 opacity-100 visible pointer-events-auto'
+            : 'translate-x-full opacity-0 invisible lg:translate-x-0 lg:opacity-100 lg:visible pointer-events-none lg:pointer-events-auto'
         }`}
       >
         {/* Brand Header */}
@@ -212,26 +214,27 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:mr-64 min-h-screen flex flex-col transition-all print:mr-0 print:m-0 print:p-0 print:w-full print:block">
+      <div className="flex-1 lg:mr-64 min-h-screen flex flex-col transition-all w-full max-w-full overflow-x-hidden print:mr-0 print:m-0 print:p-0 print:w-full print:block">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 lg:px-8 py-3 flex items-center justify-between no-print">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between no-print gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+              aria-label="فتح القائمة"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline text-xs font-bold text-slate-600">
+            <span className="hidden md:inline text-xs font-bold text-slate-600">
               منظومة إدارة المشتريات والمخزون الصيدلاني (مباشر)
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 overflow-x-auto py-0.5 max-w-full">
             <button
               type="button"
               onClick={() => setIsInteractionCheckerOpen(true)}
-              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shrink-0"
               title="فحص التداخلات الدوائية التفاعلي"
             >
               <Pill className="w-3.5 h-3.5" />
@@ -241,25 +244,25 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
             <button
               type="button"
               onClick={() => setIsPediatricCalculatorOpen(true)}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+              className="hidden sm:flex px-2.5 sm:px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/20 items-center gap-1 sm:gap-1.5 transition-all cursor-pointer shrink-0"
               title="حاسبة جرعات الأطفال والرضع"
             >
               <Baby className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">جرعات الأطفال 👶</span>
+              <span>جرعات الأطفال 👶</span>
             </button>
 
             <Link
               href="/pharmacy/shortages"
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all"
+              className="px-2.5 sm:px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1 sm:gap-1.5 transition-all shrink-0"
             >
               <ShoppingCart className="w-3.5 h-3.5 text-emerald-600" />
-              <span>طلبية شراء</span>
+              <span>الطلبية</span>
             </Link>
 
             <button
               type="button"
               onClick={() => setIsChangelogOpen(true)}
-              className="p-1.5 text-slate-400 hover:text-purple-600 rounded-xl transition-all cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-purple-600 rounded-xl transition-all cursor-pointer shrink-0"
               title="سجل التحديثات"
             >
               <Sparkles className="w-4 h-4" />
@@ -268,7 +271,7 @@ export default function PharmacyLayout({ children }: { children: React.ReactNode
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto print:max-w-full print:w-full print:p-0 print:m-0 print:block">
+        <main className="flex-1 p-3 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto print:max-w-full print:w-full print:p-0 print:m-0 print:block overflow-x-hidden">
           {children}
         </main>
       </div>
