@@ -65,11 +65,24 @@ export function middleware(request: NextRequest) {
   requestHeaders.set('x-tenant-slug', tenantSlug);
 
   // 1. If user visits root / on the main Super Admin host (at.mtapp.ly), redirect directly to Super Admin dashboard
-  if (isSuperAdminHost && url.pathname === '/') {
+  if (isSuperAdminHost && (url.pathname === '/' || url.pathname === '/login')) {
     return NextResponse.redirect(new URL('/dashboard/super-admin', request.url));
   }
 
-  // 2. If user on a sub-tenant domain visits /dashboard/super-admin, redirect them to the main central domain
+  // 2. If user accesses tenant-specific apps directly on the Master Super-Admin host (at.mtapp.ly), redirect them to the primary tenant domain (at.baitak.mtapp.ly)
+  if (isSuperAdminHost) {
+    if (url.pathname.startsWith('/pharmacy')) {
+      return NextResponse.redirect(new URL(`https://at.baitak.mtapp.ly${url.pathname}${url.search}`));
+    }
+    if (url.pathname.startsWith('/dashboard/admin')) {
+      return NextResponse.redirect(new URL(`https://at.baitak.mtapp.ly/dashboard/admin${url.search}`));
+    }
+    if (url.pathname.startsWith('/dashboard/employee')) {
+      return NextResponse.redirect(new URL(`https://at.baitak.mtapp.ly/dashboard/employee${url.search}`));
+    }
+  }
+
+  // 3. If user on a sub-tenant domain visits /dashboard/super-admin, redirect them to the main central domain
   if (!isSuperAdminHost && hostClean.endsWith('.mtapp.ly') && url.pathname.startsWith('/dashboard/super-admin')) {
     return NextResponse.redirect(new URL('https://at.mtapp.ly/dashboard/super-admin'));
   }

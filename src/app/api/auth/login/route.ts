@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { resolveTenant } from '@/lib/tenantResolver';
 
 /**
  * POST /api/auth/login
@@ -10,70 +11,67 @@ export async function POST(req: NextRequest) {
   try {
     const { employeeCode, pinCode } = await req.json();
 
-    const hostHeader = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').split(':')[0].toLowerCase().trim();
-    const injectedSlug = (req.headers.get('x-tenant-slug') || '').toLowerCase().trim();
-
-    // 1. تحديد الـ slug المستهدف
-    let targetSlug = '';
-    if (injectedSlug) {
-      targetSlug = injectedSlug;
-    } else if (hostHeader.endsWith('.mtapp.ly')) {
-      const sub = hostHeader.replace('.mtapp.ly', '').trim();
-      if (sub === 'at.baitak' || sub === 'baitak') {
-        targetSlug = 'baytak';
-      } else if (sub === 'at') {
-        targetSlug = 'super-admin';
-      } else {
-        targetSlug = sub;
-      }
+    if (!employeeCode || !pinCode) {
+      return NextResponse.json(
+        { success: false, error: 'رقم الموظف والرقم السري مطلوبان' },
+        { status: 400 }
+      );
     }
 
-    // 2. البحث عن النشاط التجاري
-    let tenant = null;
-    if (targetSlug && targetSlug !== 'super-admin') {
-      tenant = await prisma.tenant.findFirst({
-        where: {
-          OR: [
-            { slug: targetSlug },
-            { slug: targetSlug.replace(/^at\./, '') },
-            { slug: `at.${targetSlug}` },
-            { customDomain: hostHeader },
-            { customDomain: `https://${hostHeader}` },
-          ],
-        },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    // افتراضي: صيدلية بيتك إذا كان الرابط هو at.baitak أو محلي
-    if (!tenant) {
-      tenant = await prisma.tenant.findFirst({
-        where: {
-          OR: [
-            { id: 'default-tenant' },
-            { slug: 'baytak' },
-            { slug: 'at.baitak' },
-          ],
-        },
-        select: { id: true, name: true, slug: true },
-      });
-    }
-
-    const tenantId = tenant?.id || 'default-tenant';
+    // 1. تحديد واستخراج النشاط التجاري الحالي عبر المحرك الموحد
+    const tenant = await resolveTenant(req);
+    const tenantId = tenant.id;
     const inputCode = String(employeeCode).trim();
+    const cleanCode = inputCode.replace(/^(madar|mt|at\.mt|at\.madar|baytak|baitak|at\.baitak|at\.baytak|alnaqaa|naqaa)-/i, '').trim();
 
-    // 3. البحث الحصري عن الموظف داخل النشاط التجاري التابع لهذا الرابط فقط (Strict Tenant Isolation)
-    const user = await prisma.user.findFirst({
+    // 2. البحث الحصري عن الموظف داخل النشاط التجاري بدعم كافة صيغ الأرقام والأكواد (Strict Tenant Isolation)
+    let user = await prisma.user.findFirst({
       where: {
         tenantId: tenantId,
         OR: [
           { employeeCode: inputCode },
-          { employeeCode: `${targetSlug}-${inputCode}` },
-          { employeeCode: `at.mt-${inputCode}` },
+          { employeeCode: cleanCode },
+          { employeeCode: `${tenant.slug}-${cleanCode}` },
+          { employeeCode: `${tenant.slug}-${inputCode}` },
+          { employeeCode: `madar-${cleanCode}` },
+          { employeeCode: `mt-${cleanCode}` },
+          { employeeCode: `at.mt-${cleanCode}` },
+          { employeeCode: `at.madar-${cleanCode}` },
+          { employeeCode: `baytak-${cleanCode}` },
+          { employeeCode: `alnaqaa-${cleanCode}` },
         ],
       },
       include: { departments: true, jobRoles: true }
     });
+
+    // 3. مسار احتياطي ذكي للأنشطة الخاصة (مثل مدار التقنية) في حال اختلاف معرف النشاط القديم
+    if (!user) {
+      const isMadar = tenant.slug === 'madar' || tenant.slug === 'mt' || tenant.slug === 'at.mt' || tenant.slug === 'at.madar' || (tenant.name && tenant.name.includes('مدار'));
+      if (isMadar) {
+        user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { employeeCode: inputCode },
+              { employeeCode: cleanCode },
+              { employeeCode: `madar-${cleanCode}` },
+              { employeeCode: `mt-${cleanCode}` },
+              { employeeCode: `at.mt-${cleanCode}` },
+              { employeeCode: `at.madar-${cleanCode}` },
+            ],
+            tenant: {
+              OR: [
+                { slug: 'madar' },
+                { slug: 'mt' },
+                { slug: 'at.mt' },
+                { slug: 'at.madar' },
+                { name: { contains: 'مدار', mode: 'insensitive' } },
+              ]
+            }
+          },
+          include: { departments: true, jobRoles: true }
+        });
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -91,7 +89,7 @@ export async function POST(req: NextRequest) {
       // كلمة مرور مشفرة بـ bcrypt
       isValid = await bcrypt.compare(inputPin, storedPassword);
     } else {
-      // نص صريح (مستخدم قديم) — مقارنة مباشرة ثم ترقية تلقائية
+      // نص صريح (مستخدم قديم) — مقارنة مباشرة ثم ترقية تلقائية لتشفير bcrypt
       isValid = storedPassword === inputPin;
       if (isValid && inputPin.length > 0) {
         const newHashed = await bcrypt.hash(inputPin, 10);

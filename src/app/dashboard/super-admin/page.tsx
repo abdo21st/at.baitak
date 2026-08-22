@@ -328,6 +328,109 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
+        {/* Quick Activity & Branches Portals Launcher */}
+        <div className="bg-gradient-to-r from-blue-950/40 via-slate-950/60 to-purple-950/40 border border-blue-900/40 p-5 rounded-3xl space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <span>🚀 بوابات الدخول المباشر لأنشطة وفروع المنظومة</span>
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-bold border border-blue-500/30 font-mono">
+                  Direct Tenant Portals
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                الرابط الحالي <span className="font-mono text-blue-400 font-bold">at.mtapp.ly</span> مخصص للإدارة المركزية، بينما كل نشاط يعمل برابطه الفرعي الخاص
+              </p>
+            </div>
+            <span className="text-xs text-emerald-400 font-mono font-bold bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-800/50">
+              ● النظام متصل وحي 🟢
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* Primary Activity: Baitak Pharmacy */}
+            <div className="bg-slate-900/90 border border-blue-800/60 p-4 rounded-2xl space-y-3 shadow-lg hover:border-blue-500 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🌿</span>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-white">صيدلية بيتك (النشاط الأساسي)</h4>
+                    <span className="text-[10px] text-blue-400 font-mono">at.baitak.mtapp.ly</span>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">
+                  نشط
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 pt-1">
+                <a
+                  href="https://at.baitak.mtapp.ly/dashboard/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-bold flex items-center justify-center transition"
+                >
+                  🛠️ الإدارة
+                </a>
+                <a
+                  href="https://at.baitak.mtapp.ly/pharmacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-[10px] font-bold flex items-center justify-center transition"
+                >
+                  💊 الصيدلية
+                </a>
+                <a
+                  href="https://at.baitak.mtapp.ly/dashboard/employee"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[10px] font-bold flex items-center justify-center transition border border-slate-700"
+                >
+                  🧑‍💼 الموظف
+                </a>
+              </div>
+            </div>
+
+            {/* Other Dynamic Tenants */}
+            {tenants.filter(t => t.slug !== 'baytak' && t.slug !== 'at.baitak' && t.id !== 'default-tenant').slice(0, 5).map(t => {
+              const directSubdomain = t.slug.includes('.') ? t.slug : `${t.slug}.mtapp.ly`;
+              return (
+                <div key={t.id} className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl space-y-3 hover:border-slate-700 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🏢</span>
+                      <div>
+                        <h4 className="font-extrabold text-xs text-white truncate max-w-[140px]">{t.name}</h4>
+                        <span className="text-[10px] text-slate-400 font-mono truncate block max-w-[140px]">{directSubdomain}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
+                      {t.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 pt-1">
+                    <a
+                      href={`https://${directSubdomain}/dashboard/admin`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-8 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[10px] font-bold flex items-center justify-center transition border border-slate-700"
+                    >
+                      🛠️ لوحة الإدارة ↗
+                    </a>
+                    <a
+                      href={`https://${directSubdomain}/login`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="h-8 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl text-[10px] font-bold flex items-center justify-center transition border border-blue-500/30"
+                    >
+                      🔐 بوابة الدخول ↗
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Filters & Search */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 w-full sm:w-auto">

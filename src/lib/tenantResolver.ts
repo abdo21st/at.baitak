@@ -41,9 +41,9 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
 
   // 2. Query tenant from database
   if (targetSlug && targetSlug !== 'super-admin') {
-    const isBaytakVariant = targetSlug === 'baytak' || targetSlug === 'baitak' || targetSlug === 'at.baitak' || targetSlug === 'at.baytak';
-    const isMadarVariant = targetSlug === 'madar' || targetSlug === 'mt' || targetSlug === 'at.mt' || targetSlug === 'at.madar';
-    const isNaqaaVariant = targetSlug === 'alnaqaa' || targetSlug === 'naqaa' || targetSlug === 'at.alnaqaa' || targetSlug === 'at.naqaa';
+    const isBaytakVariant = targetSlug === 'baytak' || targetSlug === 'baitak' || targetSlug === 'at.baitak' || targetSlug === 'at.baytak' || targetSlug === 'default-tenant';
+    const isMadarVariant = targetSlug === 'madar' || targetSlug === 'mt' || targetSlug === 'at.mt' || targetSlug === 'at.madar' || targetSlug.includes('madar') || targetSlug.includes('mt');
+    const isNaqaaVariant = targetSlug === 'alnaqaa' || targetSlug === 'naqaa' || targetSlug === 'at.alnaqaa' || targetSlug === 'at.naqaa' || targetSlug.includes('naqaa');
 
     let slugConditions: any[] = [];
     if (isBaytakVariant) {
@@ -52,21 +52,27 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
         { slug: 'at.baitak' },
         { slug: 'baytak' },
         { slug: 'baitak' },
-        { slug: 'at.baytak' }
+        { slug: 'at.baytak' },
+        { name: { contains: 'بيتك', mode: 'insensitive' } }
       ];
     } else if (isMadarVariant) {
       slugConditions = [
         { slug: 'madar' },
         { slug: 'mt' },
         { slug: 'at.mt' },
-        { slug: 'at.madar' }
+        { slug: 'at.madar' },
+        { slug: 'madar-tech' },
+        { slug: 'at.madar-tech' },
+        { slug: { contains: 'madar', mode: 'insensitive' } },
+        { name: { contains: 'مدار', mode: 'insensitive' } }
       ];
     } else if (isNaqaaVariant) {
       slugConditions = [
         { slug: 'alnaqaa' },
         { slug: 'naqaa' },
         { slug: 'at.alnaqaa' },
-        { slug: 'at.naqaa' }
+        { slug: 'at.naqaa' },
+        { name: { contains: 'النقاء', mode: 'insensitive' } }
       ];
     } else {
       slugConditions = [
@@ -100,9 +106,10 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
 
     // Strict Tenant Isolation: Auto-create requested tenant if not in DB to prevent leaking default-tenant data
     try {
+      const defaultName = isMadarVariant ? 'شركة مدار التقنية' : (isNaqaaVariant ? 'نشاط النقاء' : `نشاط ${targetSlug}`);
       tenant = await prisma.tenant.create({
         data: {
-          name: `نشاط ${targetSlug}`,
+          name: defaultName,
           slug: targetSlug,
           status: 'ACTIVE',
           hasClinicalCapsule: false,
@@ -123,10 +130,11 @@ export async function resolveTenant(req: NextRequest): Promise<ResolvedTenant> {
       });
       if (tenant) return tenant;
     } catch {
+      const fallbackName = isMadarVariant ? 'شركة مدار التقنية' : (isNaqaaVariant ? 'نشاط النقاء' : `نشاط ${targetSlug}`);
       // Return isolated in-memory identifier
       return {
         id: `tenant-${targetSlug}`,
-        name: `نشاط ${targetSlug}`,
+        name: fallbackName,
         slug: targetSlug,
         logo: null,
         customDomain: null,
