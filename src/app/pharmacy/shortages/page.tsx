@@ -57,6 +57,13 @@ export default function PharmacyShortagesPage() {
   const [customQuantities, setCustomQuantities] = useState<Record<string, string>>({});
   const [pendingWhatsAppCount, setPendingWhatsAppCount] = useState<number>(0);
 
+  // WhatsApp Multi-Select & Bulk Actions State
+  const [selectedWhatsAppIds, setSelectedWhatsAppIds] = useState<string[]>([]);
+  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [bulkActionFeedback, setBulkActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   // WhatsApp Authorized Group Settings
   const [isGroupConfigModalOpen, setIsGroupConfigModalOpen] = useState(false);
   const [groupLinkInput, setGroupLinkInput] = useState('');
@@ -215,6 +222,32 @@ export default function PharmacyShortagesPage() {
     }
   };
 
+  // Clear bulk feedback automatically after 4 seconds
+  useEffect(() => {
+    if (bulkActionFeedback) {
+      const timer = setTimeout(() => setBulkActionFeedback(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [bulkActionFeedback]);
+
+  // Selection Helpers
+  const isAllWhatsAppSelected = whatsappRequests.length > 0 && selectedWhatsAppIds.length === whatsappRequests.length;
+  const isSomeWhatsAppSelected = selectedWhatsAppIds.length > 0 && !isAllWhatsAppSelected;
+
+  const toggleSelectAllWhatsApp = () => {
+    if (isAllWhatsAppSelected) {
+      setSelectedWhatsAppIds([]);
+    } else {
+      setSelectedWhatsAppIds(whatsappRequests.map((r) => r.id));
+    }
+  };
+
+  const toggleSelectWhatsAppItem = (id: string) => {
+    setSelectedWhatsAppIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   const handleWhatsAppStatusChange = async (id: string, newStatus: string) => {
     try {
       await fetch('/api/pharmacy/whatsapp-shortages', {
@@ -232,9 +265,178 @@ export default function PharmacyShortagesPage() {
     if (!confirm('هل تريد بالتأكيد إزالة هذا الصنف من طلبات الواتساب؟')) return;
     try {
       await fetch(`/api/pharmacy/whatsapp-shortages?id=${id}`, { method: 'DELETE' });
+      setSelectedWhatsAppIds((prev) => prev.filter((item) => item !== id));
       fetchWhatsAppShortages();
     } catch (err) {
       console.error('Delete whatsapp request error:', err);
+    }
+  };
+
+  // 1. مسح الأرشيف السابق واعتماد اليوم فقط
+  const handlePurgeHistory = async () => {
+    try {
+      setIsPurging(true);
+      const res = await fetch('/api/pharmacy/whatsapp-shortages?action=purge-history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'purge-history' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({
+          type: 'success',
+          message: data.message || 'تم مسح الأرشيف السابق بنجاح والاحتفاظ ببيانات اليوم فقط'
+        });
+        setSelectedWhatsAppIds([]);
+        await fetchWhatsAppShortages();
+        setIsPurgeModalOpen(false);
+      } else {
+        setBulkActionFeedback({
+          type: 'error',
+          message: data.error || 'حدث خطأ أثناء مسح الأرشيف'
+        });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({
+        type: 'error',
+        message: err?.message || 'تعذر الاتصال بالخادم لمسح الأرشيف'
+      });
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
+  // 2. حزمة الإجراءات الجماعية 1: إضافة المحدد للطلبية
+  const handleBulkAddWhatsAppToCart = async () => {
+    if (selectedWhatsAppIds.length === 0) return;
+    try {
+      setIsBulkLoading(true);
+      const selectedReqs = whatsappRequests.filter((r) => selectedWhatsAppIds.includes(r.id));
+      const newCartUpdates: Record<number, { item: any; requestedQty: number }> = {};
+
+      selectedReqs.forEach((req) => {
+        const rawQty = customQuantities[req.id] !== undefined ? customQuantities[req.id] : req.requestedQty;
+        const finalQty = Number(rawQty) || 1;
+
+        const matchedInShortages = shortages.find(
+          (s) => (req.matchedCode && s.code === req.matchedCode) || s.name.toLowerCase().includes(req.productName.toLowerCase())
+        );
+
+        const productId = matchedInShortages ? matchedInShortages.productId : (900000 + Math.floor(Math.random() * 90000));
+        const itemToAdd = matchedInShortages || {
+          productId,
+          code: req.matchedCode || `WA-${req.id.slice(0, 5)}`,
+          name: req.productName,
+          activeIngredient: req.activeIngredient || req.productName,
+          stockOnHand: 0,
+          minStockLevel: 10,
+          costPrice: 0,
+          sellPrice: 0,
+          orderUnit: req.unit || 'عبوة',
+          inventoryUnit: req.unit || 'عبوة',
+          packSize: 1,
+          suggestedOrderPackages: finalQty,
+          supplierName: 'مورد الواتساب'
+        };
+
+        newCartUpdates[productId] = {
+          item: itemToAdd,
+          requestedQty: finalQty
+        };
+      });
+
+      setCart((prev) => ({ ...prev, ...newCartUpdates }));
+
+      const res = await fetch('/api/pharmacy/whatsapp-shortages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedWhatsAppIds, status: 'ORDERED' })
+      });
+      const data = await res.json();
+
+      setBulkActionFeedback({
+        type: 'success',
+        message: data.message || `تمت إضافة ${selectedWhatsAppIds.length} صنف لسلة الطلبية بنجاح`
+      });
+
+      setSelectedWhatsAppIds([]);
+      await fetchWhatsAppShortages();
+    } catch (err: any) {
+      setBulkActionFeedback({
+        type: 'error',
+        message: err?.message || 'حدث خطأ أثناء إضافة الأصناف للطلبية'
+      });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  // 3. حزمة الإجراءات الجماعية 2: تغيير حالة المحدد إلى (تم الطلب)
+  const handleBulkMarkWhatsAppAsOrdered = async () => {
+    if (selectedWhatsAppIds.length === 0) return;
+    try {
+      setIsBulkLoading(true);
+      const res = await fetch('/api/pharmacy/whatsapp-shortages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedWhatsAppIds, status: 'ORDERED' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({
+          type: 'success',
+          message: data.message || `تم تحديث حالة ${selectedWhatsAppIds.length} صنف إلى (تم الطلب) بنجاح`
+        });
+        setSelectedWhatsAppIds([]);
+        await fetchWhatsAppShortages();
+      } else {
+        setBulkActionFeedback({
+          type: 'error',
+          message: data.error || 'تعذر تحديث الحالة'
+        });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({
+        type: 'error',
+        message: err?.message || 'حدث خطأ أثناء تحديث الحالة'
+      });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  // 4. حزمة الإجراءات الجماعية 3: مسح المحدد
+  const handleBulkDeleteWhatsApp = async () => {
+    if (selectedWhatsAppIds.length === 0) return;
+    if (!confirm(`هل تريد بالتأكيد حذف ${selectedWhatsAppIds.length} صنف محدد من طلبات الواتساب؟`)) return;
+    try {
+      setIsBulkLoading(true);
+      const res = await fetch('/api/pharmacy/whatsapp-shortages', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedWhatsAppIds })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBulkActionFeedback({
+          type: 'success',
+          message: data.message || `تم حذف ${selectedWhatsAppIds.length} صنف بنجاح`
+        });
+        setSelectedWhatsAppIds([]);
+        await fetchWhatsAppShortages();
+      } else {
+        setBulkActionFeedback({
+          type: 'error',
+          message: data.error || 'تعذر حذف الأصناف المحددة'
+        });
+      }
+    } catch (err: any) {
+      setBulkActionFeedback({
+        type: 'error',
+        message: err?.message || 'حدث خطأ أثناء حذف الأصناف'
+      });
+    } finally {
+      setIsBulkLoading(false);
     }
   };
 
@@ -1006,6 +1208,16 @@ export default function PharmacyShortagesPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Purge Archive Button */}
+            <button
+              onClick={() => setIsPurgeModalOpen(true)}
+              className="h-9 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              title="مسح كافة طلبات ونواقص الواتساب السابقة لتاريخ اليوم والاحتفاظ بطلبات اليوم فقط"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>مسح الأرشيف السابق واعتماد اليوم فقط</span>
+            </button>
+
             {/* Group Link Config Button */}
             <button
               onClick={() => setIsGroupConfigModalOpen(true)}
@@ -1054,6 +1266,27 @@ export default function PharmacyShortagesPage() {
           </div>
         </div>
 
+        {/* Bulk Action Feedback Toast */}
+        {bulkActionFeedback && (
+          <div
+            className={`p-3.5 rounded-2xl text-xs font-bold flex items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2 duration-200 ${
+              bulkActionFeedback.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {bulkActionFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{bulkActionFeedback.message}</span>
+            </div>
+            <button onClick={() => setBulkActionFeedback(null)} className="text-slate-400 hover:text-slate-700 text-sm cursor-pointer">✕</button>
+          </div>
+        )}
+
         {/* WhatsApp Requests Container (Table for Desktop + Cards for Mobile) */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
           {whatsappLoading && whatsappRequests.length === 0 ? (
@@ -1073,138 +1306,188 @@ export default function PharmacyShortagesPage() {
             <>
               {/* 1. Mobile Cards View (Visible on Phones & Small Screens) */}
               <div className="block md:hidden divide-y divide-slate-100 p-3 space-y-3">
-                {whatsappRequests.map((req) => (
-                  <div
-                    key={req.id}
-                    className="bg-slate-50/50 rounded-2xl border border-slate-200 p-3.5 space-y-3 transition-all"
+                {/* Mobile Select All Bar */}
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5 rounded-2xl border border-slate-200 text-xs">
+                  <button
+                    onClick={toggleSelectAllWhatsApp}
+                    className="flex items-center gap-2 font-bold text-slate-700 cursor-pointer"
                   >
-                    {/* Top: Photo + Title + Urgency */}
-                    <div className="flex items-start gap-3">
-                      {req.imageUrl ? (
-                        <div
-                          onClick={() => setImagePreviewModal(req.imageUrl)}
-                          className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-200 cursor-pointer shrink-0 shadow-xs active:scale-95 transition-all"
-                          title="انقر لتكبير صورة الواتساب"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/25 flex items-center justify-center text-white text-[9px] font-bold">
-                            🔍 تكبير
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                          <FileText className="w-6 h-6" />
-                        </div>
-                      )}
+                    {isAllWhatsAppSelected ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-600" />
+                    ) : isSomeWhatsAppSelected ? (
+                      <div className="w-4 h-4 border border-slate-400 rounded flex items-center justify-center">
+                        <div className="w-2 h-2 bg-emerald-600 rounded-xs" />
+                      </div>
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span>تحديد الكل ({whatsappRequests.length})</span>
+                  </button>
+                  {selectedWhatsAppIds.length > 0 && (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                      محدد: {selectedWhatsAppIds.length}
+                    </span>
+                  )}
+                </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-1">
-                          <h4 className="text-xs font-black text-slate-900 leading-snug">
-                            {req.productName}
-                          </h4>
-                          {req.urgency === 'CRITICAL' ? (
-                            <span className="px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black shrink-0">
-                              🔴 عاجل
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-bold shrink-0">
-                              🟠 ضروري
-                            </span>
-                          )}
-                        </div>
-
-                        {req.matchedCode && (
-                          <div className="mt-1">
-                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
-                              كود: {req.matchedCode}
-                            </span>
-                          </div>
-                        )}
-
-                        {req.activeIngredient && (
-                          <div className="text-[10px] text-blue-700 font-mono mt-1 line-clamp-1">
-                            🧪 {req.activeIngredient}
-                          </div>
-                        )}
-
-                        <div className="pt-1.5">
+                {whatsappRequests.map((req) => {
+                  const isSelected = selectedWhatsAppIds.includes(req.id);
+                  return (
+                    <div
+                      key={req.id}
+                      onClick={() => toggleSelectWhatsAppItem(req.id)}
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                        isSelected
+                          ? 'bg-emerald-50/40 border-emerald-400 shadow-xs'
+                          : 'bg-slate-50/50 border-slate-200'
+                      }`}
+                    >
+                      {/* Top: Checkbox + Photo + Title + Urgency */}
+                      <div className="flex items-start gap-3">
+                        {/* Mobile Checkbox */}
+                        <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleOpenClinicalLookup(req)}
-                            className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer w-fit shadow-2xs"
-                            title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
+                            type="button"
+                            onClick={() => toggleSelectWhatsAppItem(req.id)}
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-white border-slate-300 hover:border-emerald-500 text-transparent'
+                            }`}
                           >
-                            <Search className="w-3 h-3 text-blue-600" />
-                            <span>🔍 بحث بالإنترنت والمراجع</span>
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                         </div>
+
+                        {req.imageUrl ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setImagePreviewModal(req.imageUrl);
+                            }}
+                            className="relative w-16 h-16 rounded-2xl overflow-hidden border border-emerald-200 cursor-pointer shrink-0 shadow-xs active:scale-95 transition-all"
+                            title="انقر لتكبير صورة الواتساب"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/25 flex items-center justify-center text-white text-[9px] font-bold">
+                              🔍 تكبير
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                            <FileText className="w-6 h-6" />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-1">
+                            <h4 className="text-xs font-black text-slate-900 leading-snug">
+                              {req.productName}
+                            </h4>
+                            {req.urgency === 'CRITICAL' ? (
+                              <span className="px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[9px] font-black shrink-0">
+                                🔴 عاجل
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-bold shrink-0">
+                                🟠 ضروري
+                              </span>
+                            )}
+                          </div>
+
+                          {req.matchedCode && (
+                            <div className="mt-1">
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                                كود: {req.matchedCode}
+                              </span>
+                            </div>
+                          )}
+
+                          {req.activeIngredient && (
+                            <div className="text-[10px] text-blue-700 font-mono mt-1 line-clamp-1">
+                              🧪 {req.activeIngredient}
+                            </div>
+                          )}
+
+                          <div className="pt-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleOpenClinicalLookup(req)}
+                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer w-fit shadow-2xs"
+                              title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
+                            >
+                              <Search className="w-3 h-3 text-blue-600" />
+                              <span>🔍 بحث بالإنترنت والمراجع</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Sender & Timestamp */}
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-100">
-                      <span className="font-bold text-slate-800">{req.senderName || 'صيدلية بيتك'}</span>
-                      <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
-                      {req.status === 'ORDERED' ? (
-                        <span className="text-emerald-600 font-black">✅ في الطلبية</span>
-                      ) : (
-                        <span className="text-amber-600 font-bold">⏳ بانتظار الطلب</span>
-                      )}
-                    </div>
-
-                    {/* Quantity Input Row (Mobile Touch Friendly) */}
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
-                      <label className="text-[11px] font-bold text-slate-700 shrink-0">
-                        الكمية المطلوبة:
-                      </label>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="1"
-                          value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
-                          }}
-                          placeholder="أدخل الكمية..."
-                          className={`w-32 h-11 px-3 text-center text-xs font-black rounded-xl border transition-all ${
-                            (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
-                              ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
-                              : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
-                          }`}
-                        />
-                        <span className="text-[11px] font-bold text-slate-600">{req.unit || 'عبوة'}</span>
+                      {/* Sender & Timestamp */}
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 bg-white px-3 py-1.5 rounded-xl border border-slate-100">
+                        <span className="font-bold text-slate-800">{req.senderName || 'صيدلية بيتك'}</span>
+                        <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
+                        {req.status === 'ORDERED' ? (
+                          <span className="text-emerald-600 font-black">✅ في الطلبية</span>
+                        ) : (
+                          <span className="text-amber-600 font-bold">⏳ بانتظار الطلب</span>
+                        )}
                       </div>
-                    </div>
 
-                    {/* Action Row for Mobile */}
-                    <div className="flex items-center gap-2 pt-1">
-                      {req.status === 'PENDING' && (
+                      {/* Quantity Input Row (Mobile Touch Friendly) */}
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                        <label className="text-[11px] font-bold text-slate-700 shrink-0">
+                          الكمية المطلوبة:
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
+                            }}
+                            placeholder="أدخل الكمية..."
+                            className={`w-32 h-11 px-3 text-center text-xs font-black rounded-xl border transition-all ${
+                              (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
+                                ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
+                                : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                            }`}
+                          />
+                          <span className="text-[11px] font-bold text-slate-600">{req.unit || 'عبوة'}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Row for Mobile */}
+                      <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                        {req.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleAddWhatsAppToCart(req)}
+                            className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>ضم للطلبية</span>
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleAddWhatsAppToCart(req)}
-                          className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                          onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
+                          className="h-11 px-4 bg-white border border-slate-200 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                          title="تغيير حالة الطلب"
                         >
-                          <Plus className="w-4 h-4" />
-                          <span>ضم للطلبية</span>
+                          <Check className="w-4 h-4" />
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
-                        className="h-11 px-4 bg-white border border-slate-200 hover:bg-slate-100 active:scale-95 text-slate-700 rounded-xl transition-all flex items-center justify-center cursor-pointer"
-                        title="تغيير حالة الطلب"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWhatsAppRequest(req.id)}
-                        className="h-11 px-4 bg-white border border-slate-200 hover:bg-rose-50 active:scale-95 text-slate-400 hover:text-rose-600 rounded-xl transition-all flex items-center justify-center cursor-pointer"
-                        title="حذف من النواقص"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        <button
+                          onClick={() => handleDeleteWhatsAppRequest(req.id)}
+                          className="h-11 px-4 bg-white border border-slate-200 hover:bg-rose-50 active:scale-95 text-slate-400 hover:text-rose-600 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                          title="حذف من النواقص"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 2. Desktop Table View (Visible on Medium & Large Screens) */}
@@ -1212,7 +1495,23 @@ export default function PharmacyShortagesPage() {
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
                     <tr>
-                      <th className="py-3.5 pr-4">الصورة / المعاينة</th>
+                      <th className="py-3.5 pr-4 text-center w-12">
+                        <button
+                          type="button"
+                          onClick={toggleSelectAllWhatsApp}
+                          className="w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer mx-auto bg-white border-slate-300 hover:border-emerald-500"
+                          title={isAllWhatsAppSelected ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                        >
+                          {isAllWhatsAppSelected ? (
+                            <CheckSquare className="w-4 h-4 text-emerald-600" />
+                          ) : isSomeWhatsAppSelected ? (
+                            <div className="w-2.5 h-2.5 bg-emerald-600 rounded-xs" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="py-3.5 pr-2">الصورة / المعاينة</th>
                       <th className="py-3.5">اسم الصنف المستخرج</th>
                       <th className="py-3.5 text-center">الكمية المطلوبة</th>
                       <th className="py-3.5 text-center">الأهمية</th>
@@ -1222,173 +1521,309 @@ export default function PharmacyShortagesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {whatsappRequests.map((req) => (
-                      <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                        {/* Photo / Thumbnail Preview */}
-                        <td className="py-3 pr-4">
-                          {req.imageUrl ? (
-                            <div
-                              onClick={() => setImagePreviewModal(req.imageUrl)}
-                              className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-200 cursor-pointer group shadow-xs hover:border-emerald-500 transition-all"
-                              title="انقر لتكبير صورة الواتساب"
+                    {whatsappRequests.map((req) => {
+                      const isSelected = selectedWhatsAppIds.includes(req.id);
+                      return (
+                        <tr
+                          key={req.id}
+                          onClick={() => toggleSelectWhatsAppItem(req.id)}
+                          className={`transition-colors cursor-pointer ${
+                            isSelected ? 'bg-emerald-50/60 hover:bg-emerald-50/80' : 'hover:bg-slate-50/80'
+                          }`}
+                        >
+                          {/* Selection Checkbox */}
+                          <td className="py-3 pr-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectWhatsAppItem(req.id)}
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer mx-auto ${
+                                isSelected
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'bg-white border-slate-300 hover:border-emerald-500 text-transparent'
+                              }`}
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover group-hover:scale-105 transition-all" />
-                              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[9px] font-bold">
-                                🔍 تكبير
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-                              <FileText className="w-5 h-5" />
-                            </div>
-                          )}
-                        </td>
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
 
-                        {/* Product Name & Extraction */}
-                        <td className="py-3">
-                          <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                            <span>{req.productName}</span>
-                            {req.matchedCode && (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
-                                كود: {req.matchedCode}
+                          {/* Photo / Thumbnail Preview */}
+                          <td className="py-3 pr-2" onClick={(e) => e.stopPropagation()}>
+                            {req.imageUrl ? (
+                              <div
+                                onClick={() => setImagePreviewModal(req.imageUrl)}
+                                className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-200 cursor-pointer group shadow-xs hover:border-emerald-500 transition-all"
+                                title="انقر لتكبير صورة الواتساب"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={req.imageUrl} alt="صورة الصنف" className="w-full h-full object-cover group-hover:scale-105 transition-all" />
+                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[9px] font-bold">
+                                  🔍 تكبير
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Product Name & Extraction */}
+                          <td className="py-3">
+                            <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                              <span>{req.productName}</span>
+                              {req.matchedCode && (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
+                                  كود: {req.matchedCode}
+                                </span>
+                              )}
+                            </div>
+                            {req.activeIngredient && (
+                              <div className="text-[10px] text-blue-700 font-mono mt-0.5">
+                                🧪 {req.activeIngredient}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenClinicalLookup(req);
+                                }}
+                                className="px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
+                              >
+                                <Search className="w-3 h-3 text-blue-600" />
+                                <span>🔍 بحث سريري والمراجع</span>
+                              </button>
+                              <span className="text-[10px] text-slate-400 line-clamp-1 italic">
+                                &ldquo;{req.rawMessage}&rdquo;
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Quantity & Unit (Editable by Procurement Manager) */}
+                          <td className="py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
+                                }}
+                                placeholder="أدخل الكمية..."
+                                className={`w-28 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
+                                  (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
+                                    ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
+                                    : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
+                                }`}
+                              />
+                              <span className="text-[11px] font-bold text-slate-500">{req.unit || 'عبوة'}</span>
+                            </div>
+                            {(req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '') && (
+                              <div className="text-[9px] text-amber-600 font-bold mt-1">
+                                ✍️ بانتظار تحديد الكمية
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Urgency */}
+                          <td className="py-3 text-center">
+                            {req.urgency === 'CRITICAL' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black">
+                                🔴 عاجل جداً
+                              </span>
+                            ) : req.urgency === 'HIGH' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                🟠 ضروري
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
+                                🔵 عادي
                               </span>
                             )}
-                          </div>
-                          {req.activeIngredient && (
-                            <div className="text-[10px] text-blue-700 font-mono mt-0.5">
-                              🧪 {req.activeIngredient}
+                          </td>
+
+                          {/* Sender & Group */}
+                          <td className="py-3 text-xs">
+                            <div className="font-bold text-slate-800 flex items-center gap-1">
+                              <span>{req.senderName || 'عضو المجموعة'}</span>
                             </div>
-                          )}
-                          <div className="flex items-center gap-2 mt-1">
-                            <button
-                              onClick={() => handleOpenClinicalLookup(req)}
-                              className="px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                              title="مطابقة وبحث عن الدواء في BNF 83 والإنترنت وقاعدة بيانات الصيدلية"
-                            >
-                              <Search className="w-3 h-3 text-blue-600" />
-                              <span>🔍 بحث سريري والمراجع</span>
-                            </button>
-                            <span className="text-[10px] text-slate-400 line-clamp-1 italic">
-                              &ldquo;{req.rawMessage}&rdquo;
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Quantity & Unit (Editable by Procurement Manager) */}
-                        <td className="py-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <input
-                              type="number"
-                              min="1"
-                              value={customQuantities[req.id] !== undefined ? customQuantities[req.id] : (req.requestedQty ?? '')}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setCustomQuantities((prev) => ({ ...prev, [req.id]: val }));
-                              }}
-                              placeholder="أدخل الكمية..."
-                              className={`w-28 h-9 px-2 text-center text-xs font-black rounded-xl border transition-all ${
-                                (req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '')
-                                  ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder:text-amber-600 font-bold focus:ring-2 focus:ring-amber-400'
-                                  : 'border-slate-300 bg-white text-slate-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400'
-                              }`}
-                            />
-                            <span className="text-[11px] font-bold text-slate-500">{req.unit || 'عبوة'}</span>
-                          </div>
-                          {(req.requestedQty === null || req.requestedQty === undefined || req.requestedQty === 0) && (customQuantities[req.id] === undefined || customQuantities[req.id] === '') && (
-                            <div className="text-[9px] text-amber-600 font-bold mt-1">
-                              ✍️ بانتظار تحديد الكمية
+                            <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <span>{req.groupName || 'واتساب'}</span>
+                              <span>•</span>
+                              <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                          )}
-                        </td>
+                          </td>
 
-                        {/* Urgency */}
-                        <td className="py-3 text-center">
-                          {req.urgency === 'CRITICAL' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black">
-                              🔴 عاجل جداً
-                            </span>
-                          ) : req.urgency === 'HIGH' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                              🟠 ضروري
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold">
-                              🔵 عادي
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Sender & Group */}
-                        <td className="py-3 text-xs">
-                          <div className="font-bold text-slate-800 flex items-center gap-1">
-                            <span>{req.senderName || 'عضو المجموعة'}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <span>{req.groupName || 'واتساب'}</span>
-                            <span>•</span>
-                            <span>{new Date(req.createdAt).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className="py-3">
-                          {req.status === 'ORDERED' ? (
-                            <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>مضموم للطلبية</span>
-                            </span>
-                          ) : req.status === 'RECEIVED' ? (
-                            <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                              <Check className="w-3.5 h-3.5" />
-                              <span>تم الاستلام</span>
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                              <Clock className="w-3.5 h-3.5" />
-                              <span>في انتظار الطلب</span>
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3 text-left pl-4">
-                          <div className="flex items-center gap-1.5 justify-end">
-                            {req.status === 'PENDING' && (
-                              <button
-                                onClick={() => handleAddWhatsAppToCart(req)}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 cursor-pointer transition-all"
-                                title="إضافة الصنف مباشرة لسلة طلبية الشراء"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>ضم للطلبية</span>
-                              </button>
+                          {/* Status */}
+                          <td className="py-3">
+                            {req.status === 'ORDERED' ? (
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>مضموم للطلبية</span>
+                              </span>
+                            ) : req.status === 'RECEIVED' ? (
+                              <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                                <Check className="w-3.5 h-3.5" />
+                                <span>تم الاستلام</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>في انتظار الطلب</span>
+                              </span>
                             )}
+                          </td>
 
-                            <button
-                              onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all cursor-pointer"
-                              title="تغيير حالة الطلب"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
+                          {/* Actions */}
+                          <td className="py-3 text-left pl-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5 justify-end">
+                              {req.status === 'PENDING' && (
+                                <button
+                                  onClick={() => handleAddWhatsAppToCart(req)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                                  title="إضافة الصنف مباشرة لسلة طلبية الشراء"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>ضم للطلبية</span>
+                                </button>
+                              )}
 
-                            <button
-                              onClick={() => handleDeleteWhatsAppRequest(req.id)}
-                              className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
-                              title="حذف من النواقص"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <button
+                                onClick={() => handleWhatsAppStatusChange(req.id, req.status === 'ORDERED' ? 'PENDING' : 'ORDERED')}
+                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all cursor-pointer"
+                                title="تغيير حالة الطلب"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteWhatsAppRequest(req.id)}
+                                className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                title="حذف من النواقص"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </>
           )}
+        </div>
+      </div>
+    )}
+
+    {/* Purge History Confirmation Modal */}
+    {isPurgeModalOpen && (
+      <div
+        onClick={() => setIsPurgeModalOpen(false)}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 no-print"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4 text-right"
+        >
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900">مسح الأرشيف السابق وتحديث البيانات</h3>
+              <p className="text-[11px] text-slate-500">حذف الرسائل السابقة لتاريخ اليوم والاحتفاظ ببيانات اليوم فقط</p>
+            </div>
+          </div>
+
+          <div className="bg-rose-50/60 border border-rose-200 p-3.5 rounded-2xl text-xs text-rose-900 space-y-1.5">
+            <p className="font-bold flex items-center gap-1.5 text-rose-800">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>تنبيه هام لا يمكن التراجع عنه:</span>
+            </p>
+            <p className="text-[11px] text-rose-700 leading-relaxed">
+              سيتم مسح كافة طلبات ورسائل نواقص الواتساب السابقة لتاريخ اليوم (قبل الساعة 00:00) لنشاط [{groupNameInput || 'صيدلية بيتك'}]، والإبقاء فقط على طلبات اليوم الحالية وتحديث العدادات فوراً.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-2">
+            <button
+              onClick={() => setIsPurgeModalOpen(false)}
+              disabled={isPurging}
+              className="h-11 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handlePurgeHistory}
+              disabled={isPurging}
+              className="h-11 px-5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer"
+            >
+              {isPurging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <span>تأكيد مسح الأرشيف القديم</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Floating Bulk Action Bar */}
+    {selectedWhatsAppIds.length > 0 && activeTab === 'whatsapp' && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-4 max-w-[95vw] md:max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-200 no-print">
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 font-mono font-black flex items-center justify-center text-xs">
+            {selectedWhatsAppIds.length}
+          </span>
+          <div className="text-xs">
+            <span className="font-black text-slate-100">تم تحديد {selectedWhatsAppIds.length} صنف</span>
+            <span className="text-slate-400 block text-[10px]">من طلبات نواقص الواتساب</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Action 1: Bulk Add to Cart */}
+          <button
+            onClick={handleBulkAddWhatsAppToCart}
+            disabled={isBulkLoading}
+            className="h-11 px-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+            title="إضافة الأصناف المحددة لسلة طلبية الشراء"
+          >
+            {isBulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
+            <span>إضافة المحدد للطلبية</span>
+          </button>
+
+          {/* Action 2: Bulk Mark as Ordered */}
+          <button
+            onClick={handleBulkMarkWhatsAppAsOrdered}
+            disabled={isBulkLoading}
+            className="h-11 px-3.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+            title="تحديث حالة الأصناف المحددة إلى (تم الطلب)"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>تغيير حالة المحدد إلى (تم الطلب)</span>
+          </button>
+
+          {/* Action 3: Bulk Delete */}
+          <button
+            onClick={handleBulkDeleteWhatsApp}
+            disabled={isBulkLoading}
+            className="h-11 px-3.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+            title="مسح الأصناف المحددة من طلبات الواتساب"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>مسح المحدد</span>
+          </button>
+
+          {/* Deselect All */}
+          <button
+            onClick={() => setSelectedWhatsAppIds([])}
+            className="h-11 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            إلغاء التحديد
+          </button>
         </div>
       </div>
     )}

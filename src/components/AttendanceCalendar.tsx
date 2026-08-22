@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, AttendanceRecord } from '@/lib/types';
 import { 
   Calendar as CalendarIcon, Clock, Printer, ChevronRight, ChevronLeft, 
   UserCheck, Coins, MapPin, ShieldAlert, Sparkles, Phone, MessageSquare, 
   Activity, Users, CheckCircle2, AlertTriangle, Eye, ArrowRightLeft, Filter, Moon,
-  Download, UserX, UserMinus, FileSpreadsheet, Layers, ShieldCheck
+  Download, UserX, UserMinus, FileSpreadsheet, Layers, ShieldCheck, Info
 } from 'lucide-react';
 import { formatTime12h, formatHoursText } from '@/lib/utils';
 
@@ -16,14 +16,14 @@ interface AttendanceCalendarProps {
 }
 
 const colorThemes = [
-  { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-  { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  { bg: 'from-purple-500 to-violet-600', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-  { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
-  { bg: 'from-sky-500 to-cyan-600', badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-  { bg: 'from-fuchsia-500 to-pink-600', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' },
-  { bg: 'from-teal-500 to-emerald-600', badge: 'bg-teal-500/20 text-teal-300 border-teal-500/30' }
+  { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { bg: 'from-blue-600 to-indigo-600', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { bg: 'from-purple-600 to-violet-600', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { bg: 'from-sky-500 to-cyan-600', badge: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { bg: 'from-fuchsia-600 to-pink-600', badge: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200' },
+  { bg: 'from-teal-600 to-emerald-600', badge: 'bg-teal-50 text-teal-700 border-teal-200' }
 ];
 
 export interface ShiftSegment {
@@ -61,6 +61,15 @@ interface GroupedEmp {
   theme: typeof colorThemes[0];
 }
 
+interface ScrubberState {
+  active: boolean;
+  xPercent: number; // 0 to 100
+  minuteOfDay: number; // 0 to 1439
+  timeFormatted: string; // "10:35 ص"
+  time24: string; // "10:35"
+  onDutyUsers: { name: string; code: string; segmentHours: number; isOvernight: boolean }[];
+}
+
 const getNextDateStr = (dateStr: string) => {
   const d = new Date(dateStr + 'T12:00:00');
   d.setDate(d.getDate() + 1);
@@ -85,6 +94,10 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     const now = new Date();
     return now.getHours() * 60 + now.getMinutes();
   });
+
+  // Interactive Hover Scrubber State
+  const [scrubber, setScrubber] = useState<ScrubberState | null>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -381,14 +394,71 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
     }
 
     const leftPercent = Math.min(100, Math.max(0, (startMins / 1440) * 100));
-    const widthPercent = Math.min(100 - leftPercent, Math.max(2, ((endMins - startMins) / 1440) * 100));
+    const widthPercent = Math.min(100 - leftPercent, Math.max(1.5, ((endMins - startMins) / 1440) * 100));
 
     return {
-      left: `${leftPercent.toFixed(1)}%`,
-      width: `${widthPercent.toFixed(1)}%`
+      left: `${leftPercent.toFixed(2)}%`,
+      width: `${widthPercent.toFixed(2)}%`
     };
   };
 
+  // Hover Scrubber Handler for Gantt Ruler / Canvas
+  const handleTimelineHover = (clientX: number, targetRect: DOMRect) => {
+    const relX = clientX - targetRect.left;
+    const xPercent = Math.min(100, Math.max(0, (relX / targetRect.width) * 100));
+    const minuteOfDay = Math.min(1439, Math.max(0, Math.floor((xPercent / 100) * 1440)));
+    const h = Math.floor(minuteOfDay / 60);
+    const m = minuteOfDay % 60;
+    const time24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const timeFormatted = formatTime12h(time24);
+
+    const onDutyUsers = selectedDaySegments.filter((s) => {
+      if (!s.startTime) return false;
+      const [inH, inM] = s.startTime.split(':').map(Number);
+      const startMins = inH * 60 + (inM || 0);
+
+      let endMins = startMins + 480;
+      if (s.endTime) {
+        if (s.endTime === '24:00') {
+          endMins = 1440;
+        } else {
+          const [outH, outM] = s.endTime.split(':').map(Number);
+          endMins = outH * 60 + (outM || 0);
+        }
+      }
+      return minuteOfDay >= startMins && minuteOfDay < endMins;
+    }).map((s) => ({
+      name: s.userName,
+      code: s.employeeCode,
+      segmentHours: s.segmentHours,
+      isOvernight: s.isOvernight
+    }));
+
+    setScrubber({
+      active: true,
+      xPercent,
+      minuteOfDay,
+      timeFormatted,
+      time24,
+      onDutyUsers
+    });
+  };
+
+  const handleMouseMoveOnCanvas = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    handleTimelineHover(e.clientX, rect);
+  };
+
+  const handleTouchMoveOnCanvas = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length > 0) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      handleTimelineHover(e.touches[0].clientX, rect);
+    }
+  };
+
+  const handleMouseLeaveCanvas = () => {
+    setScrubber(null);
+  };
 
   // Export to CSV Function
   const handleExportCsv = () => {
@@ -437,7 +507,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   const isSelectedDateToday = selectedDateStr === todayStr;
 
   return (
-    <div className="space-y-6 font-dubai" dir="rtl">
+    <div className="space-y-6 font-dubai text-slate-800" dir="rtl">
       {/* Top Controls Bar: View Modes & Employee Isolation */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -447,13 +517,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
           <div>
             <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
               لوحة المراقبة الزمنية والتقويم الذكي
-              <span className="text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-md font-bold border border-indigo-200 flex items-center gap-1">
-                <Moon className="w-3 h-3 text-indigo-600" />
+              <span className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md font-bold border border-blue-200 flex items-center gap-1">
+                <Moon className="w-3 h-3 text-blue-600" />
                 دعم الشفتات المتداخلة
               </span>
             </h2>
             <p className="text-slate-500 text-xs font-semibold">
-              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، ورصد المتغيبين
+              تتبع دوام الصيادلة الحي، كشف ثغرات التغطية، ورصد المتغيبين بدقة الدقيقة
             </p>
           </div>
         </div>
@@ -515,7 +585,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       </div>
 
-      {/* VIEW 1: DAY TIMELINE (الخط الزمني اليومي المفصل 24 ساعة) */}
+      {/* VIEW 1: DAY TIMELINE (الخط الزمني اليومي المفصل 24 ساعة بمظهر أبيض ناصع) */}
       {viewMode === 'DAY' && (
         <div className="space-y-6">
           {/* Timeline Date Selector & Filters & Actions */}
@@ -526,7 +596,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   type="date"
                   value={selectedDateStr}
                   onChange={(e) => setSelectedDateStr(e.target.value)}
-                  className="h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-mono font-bold text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+                  className="h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 text-slate-900 font-mono font-bold text-xs focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
                 />
                 <button
                   onClick={() => setSelectedDateStr(todayStr)}
@@ -541,12 +611,12 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
 
               {/* Status Filter Chips */}
-              <div className="flex items-center gap-2 text-xs font-bold">
+              <div className="flex items-center gap-2 text-xs font-bold flex-wrap">
                 <button
                   onClick={() => setActiveFilter('ALL')}
                   className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
                     activeFilter === 'ALL'
-                      ? 'bg-slate-900 text-white border-slate-900'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -556,7 +626,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   onClick={() => setActiveFilter('OVERNIGHT')}
                   className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
                     activeFilter === 'OVERNIGHT'
-                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                       : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
                   }`}
                 >
@@ -567,18 +637,18 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   onClick={() => setActiveFilter('ACTIVE')}
                   className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
                     activeFilter === 'ACTIVE'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                       : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   شفتات جارية ({selectedDaySegments.filter(s => !s.originalCheckOut).length})
                 </button>
                 <button
                   onClick={() => setActiveFilter('GPS_ALERT')}
                   className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1 ${
                     activeFilter === 'GPS_ALERT'
-                      ? 'bg-amber-600 text-white border-amber-600'
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
                       : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                   }`}
                 >
@@ -599,7 +669,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </button>
                 <button
                   onClick={() => window.print()}
-                  className="px-3.5 h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all print:hidden"
+                  className="px-3.5 h-11 bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all print:hidden"
                 >
                   <Printer className="w-4 h-4 text-emerald-400" />
                   طباعة
@@ -607,52 +677,164 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
             </div>
 
-            {/* 24-Hour Timeline Master Board */}
-            <div className="bg-slate-950 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-2xl space-y-6 overflow-x-auto">
+            {/* 24-Hour Timeline Master Board - Pristine Clean Light Theme */}
+            <div className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-6 overflow-x-auto">
               
-              {/* 1. Top Ruler (Hours 00 to 23) */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800 gap-2 sm:gap-4">
-                <span className="w-full sm:w-64 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">
-                  الموظف / الدوام
-                </span>
-                <div className="w-full sm:flex-1 grid text-center font-bold min-w-[320px]" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }} dir="ltr">
-                  {hours24.map((h) => (
-                    <span key={h} className="text-slate-400 text-[11px]">
-                      {String(h).padStart(2, '0')}
-                    </span>
-                  ))}
+              {/* Top Gantt Ruler & Header (Sticky Column Right + 24-Hour Gantt Canvas) */}
+              <div className="flex items-center gap-3 sm:gap-4 pb-3 border-b border-slate-200">
+                {/* Sticky Right Column Header */}
+                <div className="w-56 sm:w-64 shrink-0 sticky right-0 z-20 bg-white/95 backdrop-blur-md border-l border-slate-200/80 shadow-[-6px_0_15px_rgba(0,0,0,0.03)] px-3 py-1 flex items-center justify-between">
+                  <span className="font-sans text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    الموظف / الدوام
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">24 ساعة</span>
+                </div>
+
+                {/* 24h High Precision Gantt Ruler with 30-min Sub-divisions */}
+                <div 
+                  ref={rulerRef}
+                  onMouseMove={handleMouseMoveOnCanvas}
+                  onMouseLeave={handleMouseLeaveCanvas}
+                  onTouchMove={handleTouchMoveOnCanvas}
+                  onTouchEnd={handleMouseLeaveCanvas}
+                  className="relative flex-1 min-w-[1200px] cursor-crosshair select-none bg-slate-50/70 rounded-xl p-1 border border-slate-200/80"
+                  dir="ltr"
+                >
+                  {/* Grid of 24 Hours with Sub-divisions */}
+                  <div className="grid h-9 relative" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
+                    {hours24.map((h) => (
+                      <div 
+                        key={h} 
+                        className="relative border-r border-slate-200/90 h-full flex flex-col justify-between pt-0.5 pb-1 px-1 group"
+                      >
+                        {/* Hour text top */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-700 font-mono font-black text-[11px] leading-tight">
+                            {String(h).padStart(2, '0')}:00
+                          </span>
+                        </div>
+
+                        {/* Mid-hour 30-minute dashed marker line & tick */}
+                        <div className="absolute inset-y-1 left-1/2 border-r border-dashed border-slate-300 pointer-events-none opacity-60"></div>
+
+                        {/* Bottom ticks */}
+                        <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono leading-none">
+                          <span className="w-1 h-1.5 bg-slate-300 rounded-full"></span>
+                          <span className="text-[8px] opacity-70">:30</span>
+                          <span className="w-1 h-1.5 bg-slate-300 rounded-full"></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Red Live Indicator Line for current time */}
+                  {isSelectedDateToday && (
+                    <div 
+                      style={{ left: `${liveLinePercent}%` }}
+                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-30 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.6)]"
+                    >
+                      <span className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 rounded-full bg-rose-500/30 animate-ping"></span>
+                      <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-600 border border-white shadow-sm"></span>
+                      <div className="absolute -top-6 -left-8 bg-rose-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap">
+                        الآن {formatTime12h(`${String(Math.floor(currentTimeMinutes / 60)).padStart(2, '0')}:${String(currentTimeMinutes % 60).padStart(2, '0')}`)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Interactive Hover Scrubber Line & Tooltip */}
+                  {scrubber?.active && (
+                    <>
+                      <div 
+                        style={{ left: `${scrubber.xPercent}%` }}
+                        className="absolute top-0 bottom-0 w-0.5 bg-blue-600 z-30 pointer-events-none shadow-[0_0_6px_rgba(37,99,235,0.4)]"
+                      >
+                        <div className="absolute -top-3.5 -left-3 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+                          <Clock className="w-3 h-3" />
+                        </div>
+                      </div>
+
+                      {/* Glassmorphic Hover Tooltip */}
+                      <div 
+                        style={{ 
+                          left: `${Math.min(90, Math.max(10, scrubber.xPercent))}%`,
+                          transform: 'translateX(-50%)'
+                        }}
+                        className="absolute top-11 z-40 bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-2xl p-3.5 min-w-[240px] text-right font-dubai text-xs space-y-2 pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+                        dir="rtl"
+                      >
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 gap-2">
+                          <div className="flex items-center gap-1.5 font-black text-slate-900">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                            <span className="font-mono text-xs text-blue-700">{scrubber.timeFormatted}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">({scrubber.time24})</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            scrubber.onDutyUsers.length >= 2
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : scrubber.onDutyUsers.length === 1
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {scrubber.onDutyUsers.length} على الدوام
+                          </span>
+                        </div>
+
+                        {scrubber.onDutyUsers.length > 0 ? (
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            <span className="text-[10px] font-bold text-slate-400 block">الصيادلة المتواجدون في هذه اللحظة:</span>
+                            {scrubber.onDutyUsers.map((u, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] text-slate-800 bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-xl">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                  <span className="font-bold">{u.name}</span>
+                                  {u.isOvernight && <Moon className="w-3 h-3 text-indigo-600 inline" />}
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">#{u.code}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-rose-600 font-bold py-1 px-2 text-center bg-rose-50 border border-rose-100 rounded-xl">
+                            ⚠️ ثغرة تغطية — لا يوجد صيدلي مسجل في هذه الدقيقة
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* 2. Pharmacy Shift Coverage Heatmap Bar & Stats */}
-              <div className="p-4 bg-slate-900/90 rounded-2xl border border-indigo-500/30 shadow-inner space-y-3">
+              {/* 2. Pharmacy Shift Coverage Heatmap Bar & Analytics (Light Themed) */}
+              <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-indigo-300 text-sm">مؤشر تغطية الصيدلية بالساعة</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
-                      تحليل زمني
+                    <span className="font-black text-slate-900 text-sm">مؤشر تغطية الصيدلية بالساعة</span>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-md font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                      تحليل زمني فوري (24 ساعة)
                     </span>
                   </div>
 
                   {/* Coverage Breakdown Numbers */}
-                  <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold font-mono">
-                    <span className="flex items-center gap-1.5 text-emerald-400">
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold font-mono">
+                    <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-xl">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                       تغطية ممتازة (2+): {goodCoverageHours} ساعة
                     </span>
-                    <span className="flex items-center gap-1.5 text-amber-400">
+                    <span className="flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-xl">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                       صيدلي واحد: {singleCoverageHours} ساعة
                     </span>
-                    <span className="flex items-center gap-1.5 text-rose-400">
+                    <span className="flex items-center gap-1.5 bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-xl">
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                      ثغرة / فارغة: {gapCoverageHours} ساعة
+                      ثغرة تغطية: {gapCoverageHours} ساعة
                     </span>
                   </div>
                 </div>
 
-                <div className="relative bg-slate-950 rounded-xl border border-slate-800 p-1.5 overflow-hidden min-w-[320px]" dir="ltr">
-                  <div className="grid gap-1 h-7" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
+                {/* 24-Slot Light Coverage Bar */}
+                <div className="relative bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm overflow-hidden min-w-[1200px]" dir="ltr">
+                  <div className="grid gap-1.5 h-8" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                     {hourlyCoverage.map((slot) => {
                       const isZero = slot.count === 0;
                       const isOne = slot.count === 1;
@@ -661,16 +843,16 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                       return (
                         <div
                           key={slot.hour}
-                          title={`الساعة ${String(slot.hour).padStart(2, '0')}:00 ➔ ${slot.count} موظفين (${slot.attendees.join(', ') || 'لا يوجد كادر'})`}
-                          className={`rounded-md flex items-center justify-center font-mono font-black text-[10px] transition-all cursor-help ${
+                          title={`الساعة ${String(slot.hour).padStart(2, '0')}:00 ➔ ${slot.count} صيادلة (${slot.attendees.join(', ') || 'لا يوجد كادر'})`}
+                          className={`rounded-lg flex flex-col items-center justify-center font-mono font-black text-[11px] transition-all cursor-help select-none ${
                             isGood
-                              ? 'bg-emerald-600 text-white shadow-sm'
+                              ? 'bg-emerald-500 text-white shadow-sm hover:bg-emerald-600'
                               : isOne
-                              ? 'bg-amber-500 text-slate-950 font-black'
-                              : 'bg-rose-950/60 border border-rose-800/80 text-rose-400'
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-sm hover:bg-amber-500'
+                              : 'bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100'
                           }`}
                         >
-                          {slot.count > 0 ? slot.count : '0'}
+                          <span>{slot.count > 0 ? slot.count : '0'}</span>
                         </div>
                       );
                     })}
@@ -678,18 +860,29 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </div>
               </div>
 
-              {/* 3. Combined Master Coverage Line */}
-              <div className="p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                <div className="w-full sm:w-64 shrink-0 space-y-0.5 text-xs">
-                  <span className="font-black text-blue-400 text-sm">الشريط الموحد المدمج</span>
-                  <p className="text-[10px] text-slate-400">تراكب كافة الشفتات في مسار زمني واحد</p>
+              {/* 3. Combined Master Coverage Line (Light Themed) */}
+              <div className="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-200 flex items-center gap-3 sm:gap-4">
+                {/* Sticky Left Info Header */}
+                <div className="w-56 sm:w-64 shrink-0 sticky right-0 z-20 bg-white/95 backdrop-blur-md border-l border-slate-200/80 shadow-[-6px_0_15px_rgba(0,0,0,0.03)] px-3 py-2 rounded-2xl space-y-0.5 text-xs">
+                  <span className="font-black text-blue-700 text-sm flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-blue-600" />
+                    الشريط الموحد المدمج
+                  </span>
+                  <p className="text-[10px] text-slate-500">تراكب كافة الشفتات في مسار زمني واحد</p>
                 </div>
 
-                <div className="relative w-full sm:flex-1 bg-slate-950 rounded-xl border border-slate-800 p-2 overflow-hidden min-w-[320px]" dir="ltr">
+                <div 
+                  onMouseMove={handleMouseMoveOnCanvas}
+                  onMouseLeave={handleMouseLeaveCanvas}
+                  onTouchMove={handleTouchMoveOnCanvas}
+                  onTouchEnd={handleMouseLeaveCanvas}
+                  className="relative flex-1 bg-white rounded-xl border border-slate-200 p-2 overflow-hidden min-w-[1200px] cursor-crosshair" 
+                  dir="ltr"
+                >
                   {/* Grid Lines */}
-                  <div className="absolute inset-0 grid opacity-15 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
+                  <div className="absolute inset-0 grid opacity-25 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                     {hours24.map((h) => (
-                      <div key={h} className="border-r border-slate-400 h-full"></div>
+                      <div key={h} className="border-r border-slate-200 h-full"></div>
                     ))}
                   </div>
 
@@ -697,17 +890,25 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   {isSelectedDateToday && (
                     <div 
                       style={{ left: `${liveLinePercent}%` }}
-                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-30 shadow-[0_0_8px_#f43f5e]"
+                      className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-30 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.6)]"
                     >
                       <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                      <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+                      <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-rose-600 border border-white"></span>
                     </div>
                   )}
 
+                  {/* Interactive Hover Scrubber Line */}
+                  {scrubber?.active && (
+                    <div 
+                      style={{ left: `${scrubber.xPercent}%` }}
+                      className="absolute top-0 bottom-0 w-0.5 bg-blue-600 z-30 pointer-events-none"
+                    ></div>
+                  )}
+
                   {/* Sub-rows */}
-                  <div className="relative z-10 space-y-1">
+                  <div className="relative z-10 space-y-1.5">
                     {groupedList.map((emp) => (
-                      <div key={`m-${emp.userId}`} className="relative h-3 w-full">
+                      <div key={`m-${emp.userId}`} className="relative h-3.5 w-full">
                         {emp.segments.map((seg) => {
                           const pos = getSegmentBarPosition(seg.startTime, seg.endTime);
                           return (
@@ -716,7 +917,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                               key={`ms-${seg.id}`}
                               onClick={() => setSelectedSegmentForDetail(seg)}
                               style={{ left: pos.left, width: pos.width }}
-                              className={`absolute inset-y-0 bg-gradient-to-r ${emp.theme.bg} text-white text-[9px] font-black font-mono rounded-sm flex items-center justify-between px-1.5 shadow-sm transition-all whitespace-nowrap overflow-hidden cursor-pointer hover:opacity-90`}
+                              className={`absolute inset-y-0 bg-gradient-to-r ${emp.theme.bg} text-white text-[9px] font-black font-mono rounded-md flex items-center justify-between px-1.5 shadow-sm transition-all whitespace-nowrap overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-400`}
                               title={`${seg.userName}: ${seg.startTime} ➔ ${seg.endTime} (${formatHoursText(seg.segmentHours)})`}
                             >
                               <span className="truncate leading-none">
@@ -731,33 +932,36 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </div>
               </div>
 
-              {/* 4. Employee Detailed Shift Tracks */}
+              {/* 4. Employee Detailed Shift Tracks (Clean Light Theme with Sticky Right Column) */}
               <div className="space-y-3 pt-2">
                 {groupedList.length === 0 ? (
-                  <div className="py-8 text-center text-slate-500 text-xs font-bold">
+                  <div className="py-12 text-center text-slate-400 text-xs font-bold bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                     لا توجد سجلات دوام مطابقة للفلتر المحدد في هذا اليوم ({selectedDateStr}).
                   </div>
                 ) : (
                   groupedList.map((emp) => (
-                    <div key={emp.userId} className="p-3.5 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                      {/* Employee Meta Card */}
-                      <div className="w-full sm:w-64 shrink-0 space-y-1.5 text-xs">
+                    <div 
+                      key={emp.userId} 
+                      className="p-3.5 bg-white hover:bg-slate-50/80 rounded-2xl border border-slate-200/90 shadow-sm transition-all flex items-center gap-3 sm:gap-4"
+                    >
+                      {/* Sticky Employee Meta Card on RTL Right Side */}
+                      <div className="w-56 sm:w-64 shrink-0 sticky right-0 z-20 bg-white/95 backdrop-blur-md border-l border-slate-200/80 shadow-[-6px_0_15px_rgba(0,0,0,0.03)] px-3 py-2 rounded-2xl space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-white text-sm">{emp.userName}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border ${emp.theme.badge}`}>
+                          <span className="font-black text-slate-900 text-sm truncate">{emp.userName}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono border font-bold ${emp.theme.badge}`}>
                             {emp.employeeCode}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-bold">
-                          <span className="text-slate-400">ساعات هذا اليوم: {formatHoursText(emp.totalHours)}</span>
-                          <span className="text-emerald-400 font-mono">{emp.totalEarned.toFixed(2)} د.ل</span>
+                          <span className="text-slate-500 font-sans">ساعات اليوم: {formatHoursText(emp.totalHours)}</span>
+                          <span className="text-emerald-600 font-mono font-black">{emp.totalEarned.toFixed(2)} د.ل</span>
                         </div>
                         {emp.phone && (
                           <a
                             href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-mono font-semibold"
+                            className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 font-mono font-bold"
                             dir="ltr"
                           >
                             <Phone className="w-3 h-3" />
@@ -766,12 +970,21 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                         )}
                       </div>
 
-                      {/* 24h Timeline Track Bar with Live Indicator */}
-                      <div className="relative h-9 w-full sm:flex-1 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden min-w-[320px]" dir="ltr">
-                        {/* Grid Lines */}
-                        <div className="absolute inset-0 grid opacity-15 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
+                      {/* 24h Timeline Track Bar with Minute-Accurate Segments */}
+                      <div 
+                        onMouseMove={handleMouseMoveOnCanvas}
+                        onMouseLeave={handleMouseLeaveCanvas}
+                        onTouchMove={handleTouchMoveOnCanvas}
+                        onTouchEnd={handleMouseLeaveCanvas}
+                        className="relative h-10 flex-1 bg-slate-50/80 rounded-xl border border-slate-200 overflow-hidden min-w-[1200px] cursor-crosshair" 
+                        dir="ltr"
+                      >
+                        {/* 24-Hour Grid Lines with Half-Hour Dashes */}
+                        <div className="absolute inset-0 grid opacity-20 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                           {hours24.map((h) => (
-                            <div key={h} className="border-r border-slate-400 h-full"></div>
+                            <div key={h} className="border-r border-slate-300 h-full relative">
+                              <div className="absolute inset-y-0 left-1/2 border-r border-dashed border-slate-300"></div>
+                            </div>
                           ))}
                         </div>
 
@@ -779,7 +992,15 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                         {isSelectedDateToday && (
                           <div 
                             style={{ left: `${liveLinePercent}%` }}
-                            className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 shadow-[0_0_8px_#f43f5e]"
+                            className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none shadow-[0_0_8px_rgba(244,63,94,0.6)]"
+                          ></div>
+                        )}
+
+                        {/* Interactive Hover Scrubber Line */}
+                        {scrubber?.active && (
+                          <div 
+                            style={{ left: `${scrubber.xPercent}%` }}
+                            className="absolute top-0 bottom-0 w-0.5 bg-blue-600 z-20 pointer-events-none"
                           ></div>
                         )}
 
@@ -792,14 +1013,15 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                               key={seg.id}
                               onClick={() => setSelectedSegmentForDetail(seg)}
                               style={{ left: pos.left, width: pos.width }}
-                              className={`absolute top-1 bottom-1 bg-gradient-to-r ${emp.theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-md transition-all whitespace-nowrap overflow-hidden z-10 cursor-pointer hover:ring-2 hover:ring-white`}
+                              className={`absolute top-1 bottom-1 bg-gradient-to-r ${emp.theme.bg} text-white text-[10px] font-black font-mono rounded-lg flex items-center justify-between px-2.5 shadow-sm transition-all whitespace-nowrap overflow-hidden z-10 cursor-pointer hover:ring-2 hover:ring-blue-400 hover:shadow-md`}
                             >
                               <span className="flex items-center gap-1">
-                                {seg.isOvernight && <Moon className="w-3 h-3 text-amber-300 shrink-0" />}
+                                {seg.isOvernight && <Moon className="w-3 h-3 text-amber-200 shrink-0" />}
+                                {seg.isOutsideGps && <ShieldAlert className="w-3 h-3 text-rose-200 shrink-0" />}
                                 {seg.startTime === '00:00' ? '12:00 ص' : formatTime12h(seg.startTime)}
                               </span>
-                              <span className="opacity-90 font-sans truncate px-1">{formatHoursText(seg.segmentHours)}</span>
-                              <span>{seg.endTime === '24:00' ? '12:00 ص (غداً)' : formatTime12h(seg.endTime)}</span>
+                              <span className="opacity-95 font-sans truncate px-1 font-bold">{formatHoursText(seg.segmentHours)}</span>
+                              <span>{seg.endTime === '24:00' ? '12:00 ص (غداً)' : (seg.endTime ? formatTime12h(seg.endTime) : 'جارٍ الآن')}</span>
                             </button>
                           );
                         })}
@@ -811,7 +1033,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             </div>
 
             {/* Absent Employees Card (المتغيبون عن العمل اليوم) */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3">
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <UserMinus className="w-4 h-4 text-rose-600" />
@@ -861,34 +1083,40 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               )}
             </div>
 
-            {/* Daily Summary Cards */}
+            {/* Daily Summary Cards - Clean Light Theme */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">الموظفين المتواجدين في هذا اليوم</span>
-                  <span className="text-lg font-black text-emerald-400 font-mono">{groupedList.length} موظف</span>
+                  <span className="text-slate-500 text-xs font-semibold block">الموظفين المتواجدين في هذا اليوم</span>
+                  <span className="text-xl font-black text-blue-600 font-mono">{groupedList.length} موظف</span>
                 </div>
-                <Users className="w-8 h-8 text-slate-700" />
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Users className="w-6 h-6" />
+                </div>
               </div>
 
-              <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">إجمالي الساعات المنجزة في هذا اليوم</span>
-                  <span className="text-lg font-black text-white font-mono">
+                  <span className="text-slate-500 text-xs font-semibold block">إجمالي الساعات المنجزة في هذا اليوم</span>
+                  <span className="text-xl font-black text-slate-900 font-mono">
                     {formatHoursText(selectedDaySegments.reduce((acc, s) => acc + (s.segmentHours || 0), 0))}
                   </span>
                 </div>
-                <Clock className="w-8 h-8 text-slate-700" />
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Clock className="w-6 h-6" />
+                </div>
               </div>
 
-              <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center justify-between">
+              <div className="p-4 bg-white text-slate-800 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                  <span className="text-slate-400 text-xs font-semibold block">إجمالي مستحقات هذا اليوم</span>
-                  <span className="text-lg font-black text-emerald-400 font-mono">
+                  <span className="text-slate-500 text-xs font-semibold block">إجمالي مستحقات هذا اليوم</span>
+                  <span className="text-xl font-black text-emerald-600 font-mono">
                     {selectedDaySegments.reduce((acc, s) => acc + (s.segmentEarned || 0), 0).toFixed(2)} د.ل
                   </span>
                 </div>
-                <Coins className="w-8 h-8 text-emerald-600" />
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Coins className="w-6 h-6" />
+                </div>
               </div>
             </div>
           </div>
@@ -1102,9 +1330,9 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
         </div>
       )}
 
-      {/* SHIFT DETAILS MODAL */}
+      {/* SHIFT DETAILS & QUICK VIEW MODAL (Light Themed) */}
       {selectedSegmentForDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -1118,7 +1346,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
               <button
                 onClick={() => setSelectedSegmentForDetail(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 transition-all"
               >
                 ✕
               </button>
@@ -1127,12 +1355,12 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             <div className="space-y-3 text-xs font-semibold">
               {/* Overnight Badge Alert */}
               {selectedSegmentForDetail.isOvernight && (
-                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-900 space-y-1">
+                <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-900 space-y-1">
                   <div className="flex items-center gap-1.5 font-bold">
                     <Moon className="w-4 h-4 text-indigo-600" />
                     <span>وردية ليلية متداخلة في يومين (Overnight Shift)</span>
                   </div>
-                  <p className="text-[11px] text-indigo-700">
+                  <p className="text-[11px] text-indigo-700 leading-relaxed">
                     {selectedSegmentForDetail.overnightPart === 'START'
                       ? `الجزء الأول: من بداية الحضور (${formatTime12h(selectedSegmentForDetail.originalCheckIn)}) حتى منتصف الليل (12:00 ص).`
                       : `الجزء الثاني: من منتصف الليل (12:00 ص) حتى وقت الانصراف (${formatTime12h(selectedSegmentForDetail.originalCheckOut || '06:00')}).`}
@@ -1140,7 +1368,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 </div>
               )}
 
-              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">تاريخ هذا اليوم:</span>
                   <span className="font-bold text-slate-900 font-mono">{selectedSegmentForDetail.date}</span>
@@ -1148,7 +1376,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">أوقات الساعات في هذا اليوم:</span>
                   <span className="font-bold text-blue-700 font-mono">
-                    {selectedSegmentForDetail.startTime === '00:00' ? '12:00 ص' : formatTime12h(selectedSegmentForDetail.startTime)} ➔ {selectedSegmentForDetail.endTime === '24:00' ? '12:00 ص' : formatTime12h(selectedSegmentForDetail.endTime)}
+                    {selectedSegmentForDetail.startTime === '00:00' ? '12:00 ص' : formatTime12h(selectedSegmentForDetail.startTime)} ➔ {selectedSegmentForDetail.endTime === '24:00' ? '12:00 ص' : (selectedSegmentForDetail.endTime ? formatTime12h(selectedSegmentForDetail.endTime) : 'جارٍ الآن')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -1170,7 +1398,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
 
               {/* GPS status */}
-              <div className={`p-3 rounded-2xl border flex items-center gap-2.5 ${
+              <div className={`p-3.5 rounded-2xl border flex items-center gap-2.5 ${
                 selectedSegmentForDetail.isOutsideGps
                   ? 'bg-amber-50 border-amber-200 text-amber-900'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-900'
@@ -1195,7 +1423,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               <button
                 type="button"
                 onClick={() => setSelectedSegmentForDetail(null)}
-                className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs flex items-center justify-center cursor-pointer transition-all"
+                className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs flex items-center justify-center cursor-pointer transition-all shadow-sm"
               >
                 إغلاق
               </button>
