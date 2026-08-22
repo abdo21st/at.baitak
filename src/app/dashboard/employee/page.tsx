@@ -9,7 +9,7 @@ import {
   Play, Square, Zap, User as UserIcon, Lock,
   Building2, Briefcase, KeyRound, Eye, EyeOff, History,
   MapPin, Navigation, Bell, ShieldAlert, Edit3, X, Printer,
-  Pill, Camera, Car
+  Pill, Camera, Car, Menu
 } from 'lucide-react';
 import { getCurrentTimeFormatted, getCurrentDateFormatted, calculateGpsDistanceMeters, formatTime12h, convert12to24, convert24to12, formatHoursText } from '@/lib/utils';
 import { useSortableData } from '@/hooks/useSortableData';
@@ -44,6 +44,19 @@ export default function EmployeeDashboard() {
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Body Scroll Lock for Employee Mobile Drawer
+  useEffect(() => {
+    if (mobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileDrawerOpen]);
 
   const [tenantInfo, setTenantInfo] = useState<{
     name: string;
@@ -537,94 +550,198 @@ export default function EmployeeDashboard() {
     });
 
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-right text-xs">
-          <thead>
-            <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-              <th className="py-3.5 px-4 hidden print:table-cell text-center w-10">#</th>
-              <SortHeader title="التاريخ" sortKey="date" sortConfig={sortConfig} onRequestSort={requestSort} />
-              <SortHeader title="وقت الحضور" sortKey="checkInTime" sortConfig={sortConfig} onRequestSort={requestSort} />
-              <SortHeader title="وقت الانصراف" sortKey="checkOutTime" sortConfig={sortConfig} onRequestSort={requestSort} />
-              <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
-              <SortHeader title="قيمة الساعات" sortKey="earnedCost" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
-              <SortHeader title="توثيق المدير" sortKey="isVerified" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
-              <th className="py-3.5 px-4 font-bold text-center no-print">تعديل الساعات</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 font-mono">
-            {sortedRows.length === 0
-              ? <tr><td colSpan={8} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
-              : sortedRows.map((r, idx) => (
-                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 px-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
-                    {idx + 1}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">
-                    <div>{r.date}</div>
+      <div className="space-y-4">
+        {/* Desktop Table View */}
+        <div className="hidden md:block print:block overflow-x-auto">
+          <table className="w-full text-right text-xs">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <th className="py-3.5 px-4 hidden print:table-cell text-center w-10">#</th>
+                <SortHeader title="التاريخ" sortKey="date" sortConfig={sortConfig} onRequestSort={requestSort} />
+                <SortHeader title="وقت الحضور" sortKey="checkInTime" sortConfig={sortConfig} onRequestSort={requestSort} />
+                <SortHeader title="وقت الانصراف" sortKey="checkOutTime" sortConfig={sortConfig} onRequestSort={requestSort} />
+                <SortHeader title="ساعات اليوم" sortKey="workHours" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+                <SortHeader title="قيمة الساعات" sortKey="earnedCost" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+                <SortHeader title="توثيق المدير" sortKey="isVerified" sortConfig={sortConfig} onRequestSort={requestSort} align="center" />
+                <th className="py-3.5 px-4 font-bold text-center no-print">تعديل الساعات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-mono">
+              {sortedRows.length === 0
+                ? <tr><td colSpan={8} className="py-8 text-center text-slate-400 font-sans">لا يوجد سجلات.</td></tr>
+                : sortedRows.map((r, idx) => (
+                  <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 hidden print:table-cell font-mono text-[10px] text-slate-500 text-center">
+                      {idx + 1}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-slate-900 font-sans">
+                      <div>{r.date}</div>
+                      {r.projectName && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold mt-1">
+                          <Briefcase className="w-3 h-3 text-blue-600" />
+                          {r.projectName}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
+                    <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
+                    <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
+                    <td className="py-3.5 px-4 text-center font-mono">
+                      <div className="font-black text-teal-700 text-sm">{r.earnedCost} د.ل</div>
+                      {(() => {
+                        const hourly = user?.hourlyRate || (r as any).user?.hourlyRate || 0;
+                        const base = Number((r.workHours * hourly).toFixed(2));
+                        const comm = Number((r as any).commissionAmount) || 0;
+                        const bonus = Number((r.earnedCost - base - comm).toFixed(2));
+                        return (
+                          <div className="space-y-0.5">
+                            {bonus > 0.05 && (
+                              <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + علاوات الشفتات: ${bonus} د.ل`}>
+                                <span>أساسي: {base}</span>
+                                <span>+</span>
+                                <span className="text-orange-700">بدلات: {bonus}</span>
+                              </div>
+                            )}
+                            {comm > 0 && (
+                              <div className="text-[10px] text-emerald-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                                <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
+                                <span>➔</span>
+                                <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-sans">
+                      {r.isVerified
+                        ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold print:border-none print:p-0"><CheckCircle2 className="w-3.5 h-3.5 print:hidden" />موثّق</span>
+                        : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold print:border-none print:p-0"><AlertCircle className="w-3.5 h-3.5 print:hidden" />بانتظار التوثيق</span>
+                      }
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-sans no-print">
+                      {r.isVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-bold">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          مغلق (تم التوثيق)
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => openEmpEditModal(r)}
+                          className="px-3 h-8 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-extrabold flex items-center gap-1 mx-auto cursor-pointer shadow-sm transition-all"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          تعديل الساعات
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Cards View (<768px) */}
+        <div className="block md:hidden print:hidden space-y-3">
+          {sortedRows.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 font-sans text-xs font-bold">
+              لا يوجد سجلات دوام مسجلة.
+            </div>
+          ) : (
+            sortedRows.map((r) => (
+              <div key={`emp-mob-${r.id}`} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                {/* Header: Date, Project & Earned Cost */}
+                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div>
+                    <div className="font-extrabold text-slate-900 text-sm font-sans">{r.date}</div>
                     {r.projectName && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold mt-1">
                         <Briefcase className="w-3 h-3 text-blue-600" />
                         {r.projectName}
                       </span>
                     )}
-                  </td>
-                  <td className="py-3.5 px-4 text-blue-600 font-bold">{formatTime12h(r.checkInTime)}</td>
-                  <td className="py-3.5 px-4 text-red-600  font-bold">{formatTime12h(r.checkOutTime)}</td>
-                  <td className="py-3.5 px-4 text-center font-black">{formatHoursText(r.workHours)}</td>
-                  <td className="py-3.5 px-4 text-center font-mono">
-                    <div className="font-black text-teal-700 text-sm">{r.earnedCost} د.ل</div>
-                    {(() => {
-                      const hourly = user?.hourlyRate || (r as any).user?.hourlyRate || 0;
-                      const base = Number((r.workHours * hourly).toFixed(2));
-                      const comm = Number((r as any).commissionAmount) || 0;
-                      const bonus = Number((r.earnedCost - base - comm).toFixed(2));
-                      return (
-                        <div className="space-y-0.5">
-                          {bonus > 0.05 && (
-                            <div className="text-[10px] text-amber-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200 shadow-2xs" title={`أجر الساعات الأساسي: ${base} د.ل + علاوات الشفتات: ${bonus} د.ل`}>
-                              <span>أساسي: {base}</span>
-                              <span>+</span>
-                              <span className="text-orange-700">بدلات: {bonus}</span>
-                            </div>
-                          )}
-                          {comm > 0 && (
-                            <div className="text-[10px] text-emerald-850 font-sans font-bold mt-0.5 inline-flex items-center gap-1 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
-                              <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
-                              <span>➔</span>
-                              <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
-                            </div>
-                          )}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-black text-teal-700 text-sm font-mono">{r.earnedCost} د.ل</div>
+                    <div className="mt-1">
+                      {r.isVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-extrabold">
+                          <CheckCircle2 className="w-3 h-3" />
+                          موثّق
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-extrabold">
+                          <AlertCircle className="w-3 h-3" />
+                          بانتظار التوثيق
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Times & Hours Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-sans">وقت الحضور:</span>
+                    <span className="font-bold text-blue-600">{formatTime12h(r.checkInTime)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] font-sans">وقت الانصراف:</span>
+                    <span className="font-bold text-red-600">{formatTime12h(r.checkOutTime)}</span>
+                  </div>
+                  <div className="col-span-2 pt-1.5 border-t border-slate-200/60 flex items-center justify-between font-sans">
+                    <span className="text-slate-500 text-xs font-bold">إجمالي الساعات:</span>
+                    <span className="font-black text-slate-900">{formatHoursText(r.workHours)}</span>
+                  </div>
+                </div>
+
+                {/* Bonus / Commission breakdown if any */}
+                {(() => {
+                  const hourly = user?.hourlyRate || (r as any).user?.hourlyRate || 0;
+                  const base = Number((r.workHours * hourly).toFixed(2));
+                  const comm = Number((r as any).commissionAmount) || 0;
+                  const bonus = Number((r.earnedCost - base - comm).toFixed(2));
+                  if (bonus <= 0.05 && comm <= 0) return null;
+                  return (
+                    <div className="space-y-1 text-[11px] font-bold">
+                      {bonus > 0.05 && (
+                        <div className="text-amber-850 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 flex items-center justify-between">
+                          <span>أجر أساسي ({base} د.ل)</span>
+                          <span className="text-orange-700">+ بدلات ({bonus} د.ل)</span>
                         </div>
-                      );
-                    })()}
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-sans">
-                    {r.isVerified
-                      ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-extrabold print:border-none print:p-0"><CheckCircle2 className="w-3.5 h-3.5 print:hidden" />موثّق</span>
-                      : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-extrabold print:border-none print:p-0"><AlertCircle className="w-3.5 h-3.5 print:hidden" />بانتظار التوثيق</span>
-                    }
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-sans no-print">
-                    {r.isVerified ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-bold">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        مغلق (تم التوثيق)
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => openEmpEditModal(r)}
-                        className="px-3 h-8 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-extrabold flex items-center gap-1 mx-auto cursor-pointer shadow-sm transition-all"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        تعديل الساعات
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))
-            }
-          </tbody>
-        </table>
+                      )}
+                      {comm > 0 && (
+                        <div className="text-emerald-850 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-300 flex items-center justify-between">
+                          <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
+                          <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Card Action Footer */}
+                <div className="pt-1 border-t border-slate-100">
+                  {r.isVerified ? (
+                    <div className="w-full h-11 bg-slate-50 text-slate-500 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-200">
+                      <Lock className="w-4 h-4 text-slate-400" />
+                      <span>مغلق (تم التوثيق من الإدارة)</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => openEmpEditModal(r)}
+                      className="w-full h-11 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                    >
+                      <Edit3 className="w-4 h-4 text-blue-600" />
+                      <span>تعديل ساعات الدوام</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     );
   };
@@ -633,7 +750,7 @@ export default function EmployeeDashboard() {
   if (pageLoading || !user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center" dir="rtl">
-        <div className="text-slate-400 font-cairo font-bold text-sm">جاري تحميل بيانات الموظف...</div>
+        <div className="text-slate-400 font-dubai font-bold text-sm">جاري تحميل بيانات الموظف...</div>
       </div>
     );
   }
@@ -641,12 +758,155 @@ export default function EmployeeDashboard() {
   const p = profileData || user;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo" dir="rtl">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-dubai" dir="rtl">
+      {/* Mobile Backdrop */}
+      {mobileDrawerOpen && (
+        <div 
+          onClick={() => setMobileDrawerOpen(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
+        />
+      )}
+
+      {/* Mobile Sliding Navigation Drawer */}
+      <aside
+        className={`fixed top-0 right-0 h-screen w-72 z-50 bg-slate-950 text-white flex flex-col justify-between border-l border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
+          mobileDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* Drawer Header */}
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-10 h-10 rounded-2xl bg-white p-1 flex items-center justify-center shadow-lg shrink-0 border border-slate-700">
+              {tenantInfo.logo ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={tenantInfo.logo} alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain rounded-xl" />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-black text-white truncate">{tenantInfo.name || 'حضورك'}</h1>
+              <p className="text-[10px] text-blue-400 font-bold truncate">لوحة الموظف</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileDrawerOpen(false)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl"
+            title="إغلاق القائمة"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Drawer Content */}
+        <div className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+          <div className="px-2 pb-1 text-[10px] font-black text-slate-400">أقسام اللوحة</div>
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => { setActiveTab(t.id); setMobileDrawerOpen(false); }}
+              className={`w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 transition-all cursor-pointer ${
+                activeTab === t.id
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900'
+              }`}
+            >
+              {t.icon}
+              <span className="flex-1 text-right">{t.label}</span>
+            </button>
+          ))}
+
+          <div className="px-2 pt-3 pb-1 text-[10px] font-black text-slate-400 border-t border-slate-800/80 mt-3">
+            الإجراءات السريعة
+          </div>
+
+          <button
+            onClick={() => { setIsFieldVisitModalOpen(true); setMobileDrawerOpen(false); }}
+            className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-indigo-950/40 border border-indigo-800/40 text-indigo-300 hover:bg-indigo-900/60 hover:text-white transition-all cursor-pointer"
+          >
+            <Car className="w-4 h-4 text-indigo-400" />
+            <span className="flex-1 text-right">{activeFieldVisit ? 'الزيارة الجارية 📍' : 'زيارة ميدانية 🚗'}</span>
+          </button>
+
+          {tenantInfo.hasClinicalCapsule !== false && (
+            <button
+              onClick={() => { setIsCapsuleModalOpen(true); setMobileDrawerOpen(false); }}
+              className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 hover:bg-emerald-900/60 hover:text-white transition-all cursor-pointer"
+            >
+              <Camera className="w-4 h-4 text-emerald-400" />
+              <span className="flex-1 text-right">مسح باركود الدواء 📷</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => { setIsSuggestionModalOpen(true); setMobileDrawerOpen(false); }}
+            className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-purple-950/40 border border-purple-800/40 text-purple-300 hover:bg-purple-900/60 hover:text-white transition-all cursor-pointer"
+          >
+            <MessageSquarePlus className="w-4 h-4 text-purple-400" />
+            <span className="flex-1 text-right">مقترح سري مشفر 💡</span>
+          </button>
+
+          <button
+            onClick={() => { setIsPasskeyModalOpen(true); setMobileDrawerOpen(false); }}
+            className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-blue-950/40 border border-blue-800/40 text-blue-300 hover:bg-blue-900/60 hover:text-white transition-all cursor-pointer"
+          >
+            <Fingerprint className="w-4 h-4 text-blue-400" />
+            <span className="flex-1 text-right">بصمة الإصبع Passkey 🔏</span>
+          </button>
+
+          <button
+            onClick={() => { setIsOnboardingOpen(true); setMobileDrawerOpen(false); }}
+            className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+          >
+            <HelpCircle className="w-4 h-4 text-slate-400" />
+            <span className="flex-1 text-right">جولة إرشادية ❓</span>
+          </button>
+
+          <button
+            onClick={() => { setIsChangelogModalOpen(true); setMobileDrawerOpen(false); }}
+            className="w-full h-11 rounded-2xl text-xs font-black flex items-center gap-3 px-3.5 bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+          >
+            <SparklesIcon className="w-4 h-4 text-amber-400" />
+            <span className="flex-1 text-right">سجل التحديثات ✨</span>
+          </button>
+        </div>
+
+        {/* Drawer Footer */}
+        <div className="p-3 border-t border-slate-800/80 space-y-2">
+          <div className="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-black shrink-0">
+              {user.name.substring(0, 1)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-200 truncate">{user.name}</p>
+              <p className="text-[10px] text-blue-400 font-mono">كود: {user.employeeCode}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full h-11 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-900/50 cursor-pointer transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>تسجيل الخروج</span>
+          </button>
+        </div>
+      </aside>
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-white border border-slate-200 rounded-xl p-1 flex items-center justify-center shadow-sm shrink-0">
+        <div className="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Hamburger Button for Mobile */}
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="md:hidden p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl shrink-0 cursor-pointer"
+              title="فتح القائمة الجانبية"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl p-1 flex items-center justify-center shadow-sm shrink-0">
               {tenantInfo.logo ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={tenantInfo.logo} alt={tenantInfo.name || 'شعار النشاط'} className="w-full h-full object-contain rounded-lg" />
@@ -655,20 +915,22 @@ export default function EmployeeDashboard() {
                 <img src="/icon-192.png" alt={tenantInfo.name || 'حضورك'} className="w-full h-full object-contain" />
               )}
             </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-900">
-                {tenantInfo.name ? `${tenantInfo.name} • ` : ''}تسجيل دوام الموظف ({user.name})
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-black text-slate-900 truncate">
+                {tenantInfo.name ? `${tenantInfo.name} • ` : ''}دوام {user.name}
               </h1>
-              <p className="text-slate-500 text-xs font-semibold">
-                رقم الموظف: <span className="font-mono text-blue-700 font-bold">{user.employeeCode}</span>
+              <p className="text-slate-500 text-[11px] font-semibold truncate hidden sm:block">
+                كود: <span className="font-mono text-blue-700 font-bold">{user.employeeCode}</span>
                 {' | '}أجر الساعة: <span className="font-mono text-slate-900 font-bold">{user.hourlyRate} د.ل</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
+
+          {/* Header Quick Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setIsFieldVisitModalOpen(true)}
-              className={`px-3 py-2 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95 ${
+              className={`px-3 h-10 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95 ${
                 activeFieldVisit
                   ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 animate-pulse'
                   : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
@@ -682,28 +944,28 @@ export default function EmployeeDashboard() {
             {tenantInfo.hasClinicalCapsule !== false && (
               <button
                 onClick={() => setIsCapsuleModalOpen(true)}
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
+                className="hidden sm:flex px-3 h-10 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 items-center gap-1.5 transition-all cursor-pointer transform active:scale-95"
                 title="مسح باركود الدواء بكاميرا الهاتف وعرض الكبسولة السريرية"
               >
                 <Camera className="w-4 h-4" />
-                <span className="hidden sm:inline">مسح باركود 📷</span>
+                <span>مسح باركود 📷</span>
               </button>
             )}
 
             {/* Anonymous Suggestion Box Button */}
             <button
               onClick={() => setIsSuggestionModalOpen(true)}
-              className="px-2.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              className="hidden md:flex px-2.5 h-10 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
               title="صندوق المقترحات والشكاوى السري المشفر"
             >
               <MessageSquarePlus className="w-4 h-4 text-purple-600" />
-              <span className="hidden md:inline">مقترح سري 💡</span>
+              <span className="hidden lg:inline">مقترح سري 💡</span>
             </button>
 
             {/* Passkey Biometric Login Button */}
             <button
               onClick={() => setIsPasskeyModalOpen(true)}
-              className="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              className="hidden md:flex px-2.5 h-10 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
               title="تفعيل بصمة الإصبع والوجه Passkey"
             >
               <Fingerprint className="w-4 h-4 text-blue-600" />
@@ -712,7 +974,7 @@ export default function EmployeeDashboard() {
             {/* Help / Tour Button */}
             <button
               onClick={() => setIsOnboardingOpen(true)}
-              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              className="hidden lg:flex px-2.5 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
               title="جولة إرشادية في المنظومة"
             >
               <HelpCircle className="w-4 h-4 text-slate-600" />
@@ -721,17 +983,22 @@ export default function EmployeeDashboard() {
             {/* Changelog Button */}
             <button
               onClick={() => setIsChangelogModalOpen(true)}
-              className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+              className="hidden lg:flex px-2.5 h-10 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
               title="سجل التحديثات"
             >
               <SparklesIcon className="w-4 h-4 text-amber-500" />
             </button>
 
-            <button onClick={handleLogout} className="px-3 py-2 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer">
-              <LogOut className="w-4 h-4" />خروج
+            <button
+              onClick={handleLogout}
+              className="hidden md:flex px-3 h-10 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-xl text-xs font-extrabold items-center gap-1 transition-all cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>خروج</span>
             </button>
           </div>
         </div>
+
         {/* Tabs */}
         <div className="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto border-t border-slate-100">
           {tabs.map((t) => (
@@ -850,7 +1117,7 @@ export default function EmployeeDashboard() {
 
           {/* GPS Status & Geofencing Card */}
           {gpsConfig?.gpsEnabled && (
-            <div className={`p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row items-center justify-between gap-4 font-cairo ${
+            <div className={`p-4 rounded-3xl border shadow-sm transition-all flex flex-col sm:flex-row items-center justify-between gap-4 font-dubai ${
               isInsideZone === true
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                 : isInsideZone === false
@@ -1423,7 +1690,7 @@ export default function EmployeeDashboard() {
 
       {/* Employee Time Editing Modal */}
       {editingRecordForEmp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-cairo">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 font-dubai">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-slate-200 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">

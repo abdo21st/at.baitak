@@ -219,7 +219,7 @@ export default function PharmacyPurchaseOrdersPage() {
   };
 
   return (
-    <div className="space-y-6 font-cairo">
+    <div className="space-y-6 font-dubai">
       {/* Status Feedback Alert */}
       {pdfActionStatus && (
         <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 no-print ${

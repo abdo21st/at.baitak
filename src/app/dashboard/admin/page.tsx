@@ -97,6 +97,18 @@ export default function AdminDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // Body Scroll Lock for Mobile Sidebar Drawer
+  useEffect(() => {
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileSidebarOpen]);
+
   // WhatsApp & n8n Automation Settings State
   const [managerPhone, setManagerPhone] = useState('');
   const [n8nWebhookUrl, setN8nWebhookUrl] = useState('https://n8n.ordermt.ly/webhook/attendance-alert');
@@ -667,7 +679,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-cairo flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-dubai flex flex-col" dir="rtl">
       {/* Mobile Backdrop */}
       {mobileSidebarOpen && (
         <div 
@@ -1135,7 +1147,7 @@ export default function AdminDashboard() {
               {tenantInfo.hasClinicalCapsule === true && (
                 <button
                   onClick={() => setIsClinicalModalOpen(true)}
-                  className="h-10 px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-teal-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="hidden sm:flex h-10 px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-teal-600/20 items-center gap-1.5 transition-all cursor-pointer"
                   title="الكبسولة الدوائية والتدريب السريري للموظفين"
                 >
                   <Pill className="w-3.5 h-3.5" />
@@ -1145,44 +1157,44 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => setIsBroadcastModalOpen(true)}
-                className="h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="hidden sm:flex h-10 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 items-center gap-1.5 transition-all cursor-pointer"
                 title="إرسال رسائل جماعية للواتساب"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">إرسال واتساب 📢</span>
+                <span className="hidden md:inline">إرسال واتساب 📢</span>
               </button>
 
               <button
                 onClick={handleFetchVoiceBrief}
                 disabled={voiceBriefLoading}
-                className="h-10 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-black shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="hidden md:flex h-10 px-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-black shadow-md shadow-purple-600/20 items-center gap-1.5 transition-all cursor-pointer"
                 title="الموجز اليومي الذكي والصوتي بالذكاء الاصطناعي"
               >
                 <Mic className={`w-3.5 h-3.5 ${voiceBriefLoading ? 'animate-spin' : ''}`} />
-                <span className="hidden md:inline">الموجز الذكي 🎙️</span>
+                <span className="hidden lg:inline">الموجز الذكي 🎙️</span>
               </button>
 
               <button
                 onClick={() => setIsPaymentModalOpen(true)}
-                className="h-10 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="hidden lg:flex h-10 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black shadow-md shadow-amber-500/20 items-center gap-1.5 transition-all cursor-pointer"
                 title="ترقية الاشتراك والدفع الإلكتروني"
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">ترقية الباقة 💳</span>
+                <span className="hidden xl:inline">ترقية الباقة 💳</span>
               </button>
 
               <button
                 onClick={() => setIsAdminSuggestionsModalOpen(true)}
-                className="h-10 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer border border-purple-200"
+                className="hidden lg:flex h-10 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-2xl text-xs font-bold items-center gap-1 transition-all cursor-pointer border border-purple-200"
                 title="صندوق مقترحات وشكاوى الموظفين المشفرة"
               >
                 <MessageSquarePlus className="w-4 h-4 text-purple-600" />
-                <span className="hidden lg:inline text-[11px] font-black">المقترحات 💡</span>
+                <span className="text-[11px] font-black">المقترحات 💡</span>
               </button>
 
               <button
                 onClick={() => setIsSupportModalOpen(true)}
-                className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                className="hidden md:flex h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
                 title="مركز الدعم الفني"
               >
                 <LifeBuoy className="w-4 h-4 text-blue-600" />
@@ -1190,18 +1202,18 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => setIsChangelogModalOpen(true)}
-                className="h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                className="hidden md:flex h-10 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold items-center gap-1 transition-all cursor-pointer"
                 title="سجل التحديثات v2.5.0"
               >
                 <SparklesIcon className="w-4 h-4 text-purple-600" />
               </button>
 
-              <div className="hidden xl:flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold font-mono">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-slate-600 font-sans">السجلات:</span>
+                <span className="text-slate-600 font-sans hidden sm:inline">السجلات:</span>
                 <span className="text-blue-700 font-black">{records.length}</span>
                 <span className="text-slate-300">|</span>
-                <span className="text-slate-600 font-sans">الموظفون:</span>
+                <span className="text-slate-600 font-sans hidden sm:inline">الموظفون:</span>
                 <span className="text-emerald-700 font-black">{users.filter(u => u.role !== 'ADMIN').length}</span>
               </div>
             </div>
@@ -1285,7 +1297,8 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Desktop Table View */}
+                <div className="hidden md:block print:block overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead>
                       <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -1399,6 +1412,116 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Cards View (<768px) */}
+              <div className="block md:hidden print:hidden space-y-3">
+                {sortedFilteredRecords.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 font-sans font-medium text-xs">
+                    لا توجد سجلات حضور مسجلة.
+                  </div>
+                ) : (
+                  sortedFilteredRecords.map((r) => (
+                    <div key={`mob-${r.id}`} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                      {/* Card Header: Employee & Earned Badge */}
+                      <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                        <div>
+                          <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                            <span>{r.userName}</span>
+                            <span className="text-[10px] text-slate-400 font-mono font-normal">({r.employeeCode})</span>
+                          </div>
+                          <div className="text-xs text-slate-500 font-bold mt-0.5">{r.date}</div>
+                          {r.isOutsideGps && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold mt-1">
+                              <ShieldAlert className="w-3 h-3 text-amber-700" />
+                              خارج نطاق GPS
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="font-black text-emerald-700 text-sm font-mono">{r.earnedCost} د.ل</div>
+                          <div className="mt-1">
+                            {r.isVerified ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                موثّق
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleVerifyRecord(r.id)}
+                                className="px-2.5 h-7 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-[10px] flex items-center gap-1 shadow-sm cursor-pointer"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                توثيق
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Body: Times & Hours Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono">
+                        <div>
+                          <span className="text-slate-400 block text-[10px] font-sans">وقت الحضور:</span>
+                          <span className="font-bold text-blue-600">{formatTime12h(r.checkInTime)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px] font-sans">وقت الانصراف:</span>
+                          <span className="font-bold text-rose-600">{formatTime12h(r.checkOutTime)}</span>
+                        </div>
+                        <div className="col-span-2 pt-1.5 border-t border-slate-200/60 flex items-center justify-between font-sans">
+                          <span className="text-slate-500 text-xs font-bold">ساعات اليوم:</span>
+                          <span className="font-black text-slate-900">{formatHoursText(r.workHours)}</span>
+                        </div>
+                      </div>
+
+                      {/* Card Bonus/Commission if applicable */}
+                      {(() => {
+                        const userObj = users.find(u => u.id === r.userId);
+                        const hourly = userObj?.hourlyRate || 0;
+                        const base = Number((r.workHours * hourly).toFixed(2));
+                        const comm = Number((r as any).commissionAmount) || 0;
+                        const bonus = Number((r.earnedCost - base - comm).toFixed(2));
+                        if (bonus <= 0.05 && comm <= 0) return null;
+                        return (
+                          <div className="space-y-1 text-[11px] font-bold">
+                            {bonus > 0.05 && (
+                              <div className="text-amber-850 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 flex items-center justify-between">
+                                <span>أجر أساسي ({base} د.ل)</span>
+                                <span className="text-orange-700">+ بدلات ({bonus} د.ل)</span>
+                              </div>
+                            )}
+                            {comm > 0 && (
+                              <div className="text-emerald-850 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-300 flex items-center justify-between">
+                                <span>🛒 {(r as any).shiftAmountType === 'PURCHASES' ? 'مشتريات' : 'مبيعات'}: {(r as any).shiftAmount || 0}</span>
+                                <span className="text-emerald-700 font-black">+{comm} د.ل عمولة</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Card Footer Actions */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => openEditModal(r)}
+                          className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Edit3 className="w-4 h-4 text-slate-600" />
+                          <span>تعديل الساعات</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRecord(r.id)}
+                          className="px-4 h-11 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                          title="حذف السجل"
+                        >
+                          <Trash2 className="w-4 h-4 text-rose-600" />
+                          <span>حذف</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
             </PrintReportLayout>
           </div>
@@ -1432,8 +1555,8 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* Employees Table */}
-            <div className="overflow-x-auto">
+            {/* Employees Desktop Table View */}
+            <div className="hidden md:block print:block overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
@@ -1547,6 +1670,96 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Employees Mobile Cards View (<768px) */}
+            <div className="block md:hidden print:hidden space-y-3">
+              {sortedUsers.map((u) => (
+                <div key={`mob-emp-${u.id}`} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                  {/* Header: Name, Avatar, Role */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                        {u.name.substring(0, 1)}
+                      </div>
+                      <div>
+                        <div className="font-extrabold text-slate-900 text-sm">{u.name}</div>
+                        <div className="text-[11px] text-slate-500 font-bold">
+                          {u.departmentNames && u.departmentNames.length > 0
+                            ? u.departmentNames.join(', ')
+                            : (u.departmentName || 'عام')}
+                          {u.jobRoleTitles && u.jobRoleTitles.length > 0
+                            ? ` • ${u.jobRoleTitles.join(' + ')}`
+                            : u.jobTitle ? ` • ${u.jobTitle}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      {u.role === 'ADMIN' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-slate-900 text-emerald-400 text-[10px] font-black">
+                          مدير النظام
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                          موظف
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Body: Details Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-sans">كود الموظف (ID):</span>
+                      <span className="font-black text-blue-700">{u.employeeCode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-sans">الرقم السري (PIN):</span>
+                      <span className="font-bold text-slate-700">{u.pinCode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-sans">أجر الساعة المباشر:</span>
+                      <span className="font-black text-blue-700">{u.hourlyRate || 0} د.ل/س</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-sans">راتب الوظيفة:</span>
+                      <span className="font-bold text-emerald-700">
+                        {(u.jobRoleIds?.length || (u.jobRoleId ? 1 : 0)) > 0 && u.monthlySalary && u.monthlySalary > 0
+                          ? `${u.monthlySalary} د.ل`
+                          : 'بدون'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {u.phone && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-mono font-bold" dir="ltr">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{u.phone}</span>
+                    </div>
+                  )}
+
+                  {/* Footer: Action Buttons */}
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => openEditUserModal(u)}
+                      className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Edit3 className="w-4 h-4 text-blue-600" />
+                      <span>تعديل الموظف</span>
+                    </button>
+                    {u.role !== 'ADMIN' && (
+                      <button
+                        onClick={() => handleDeleteEmployee(u.id, u.name)}
+                        className="px-4 h-11 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                        title="حذف الموظف"
+                      >
+                        <Trash2 className="w-4 h-4 text-rose-600" />
+                        <span>حذف</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

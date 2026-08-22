@@ -456,7 +456,7 @@ export default function PharmacyShortagesPage() {
   };
 
   return (
-    <div className="space-y-6 font-cairo">
+    <div className="space-y-6 font-dubai">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
@@ -759,7 +759,9 @@ export default function PharmacyShortagesPage() {
           ) : shortages.length === 0 ? (
             <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد نواقص تطابق معايير البحث والتغطية المحددة!</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block print:block overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
@@ -881,6 +883,97 @@ export default function PharmacyShortagesPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Cards View (<768px) */}
+            <div className="block md:hidden print:hidden space-y-3 p-3">
+              {shortages.map((item) => {
+                const isSelected = !!cart[item.productId];
+                const hasGenericRisk = item.genericRisk?.hasNearExpirySubstitute;
+                const packSize = item.packSize || 1;
+                const orderUnit = item.orderUnit || 'عبوة';
+                const invUnit = item.inventoryUnit || 'قطعة';
+
+                return (
+                  <div
+                    key={`mob-shortage-${item.productId}`}
+                    onClick={() => toggleCartItem(item)}
+                    className={`rounded-2xl border p-4 space-y-3 shadow-2xs transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-50/80 border-emerald-300'
+                        : 'bg-white border-slate-200'
+                    } ${hasGenericRisk ? 'border-amber-300' : ''}`}
+                  >
+                    {/* Header: Checkbox, Name, Estimated Cost */}
+                    <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2.5">
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleCartItem(item); }}
+                          className="mt-0.5 text-slate-400 hover:text-emerald-600 shrink-0"
+                        >
+                          {isSelected ? <CheckSquare className="w-5 h-5 text-emerald-600" /> : <Square className="w-5 h-5" />}
+                        </button>
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 flex-wrap">
+                            <span>{item.name}</span>
+                            {item.strength && (
+                              <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono">
+                                {item.strength}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            كود: {item.code} {item.subCategory ? `• ${item.subCategory}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-left shrink-0">
+                        <div className="font-black text-emerald-700 text-sm font-mono">
+                          {Number(item.estimatedOrderCost || (item.suggestedOrderPackages * (item.purchaseUnitCost || item.costPrice))).toFixed(2)} د.ل
+                        </div>
+                        <span className="text-[10px] text-slate-400">إجمالي مقترح</span>
+                      </div>
+                    </div>
+
+                    {/* Generic Risk alert if applicable */}
+                    {hasGenericRisk && (
+                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-bold flex items-center gap-1.5">
+                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>{item.genericRisk.recommendationMessage}</span>
+                      </div>
+                    )}
+
+                    {/* Grid Details */}
+                    <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono text-center">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">الرصيد الفعلي</span>
+                        <span className={`font-black px-2 py-0.5 rounded inline-block mt-0.5 ${item.stockOnHand <= 0 ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {item.stockOnHand} {invUnit}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">سرعة السحب</span>
+                        <span className="font-bold text-slate-800 inline-block mt-0.5">
+                          {Number(item.trueDailyVelocity || 0).toFixed(1)}/يوم
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">مقترح الشراء</span>
+                        <span className="font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded inline-block mt-0.5">
+                          +{item.suggestedOrderPackages} {orderUnit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer Supplier info */}
+                    <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                      <span>المورد: <b className="text-slate-800">{item.supplierName || 'غير محدد'}</b></span>
+                      <span className="font-mono text-slate-600">سعر الوحدة: {Number(item.purchaseUnitCost || item.costPrice).toFixed(2)} د.ل</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           )}
         </div>
       </PrintReportLayout>

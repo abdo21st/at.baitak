@@ -234,7 +234,7 @@ export default function RateRulesManagement({ departments = [], users = [] }: Ra
   );
 
   return (
-    <div className="space-y-6 font-cairo" dir="rtl">
+    <div className="space-y-6 font-dubai" dir="rtl">
       {/* Top Header Banner */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">

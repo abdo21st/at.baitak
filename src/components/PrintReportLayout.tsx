@@ -27,7 +27,7 @@ export default function PrintReportLayout({
   const printTimeStr = new Date().toLocaleTimeString('ar-LY-u-nu-latn', { hour: '2-digit', minute: '2-digit', hour12: true });
 
   return (
-    <div className="print-report-container w-full font-cairo">
+    <div className="print-report-container w-full font-dubai">
       {/* ========================================================================= */}
       {/* 1. Official Report Print Header (ترويسة التقرير الرسمي لورق A4) */}
       {/* ========================================================================= */}

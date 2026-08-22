@@ -85,7 +85,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-cairo" dir="rtl">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-dubai" dir="rtl">
       <div className="bg-white w-full max-w-md rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
         {/* App Branding Logo */}
         <div className="text-center space-y-2">

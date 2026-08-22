@@ -57,7 +57,7 @@ export default function PharmacyExpiriesPage() {
   };
 
   return (
-    <div className="space-y-6 font-cairo">
+    <div className="space-y-6 font-dubai">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
@@ -159,7 +159,9 @@ export default function PharmacyExpiriesPage() {
           ) : items.length === 0 ? (
             <div className="p-12 text-center text-xs text-emerald-600 font-bold">لا توجد أدوية مهددة بالانتهاء ضمن الفلتر!</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block print:block overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
@@ -223,6 +225,67 @@ export default function PharmacyExpiriesPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Cards View (<768px) */}
+            <div className="block md:hidden print:hidden space-y-3 p-3">
+              {items.map((item) => {
+                const invUnit = item.inventoryUnit || 'قطعة';
+                const orderUnit = item.orderUnit || 'عبوة';
+                const packSize = item.packSize || 1;
+
+                return (
+                  <div key={`mob-exp-${item.productId}-${item.expiryDate}`} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                    {/* Header: Name, Code & Expiry Status */}
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div>
+                        <div className="font-extrabold text-slate-900 text-sm">{item.productName}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          كود: {item.productCode} {packSize > 1 ? `• 1 ${orderUnit} = ${packSize} ${invUnit}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span
+                          className={`px-2.5 py-1 rounded-xl text-xs font-black font-mono inline-block ${
+                            item.status === 'EXPIRED'
+                              ? 'bg-rose-100 text-rose-800'
+                              : item.status === 'CRITICAL_30'
+                              ? 'bg-amber-100 text-amber-800'
+                              : item.status === 'WARNING_90'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {item.daysRemaining <= 0 ? 'منتهي الصلاحية' : `${item.daysRemaining} يوم متبقي`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Grid Details */}
+                    <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono text-center">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">تاريخ الصلاحية</span>
+                        <span className="font-bold text-slate-800 inline-block mt-0.5">{item.expiryDate}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">الرصيد المهدد</span>
+                        <span className="font-bold text-slate-900 inline-block mt-0.5">{item.stockOnHand} {invUnit}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">قيمة المخاطرة</span>
+                        <span className="font-black text-rose-700 inline-block mt-0.5">{(item.stockOnHand * item.costPrice).toFixed(2)} د.ل</span>
+                      </div>
+                    </div>
+
+                    {/* Footer Supplier info */}
+                    <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                      <span>الشركة / المورد: <b className="text-slate-800">{item.supplierName || 'غير محدد'}</b></span>
+                      <span className="font-mono text-slate-600">التكلفة: {Number(item.costPrice).toFixed(2)} د.ل</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           )}
         </div>
       </PrintReportLayout>

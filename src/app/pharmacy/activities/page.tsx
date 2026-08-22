@@ -122,7 +122,7 @@ export default function PharmacyActivitiesPage() {
   const totalCommissions = trips.reduce((sum, t) => sum + (Number(t.commissionEarned) || 0), 0);
 
   return (
-    <div className="space-y-6 font-cairo">
+    <div className="space-y-6 font-dubai">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>

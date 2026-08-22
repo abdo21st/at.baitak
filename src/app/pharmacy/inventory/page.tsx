@@ -107,7 +107,7 @@ export default function PharmacyInventoryPage() {
   };
 
   return (
-    <div className="space-y-6 font-cairo">
+    <div className="space-y-6 font-dubai">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs no-print">
         <div>
@@ -223,7 +223,9 @@ export default function PharmacyInventoryPage() {
           ) : products.length === 0 ? (
             <div className="p-12 text-center text-xs text-slate-500 font-bold">لم يتم العثور على أدوية مطابقة للبحث!</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block print:block overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 font-bold">
@@ -318,6 +320,77 @@ export default function PharmacyInventoryPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Cards View (<768px) */}
+            <div className="block md:hidden print:hidden space-y-3 p-3">
+              {products.map((item) => {
+                const packSize = item.packSize || 1;
+                const orderUnit = item.orderUnit || 'عبوة';
+                const invUnit = item.inventoryUnit || 'قطعة';
+
+                return (
+                  <div key={`mob-prod-${item.id}`} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-2xs">
+                    {/* Header: Name & Stock Badge */}
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div>
+                        <div className="font-extrabold text-slate-900 text-sm">{item.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          كود: {item.code} {item.activeIngredient ? `• ${item.activeIngredient}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span
+                          className={`px-2.5 py-1 rounded-xl text-xs font-black font-mono inline-block ${
+                            item.stockOnHand <= 0
+                              ? 'bg-rose-100 text-rose-800'
+                              : item.stockOnHand <= item.minStockLevel
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.stockOnHand} {invUnit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Body Details Grid */}
+                    <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl font-mono text-center">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">سعر التكلفة</span>
+                        <span className="font-bold text-slate-800 inline-block mt-0.5">{Number(item.costPrice).toFixed(2)} د.ل</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">سعر البيع</span>
+                        <span className="font-bold text-blue-700 inline-block mt-0.5">{Number(item.sellPrice).toFixed(2)} د.ل</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-sans">الصلاحية</span>
+                        <span className="font-bold text-slate-700 inline-block mt-0.5">{item.expiryDate || '—'}</span>
+                      </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        onClick={() => { setSelectedCapsuleProduct(item); setIsCapsuleModalOpen(true); }}
+                        className="flex-1 h-11 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <Pill className="w-4 h-4 text-emerald-600" />
+                        <span>كبسولة سريرية</span>
+                      </button>
+                      <button
+                        onClick={() => openAdjust(item)}
+                        className="flex-1 h-11 bg-slate-100 hover:bg-cyan-50 hover:text-cyan-800 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <Edit3 className="w-4 h-4 text-slate-600" />
+                        <span>تسوية الرصيد</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           )}
 
           {/* Pagination */}

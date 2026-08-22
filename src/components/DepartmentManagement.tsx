@@ -226,7 +226,7 @@ export default function DepartmentManagement({ onDepartmentsChange }: Props) {
   };
 
   return (
-    <div className="space-y-6 font-cairo" dir="rtl">
+    <div className="space-y-6 font-dubai" dir="rtl">
       {/* Main Header & Add Department Button */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div>

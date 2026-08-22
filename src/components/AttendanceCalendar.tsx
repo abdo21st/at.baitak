@@ -437,7 +437,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
   const isSelectedDateToday = selectedDateStr === todayStr;
 
   return (
-    <div className="space-y-6 font-cairo" dir="rtl">
+    <div className="space-y-6 font-dubai" dir="rtl">
       {/* Top Controls Bar: View Modes & Employee Isolation */}
       <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -611,11 +611,11 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
             <div className="bg-slate-950 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-2xl space-y-6 overflow-x-auto">
               
               {/* 1. Top Ruler (Hours 00 to 23) */}
-              <div className="flex items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800">
-                <span className="w-64 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between font-mono text-[11px] font-black text-slate-400 pb-2 border-b border-slate-800 gap-2 sm:gap-4">
+                <span className="w-full sm:w-64 shrink-0 text-right font-sans text-xs font-bold text-slate-300 pl-2">
                   الموظف / الدوام
                 </span>
-                <div className="flex-1 grid text-center font-bold" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }} dir="ltr">
+                <div className="w-full sm:flex-1 grid text-center font-bold min-w-[320px]" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }} dir="ltr">
                   {hours24.map((h) => (
                     <span key={h} className="text-slate-400 text-[11px]">
                       {String(h).padStart(2, '0')}
@@ -635,7 +635,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   </div>
 
                   {/* Coverage Breakdown Numbers */}
-                  <div className="flex items-center gap-4 text-[11px] font-bold font-mono">
+                  <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold font-mono">
                     <span className="flex items-center gap-1.5 text-emerald-400">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                       تغطية ممتازة (2+): {goodCoverageHours} ساعة
@@ -679,13 +679,13 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
               </div>
 
               {/* 3. Combined Master Coverage Line */}
-              <div className="p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800 flex flex-wrap sm:flex-nowrap items-start gap-4">
+              <div className="p-3.5 bg-slate-900/60 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                 <div className="w-full sm:w-64 shrink-0 space-y-0.5 text-xs">
                   <span className="font-black text-blue-400 text-sm">الشريط الموحد المدمج</span>
                   <p className="text-[10px] text-slate-400">تراكب كافة الشفتات في مسار زمني واحد</p>
                 </div>
 
-                <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 p-2 overflow-hidden min-w-[320px]" dir="ltr">
+                <div className="relative w-full sm:flex-1 bg-slate-950 rounded-xl border border-slate-800 p-2 overflow-hidden min-w-[320px]" dir="ltr">
                   {/* Grid Lines */}
                   <div className="absolute inset-0 grid opacity-15 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                     {hours24.map((h) => (
@@ -739,7 +739,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                   </div>
                 ) : (
                   groupedList.map((emp) => (
-                    <div key={emp.userId} className="p-3.5 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 transition-all flex flex-wrap sm:flex-nowrap items-center gap-4">
+                    <div key={emp.userId} className="p-3.5 bg-slate-900/90 hover:bg-slate-900 rounded-2xl border border-slate-800/80 transition-all flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                       {/* Employee Meta Card */}
                       <div className="w-full sm:w-64 shrink-0 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
@@ -767,7 +767,7 @@ export default function AttendanceCalendar({ users, records }: AttendanceCalenda
                       </div>
 
                       {/* 24h Timeline Track Bar with Live Indicator */}
-                      <div className="relative h-9 flex-1 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden min-w-[320px]" dir="ltr">
+                      <div className="relative h-9 w-full sm:flex-1 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden min-w-[320px]" dir="ltr">
                         {/* Grid Lines */}
                         <div className="absolute inset-0 grid opacity-15 pointer-events-none" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
                           {hours24.map((h) => (
